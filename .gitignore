@@ -1,2 +1,3 @@
 venv/*
 mujoco/
+MJMODEL.TXT
