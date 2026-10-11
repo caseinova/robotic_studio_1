@@ -5,6 +5,7 @@ Control access lives in interface.py; simulation execution lives in simulate.py.
 
 from pathlib import Path
 from dataclasses import dataclass
+from contextlib import nullcontext
 
 import mujoco
 import numpy as np
@@ -133,12 +134,19 @@ class RobotModel:
         self.model.vis.global_.offheight = max(self.model.vis.global_.offheight, height)
         # Refresh transforms after stepping or direct changes to qpos.
         mujoco.mj_forward(self.model, self.data)
-    def capture_rgbd(self, *, width: int = 640, height: int = 480) -> RGBDFrame:
+
+    def capture_rgbd(
+        self, *, width: int = 640, height: int = 480,
+        renderer: mujoco.Renderer | None = None,
+    ) -> RGBDFrame:
         """Capture aligned RGB/depth and calibration without advancing time.
 
         Both passes use one frozen render scene and the same pinhole camera.
         This is an ideal simulated RGB-D sensor with no noise or distortion.
+        An optional renderer for this model is reused and remains caller-owned.
         """
+        if renderer is not None and (renderer.width != width or renderer.height != height):
+            raise ValueError("renderer dimensions must match the requested RGB-D dimensions")
         self._prepare_camera(width, height)
         timestamp = float(self.data.time)
         world_from_camera = np.eye(4)
@@ -159,10 +167,17 @@ class RobotModel:
             float(self.model.vis.map.znear * extent),
             float(self.model.vis.map.zfar * extent),
         )
-        with mujoco.Renderer(self.model, height=height, width=width) as renderer:
-            renderer.update_scene(self.data, camera=self.camera_id)
-            rgb = renderer.render().copy()
-            renderer.enable_depth_rendering()
-            depth = renderer.render().copy()
+        context = (nullcontext(renderer) if renderer is not None
+                   else mujoco.Renderer(self.model, height=height, width=width))
+        with context as active_renderer:
+            active_renderer.disable_depth_rendering()
+            active_renderer.disable_segmentation_rendering()
+            active_renderer.update_scene(self.data, camera=self.camera_id)
+            rgb = active_renderer.render().copy()
+            active_renderer.enable_depth_rendering()
+            try:
+                depth = active_renderer.render().copy()
+            finally:
+                active_renderer.disable_depth_rendering()
         return RGBDFrame(rgb, depth, intrinsics, world_from_camera, timestamp, depth_range)
 
