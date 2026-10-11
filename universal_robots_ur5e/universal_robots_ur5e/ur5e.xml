@@ -112,6 +112,10 @@
                   <geom material="linkgray" mesh="wrist3" class="visual"/>
                   <geom class="eef_collision" pos="0 0.08 0" quat="1 1 0 0" size="0.04 0.02"/>
                   <site name="attachment_site" pos="0 0.1 0" quat="-1 1 0 0"/>
+                  <!-- Wrist camera looks along local +Y, parallel to the tool axis.
+                       Offset in +X keeps the lens clear of the tool flange. -->
+                  <camera name="wrist_camera" mode="fixed" pos="0.06 0.12 0"
+                    quat="1 1 0 0" fovy="60" ipd="0"/>
                 </body>
               </body>
             </body>
