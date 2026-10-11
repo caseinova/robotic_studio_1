@@ -1,3 +1,4 @@
 venv/*
 mujoco/
 MJMODEL.TXT
+__pycache__/

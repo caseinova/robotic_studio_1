@@ -12,6 +12,9 @@
     <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
       markrgb="0.8 0.8 0.8" width="300" height="300"/>
     <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <texture name="cube_aruco_texture" type="2d" file="assets/aruco_4x4_50_id0.png"/>
+    <material name="cube_aruco_material" texture="cube_aruco_texture"
+      texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
   </asset>
 
   <worldbody>
@@ -21,6 +24,12 @@
     <body name="cube" pos="-0.074 0.492 0.05">
       <geom name="cube_geom" type="box" size="0.05 0.05 0.05"
         rgba="0.9 0.25 0.08 1"/>
+      <!-- ArUco DICT_4X4_50 ID 0: 80 mm black outer square,
+           5 mm white margin on each side; centered on the cube top.
+           Visual-only label preserves the cube's collision surface. -->
+      <geom name="cube_aruco" type="box" pos="0 0 0.0501"
+        size="0.045 0.045 0.00005" material="cube_aruco_material"
+        contype="0" conaffinity="0" mass="0"/>
     </body>
   </worldbody>
 </mujoco>
