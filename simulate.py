@@ -38,6 +38,9 @@ class Simulation:
             cv2 = None
             if camera:
                 import cv2
+                from camera_processing import CameraProcessor
+
+                processor = CameraProcessor()
 
             viewer = stack.enter_context(
                 mujoco.viewer.launch_passive(self.robot.model, self.robot.data)
@@ -56,9 +59,9 @@ class Simulation:
                 self.step()
                 viewer.sync()
                 if renderer is not None and start >= next_camera_frame:
-                    mujoco.mj_forward(self.robot.model, self.robot.data)
-                    renderer.update_scene(self.robot.data, camera=self.robot.camera_id)
-                    rgb = renderer.render()
+                    frame = self.robot.capture_rgbd(renderer=renderer)
+                    observation = processor.process(frame)
+                    rgb = processor.annotate(frame.rgb, observation, frame.intrinsics)
                     cv2.imshow(window_name, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
                     key = cv2.waitKey(1) & 0xFF
                     if key in (27, ord("q"), ord("Q")):
