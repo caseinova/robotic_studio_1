@@ -26,11 +26,15 @@ class Simulation:
         for _ in range(steps):
             mujoco.mj_step(self.robot.model, self.robot.data)
 
-    def launch_viewer(self) -> None:
-        """Simulate at approximately real time until the viewer closes."""
+    def launch_viewer(self, *, camera: bool = False) -> None:
+        """Run the viewer, optionally looking through the wrist RGB camera."""
         import mujoco.viewer
 
         with mujoco.viewer.launch_passive(self.robot.model, self.robot.data) as viewer:
+            if camera:
+                with viewer.lock():
+                    viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+                    viewer.cam.fixedcamid = self.robot.camera_id
             while viewer.is_running():
                 start = time.perf_counter()
                 self.step()
@@ -43,17 +47,20 @@ class Simulation:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--headless", action="store_true", help="run without a viewer")
+    parser.add_argument("--camera", action="store_true", help="show the live wrist-camera RGB view")
     parser.add_argument("--steps", type=int, default=1000, help="headless simulation steps")
     args = parser.parse_args()
     if args.steps < 0:
         parser.error("--steps must be non-negative")
+    if args.headless and args.camera:
+        parser.error("--camera requires a viewer; omit --headless")
     simulation = Simulation()
     if args.headless:
         simulation.step(args.steps)
         print(f"Simulated {simulation.robot.data.time:.3f} seconds")
         print("Joint positions (radians):", simulation.interface.joint_positions)
     else:
-        simulation.launch_viewer()
+        simulation.launch_viewer(camera=args.camera)
 
 
 if __name__ == "__main__":
