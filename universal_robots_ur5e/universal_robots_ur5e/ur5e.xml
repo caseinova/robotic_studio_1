@@ -29,6 +29,12 @@
       </default>
       <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
     </default>
+    <default class="gripper">
+      <joint type="slide" range="0 0.06" damping="5" armature="0.001"/>
+      <geom type="box" density="800" friction="1.2 0.005 0.0001" condim="4"
+        priority="1" solref="0.005 1"/>
+      <position kp="1200" kv="50" ctrlrange="0 0.06" forcerange="-30 30"/>
+    </default>
   </default>
 
   <asset>
@@ -116,6 +122,24 @@
                        Offset in +X keeps the lens clear of the tool flange. -->
                   <camera name="wrist_camera" mode="fixed" pos="0.06 0.12 0"
                     quat="1 1 0 0" fovy="60" ipd="0"/>
+                  <!-- Generic parallel gripper. Tool +Z points along wrist +Y.
+                       Fingers open along tool +/-Y, clear of the offset camera.
+                       Inner opening = q_left + q_right, maximum 120 mm. -->
+                  <body name="gripper_base" pos="0 0.1005 0" quat="-1 1 0 0" childclass="gripper">
+                    <geom name="gripper_palm" pos="0 0 0.015" size="0.024 0.08 0.015"
+                      material="jointgray"/>
+                    <site name="grasp_site" pos="0 0 0.105" size="0.005" rgba="0.2 0.8 0.2 1" group="4"/>
+                    <body name="gripper_left_finger" pos="0 0.009 0.03">
+                      <joint name="gripper_left_joint" axis="0 1 0"/>
+                      <geom name="gripper_left_geom" pos="0 0 0.045" size="0.012 0.009 0.045"
+                        material="urblue"/>
+                    </body>
+                    <body name="gripper_right_finger" pos="0 -0.009 0.03">
+                      <joint name="gripper_right_joint" axis="0 -1 0"/>
+                      <geom name="gripper_right_geom" pos="0 0 0.045" size="0.012 0.009 0.045"
+                        material="urblue"/>
+                    </body>
+                  </body>
                 </body>
               </body>
             </body>
@@ -125,6 +149,11 @@
     </body>
   </worldbody>
 
+  <contact>
+    <!-- Finger-to-finger contact is intentional at zero opening. -->
+    <exclude body1="gripper_left_finger" body2="gripper_right_finger"/>
+  </contact>
+
   <actuator>
     <general class="size3" name="shoulder_pan" joint="shoulder_pan_joint"/>
     <general class="size3" name="shoulder_lift" joint="shoulder_lift_joint"/>
@@ -132,9 +161,12 @@
     <general class="size1" name="wrist_1" joint="wrist_1_joint"/>
     <general class="size1" name="wrist_2" joint="wrist_2_joint"/>
     <general class="size1" name="wrist_3" joint="wrist_3_joint"/>
+    <position class="gripper" name="gripper_left" joint="gripper_left_joint"/>
+    <position class="gripper" name="gripper_right" joint="gripper_right_joint"/>
   </actuator>
 
   <keyframe>
-    <key name="home" qpos="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0" ctrl="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0"/>
+    <key name="home" qpos="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0.06 0.06"
+      ctrl="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0.06 0.06"/>
   </keyframe>
 </mujoco>
