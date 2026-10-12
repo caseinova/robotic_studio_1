@@ -50,8 +50,7 @@ class Simulation:
 
         if isinstance(steps, bool) or not isinstance(steps, int) or steps < 0:
             raise ValueError("steps must be a non-negative integer")
-        clearance = self.config.tool_clearance if tool_clearance is None else tool_clearance
-        controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=clearance,
+        controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
                                         controller_config=self.controller_config)
         next_update, result = 0.0, None
         try:
@@ -79,8 +78,7 @@ class Simulation:
         if servo:
             from controller import ApproachController, MujocoKinematics
 
-            clearance = self.config.tool_clearance if tool_clearance is None else tool_clearance
-            controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=clearance,
+            controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
                                             controller_config=self.controller_config)
             camera = True
         label = "PBVS+MPC" if self.controller_config.mode == "pbvs_mpc" else "PBVS"
@@ -166,7 +164,7 @@ def main() -> None:
     parser.add_argument("--camera", action="store_true", help="show a wrist-camera RGB window alongside the model viewer")
     parser.add_argument("--steps", type=int, default=1000, help="headless simulation steps")
     parser.add_argument("--servo", action="store_true", help="approach the detected cube using the selected controller mode")
-    parser.add_argument("--tool-clearance", type=float, default=None, help="override config tool standoff in meters (minimum 0.16)")
+    parser.add_argument("--tool-clearance", type=float, default=None, help="override controller config tool standoff in meters (minimum 0.16)")
     args = parser.parse_args()
     if args.steps < 0:
         parser.error("--steps must be non-negative")
@@ -178,7 +176,7 @@ def main() -> None:
         if args.tool_clearance is not None:
             from dataclasses import replace
 
-            config = replace(config, tool_clearance=args.tool_clearance)
+            controller_config = replace(controller_config, tool_clearance=args.tool_clearance)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     simulation = Simulation(config=config, controller_config=controller_config)

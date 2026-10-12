@@ -1,5 +1,4 @@
 {
   "cube_position": [-0.079, 0.432, 0.05],
-  "cube_quaternion": [1.0, 0.0, 0.0, 0.0],
-  "tool_clearance": 0.18
+  "cube_quaternion": [1.0, 0.0, 0.0, 0.0]
 }

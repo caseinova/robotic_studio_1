@@ -8,7 +8,7 @@ on the nonlinear geometry at endpoints and intermediate samples. This local
 kinematic MPC is not a global path planner or a dynamic hardware safety system.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import cv2
@@ -191,21 +191,21 @@ class ApproachController:
     """Detect the cube and move the tool above its tagged face, without grasping."""
 
     def __init__(self, interface: "RobotInterface", kinematics: MujocoKinematics, *,
-                 tool_clearance: float = 0.18, config: MPCConfig | None = None,
+                 tool_clearance: float | None = None, config: MPCConfig | None = None,
                  controller_config: ControllerConfig | None = None):
-        if not np.isfinite(tool_clearance) or tool_clearance < 0.16:
-            raise ValueError("tool_clearance must be at least 0.16 m to keep the offset camera's tag in view")
         self.interface = interface
         self.processor = CameraProcessor()
         self.kinematics = kinematics
         self.settings = controller_config or ControllerConfig()
+        if tool_clearance is not None:
+            self.settings = replace(self.settings, tool_clearance=tool_clearance)
         self.limits_config = config or MPCConfig()
         self.control_dt = self.limits_config.dt
         self.mpc = (JointSpaceMPC(self.kinematics, self.limits_config)
                     if self.settings.mode == "pbvs_mpc" else None)
         marker_from_tool = np.eye(4)
         marker_from_tool[:3, :3] = np.diag([1, -1, -1])
-        marker_from_tool[:3, 3] = [0, 0, tool_clearance]
+        marker_from_tool[:3, 3] = [0, 0, self.settings.tool_clearance]
         marker_from_camera = marker_from_tool @ self.kinematics.tool_from_camera
         self.pbvs = PBVS(inverse_pose(marker_from_camera))
 

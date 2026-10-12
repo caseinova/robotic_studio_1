@@ -11,11 +11,10 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().with_name("simulation_config.json
 
 @dataclass(frozen=True)
 class SimulationConfig:
-    """Cube center in world meters, orientation (w,x,y,z), and tool standoff."""
+    """Cube center in world meters and orientation (w,x,y,z)."""
 
     cube_position: tuple[float, float, float] = (-0.074, 0.492, 0.05)
     cube_quaternion: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    tool_clearance: float = 0.18
 
     def __post_init__(self):
         for name, length in (("cube_position", 3), ("cube_quaternion", 4)):
@@ -29,9 +28,6 @@ class SimulationConfig:
         if norm < 1e-12 or not math.isfinite(norm):
             raise ValueError("cube_quaternion must be a nonzero finite quaternion")
         object.__setattr__(self, "cube_quaternion", tuple(v / norm for v in self.cube_quaternion))
-        if (isinstance(self.tool_clearance, bool) or not isinstance(self.tool_clearance, (int, float))
-                or not math.isfinite(self.tool_clearance) or self.tool_clearance < 0.16):
-            raise ValueError("tool_clearance must be a finite number of at least 0.16 meters")
 
     @classmethod
     def load(cls, path: str | Path = DEFAULT_CONFIG_PATH) -> "SimulationConfig":

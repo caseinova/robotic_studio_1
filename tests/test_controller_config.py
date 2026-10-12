@@ -22,14 +22,50 @@ class ControllerConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "controller.json"
             for mode in ("pure_pbvs", "pbvs_mpc"):
-                path.write_text(json.dumps({"mode": mode}), encoding="utf-8")
-                self.assertEqual(ControllerConfig.load(path).mode, mode)
+                path.write_text(json.dumps({"mode": mode, "tool_clearance": 0.2}), encoding="utf-8")
+                loaded = ControllerConfig.load(path)
+                self.assertEqual(loaded.mode, mode)
+                self.assertEqual(loaded.tool_clearance, 0.2)
             path.write_text('{"mode": "invalid"}', encoding="utf-8")
             with self.assertRaises(ValueError):
                 ControllerConfig.load(path)
             path.write_text('{"mod": "pure_pbvs"}', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "unknown"):
                 ControllerConfig.load(path)
+
+    def test_invalid_target_distance(self):
+        for distance in (0.159, -1, True, "0.2", None, float("nan"), float("inf")):
+            with self.subTest(distance=distance), self.assertRaises(ValueError):
+                ControllerConfig(tool_clearance=distance)
+        self.assertEqual(ControllerConfig(tool_clearance=0.16).tool_clearance, 0.16)
+
+    def test_configured_final_position_and_explicit_override(self):
+        simulation = Simulation()
+        settings = ControllerConfig(tool_clearance=0.2)
+        for override, distance in ((None, 0.2), (0.22, 0.22)):
+            controller = ApproachController(
+                simulation.interface, MujocoKinematics(simulation.robot),
+                controller_config=settings, tool_clearance=override,
+            )
+            # Desired marker-from-tool = marker-from-camera * camera-from-tool.
+            desired = np.linalg.inv(controller.pbvs.desired) @ np.linalg.inv(
+                controller.kinematics.tool_from_camera
+            )
+            np.testing.assert_allclose(desired[:3, 3], [0, 0, distance], atol=1e-12)
+            np.testing.assert_allclose(desired[:3, :3], np.diag([1, -1, -1]), atol=1e-12)
+
+    def test_nondefault_distance_reached_by_both_modes(self):
+        for mode in ("pure_pbvs", "pbvs_mpc"):
+            with self.subTest(mode=mode):
+                settings = ControllerConfig(mode=mode, tool_clearance=0.2)
+                simulation = Simulation(controller_config=settings)
+                result = simulation.run_controlled(6000)
+                self.assertEqual(result.status, "reached")
+                mujoco.mj_forward(simulation.robot.model, simulation.robot.data)
+                np.testing.assert_allclose(
+                    simulation.robot.data.site("attachment_site").xpos,
+                    [-0.074, 0.492, 0.30015], atol=0.004,
+                )
 
     def test_pure_pbvs_bypasses_mpc_and_collision_queries(self):
         config = ControllerConfig(mode="pure_pbvs")

@@ -17,13 +17,12 @@ from simulate import Simulation
 
 class SimulationConfigTests(unittest.TestCase):
     def test_custom_placement_visible_to_perception_and_controller(self):
-        config = SimulationConfig(cube_position=[-0.054, 0.482, 0.05], tool_clearance=0.2)
+        config = SimulationConfig(cube_position=[-0.054, 0.482, 0.05])
         simulation = Simulation(config=config)
         observation = CameraProcessor().process(simulation.robot.capture_rgbd())
         self.assertIsNotNone(observation)
         np.testing.assert_allclose(observation.world_from_cube[:3, 3], config.cube_position, atol=0.001)
-        controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot),
-                                        tool_clearance=simulation.config.tool_clearance)
+        controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot))
         cube_id = simulation.robot.model.body("cube").id
         np.testing.assert_allclose(controller.kinematics.data.xpos[cube_id], config.cube_position)
         simulation.step(20)
@@ -42,7 +41,7 @@ class SimulationConfigTests(unittest.TestCase):
 
     def test_invalid_experiment_settings(self):
         for settings in ({"cube_position": [0, 1]}, {"cube_position": [0, float("nan"), 0]},
-                         {"cube_quaternion": [0, 0, 0, 0]}, {"tool_clearance": 0.05}):
+                         {"cube_quaternion": [0, 0, 0, 0]}):
             with self.subTest(settings=settings), self.assertRaises(ValueError):
                 SimulationConfig(**settings)
         with tempfile.TemporaryDirectory() as directory:

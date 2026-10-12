@@ -1,3 +1,4 @@
 {
-  "mode": "pure_pbvs"
+  "mode": "pure_pbvs",
+  "tool_clearance": 0.18
 }
