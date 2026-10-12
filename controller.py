@@ -1,4 +1,4 @@
-"""PBVS joint-velocity references tracked by obstacle-constrained joint MPC.
+"""PBVS joint-velocity control, optionally tracked by constrained joint MPC.
 
 Prediction: q[k+1] = q[k] + dt*u[k]. The horizon cost tracks the PBVS
 velocity reference and penalizes velocity changes. Hard constraints enforce
@@ -17,6 +17,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from camera_processing import CameraProcessor, CubeObservation
+from controller_config import ControllerConfig
 
 if TYPE_CHECKING:
     from interface import RobotInterface
@@ -278,19 +279,25 @@ class ControlResult:
     position_error: float
     rotation_error: float
     minimum_clearance: float
+    diagnostic: str = ""
 
 
 class ApproachController:
     """Detect the cube and move the tool above its tagged face, without grasping."""
 
     def __init__(self, robot: "RobotModel", interface: "RobotInterface", *,
-                 tool_clearance: float = 0.18, config: MPCConfig | None = None):
+                 tool_clearance: float = 0.18, config: MPCConfig | None = None,
+                 controller_config: ControllerConfig | None = None):
         if not np.isfinite(tool_clearance) or tool_clearance < 0.16:
             raise ValueError("tool_clearance must be at least 0.16 m to keep the offset camera's tag in view")
         self.interface = interface
         self.processor = CameraProcessor()
         self.kinematics = MujocoKinematics(robot)
-        self.mpc = JointSpaceMPC(self.kinematics, config)
+        self.settings = controller_config or ControllerConfig()
+        self.limits_config = config or MPCConfig()
+        self.control_dt = self.limits_config.dt
+        self.mpc = (JointSpaceMPC(self.kinematics, self.limits_config)
+                    if self.settings.mode == "pbvs_mpc" else None)
         marker_from_tool = np.eye(4)
         marker_from_tool[:3, :3] = np.diag([1, -1, -1])
         marker_from_tool[:3, 3] = [0, 0, tool_clearance]
@@ -299,14 +306,19 @@ class ApproachController:
 
     def update(self, frame: "RGBDFrame") -> ControlResult:
         observation = self.processor.process(frame)
-        if observation is None or abs(float(self.kinematics.robot.data.time) - frame.timestamp) > 2 * self.mpc.config.dt:
+        if observation is None or abs(float(self.kinematics.robot.data.time) - frame.timestamp) > 2 * self.control_dt:
             self.interface.set_joint_velocities(np.zeros(6))
-            self.mpc.reset()
+            if self.mpc is not None:
+                self.mpc.reset()
             return ControlResult(observation, np.zeros(6), np.zeros(6), "target_lost_or_stale",
-                                 np.inf, np.inf, np.inf)
+                                 np.inf, np.inf, np.inf,
+                                 diagnostic=("stale_rgbd_frame" if abs(float(self.kinematics.robot.data.time)
+                                             - frame.timestamp) > 2 * self.control_dt
+                                             else self.processor.last_status))
         positions = self.interface.joint_positions
-        minimum = float(np.min(self.kinematics.distances(positions), initial=np.inf))
-        if minimum < self.mpc.config.clearance:
+        minimum = (float(np.min(self.kinematics.distances(positions), initial=np.inf))
+                   if self.mpc is not None else np.nan)
+        if self.mpc is not None and minimum < self.mpc.config.clearance:
             self.interface.set_joint_velocities(np.zeros(6))
             self.mpc.reset()
             return ControlResult(observation, np.zeros(6), np.zeros(6), "clearance_violation",
@@ -316,8 +328,24 @@ class ApproachController:
         position_error, rotation_error = np.linalg.norm(error[:3]), np.linalg.norm(error[3:])
         if position_error < 0.003 and rotation_error < 0.025:
             self.interface.set_joint_velocities(np.zeros(6))
-            self.mpc.reset()
+            if self.mpc is not None:
+                self.mpc.reset()
             return ControlResult(observation, reference, np.zeros(6), "reached",
+                                 position_error, rotation_error, minimum)
+        if self.mpc is None:
+            # Direct PBVS: basic speed/joint bounds, with no collision optimizer.
+            limit = self.limits_config.velocity_limit
+            command = reference / max(1, np.max(np.abs(reference)) / limit)
+            lower, upper = self.kinematics.limits
+            if np.any(positions < lower) or np.any(positions > upper):
+                command = np.zeros(6)
+                status = "joint_limit_violation"
+            else:
+                command = np.clip(command, np.maximum(-limit, (lower - positions) / self.control_dt),
+                                  np.minimum(limit, (upper - positions) / self.control_dt))
+                status = "tracking"
+            self.interface.set_joint_velocities(command)
+            return ControlResult(observation, reference, command, status,
                                  position_error, rotation_error, minimum)
         solution = self.mpc.solve(positions, self.interface.joint_velocities, reference)
         self.interface.set_joint_velocities(solution.velocity)

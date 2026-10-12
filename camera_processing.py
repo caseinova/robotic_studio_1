@@ -77,7 +77,9 @@ class CameraProcessor:
         self.depth_tolerance = depth_tolerance
         self.max_reprojection_error = max_reprojection_error
         parameters = cv2.aruco.DetectorParameters()
-        parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+        # Fit the complete marker boundary rather than chasing local shadow
+        # gradients at individual corners. The dictionary remains ArUco 4x4_50.
+        parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_APRILTAG
         self.detector = cv2.aruco.ArucoDetector(
             cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50), parameters
         )
@@ -86,9 +88,13 @@ class CameraProcessor:
             [-half, half, 0], [half, half, 0],
             [half, -half, 0], [-half, -half, 0],
         ], dtype=np.float64)
+        self.last_status = "not_processed"
+        self.last_marker_corners = None
 
     def process(self, frame: "RGBDFrame") -> CubeObservation | None:
         """Extract a fresh cube observation, or None if not reliably visible."""
+        self.last_status = "processing"
+        self.last_marker_corners = None
         rgb, depth = frame.rgb, frame.depth
         if rgb.ndim != 3 or rgb.shape[2] != 3 or rgb.dtype != np.uint8:
             raise ValueError("rgb must be an RGB uint8 array shaped (H, W, 3)")
@@ -104,15 +110,19 @@ class CameraProcessor:
             raise ValueError("world_from_camera must be a finite 4x4 transform")
         corners, ids, _ = self.detector.detectMarkers(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY))
         if ids is None:
-            return None
+            return self._reject("tag_not_detected")
         candidates = [corner.reshape(4, 2).astype(np.float64)
                       for corner, tag_id in zip(corners, ids.reshape(-1))
                       if int(tag_id) == self.marker_id]
         # If duplicate IDs appear, prefer the largest visible tag that has depth.
         candidates.sort(key=lambda c: abs(cv2.contourArea(c.astype(np.float32))), reverse=True)
+        if not candidates:
+            return self._reject("target_id_not_detected")
         for corner in candidates:
+            self.last_marker_corners = corner.copy()
             observation = self._extract(frame, intrinsics, corner)
             if observation is not None:
+                self.last_status = "detected"
                 return observation
         return None
 
@@ -122,10 +132,10 @@ class CameraProcessor:
         )
         if (not success or not np.all(np.isfinite(tvec))
                 or not np.all(np.isfinite(rvec)) or tvec[2, 0] <= 0):
-            return None
+            return self._reject("pnp_pose_invalid")
         projected, _ = cv2.projectPoints(self._marker_points, rvec, tvec, intrinsics, None)
         if self._pixel_error(projected.reshape(4, 2), corners) > self.max_reprojection_error:
-            return None
+            return self._reject("pnp_reprojection_error")
 
         height, width = frame.depth.shape
         rows, columns = np.indices((height, width))
@@ -139,7 +149,7 @@ class CameraProcessor:
         tag_mask = cv2.erode(tag_mask, np.ones((5, 5), dtype=np.uint8))
         samples = points[(tag_mask > 0) & valid]
         if len(samples) < 16:
-            return None
+            return self._reject("insufficient_valid_tag_depth")
         samples = samples[::max(1, len(samples) // 2048)]
         # Depth resolves the ambiguity of nearly front-facing planar tags.
         center = samples.mean(axis=0)
@@ -148,24 +158,24 @@ class CameraProcessor:
         residual = np.abs((samples - center) @ normal)
         inliers = samples[residual <= self.depth_tolerance]
         if len(inliers) < max(16, int(0.8 * len(samples))):
-            return None
+            return self._reject("tag_depth_not_planar")
         center = inliers.mean(axis=0)
         _, singular_values, axes = np.linalg.svd(inliers - center, full_matrices=False)
         if singular_values[1] < 1e-6:
-            return None
+            return self._reject("tag_depth_degenerate")
         normal = axes[-1]
         plane_error = float(np.sqrt(np.mean(((inliers - center) @ normal) ** 2)))
         corner_rays = np.column_stack((corners, np.ones(4))) @ np.linalg.inv(intrinsics).T
         denominators = corner_rays @ normal
         if np.any(np.abs(denominators) < 1e-8):
-            return None
+            return self._reject("tag_plane_parallel_to_view")
         corner_depth = float(center @ normal) / denominators
         if np.any(corner_depth <= 0) or not np.all(np.isfinite(corner_depth)):
-            return None
+            return self._reject("tag_corner_depth_invalid")
         measured_corners = corner_rays * corner_depth[:, None]
         edge_lengths = np.linalg.norm(measured_corners - np.roll(measured_corners, -1, axis=0), axis=1)
         if np.any(np.abs(edge_lengths - self.marker_size) > self.marker_size * 0.1):
-            return None
+            return self._reject("tag_metric_size_inconsistent")
         # Rigid alignment fits the known marker square to its measured 3D corners.
         translation = measured_corners.mean(axis=0)
         covariance = self._marker_points.T @ (measured_corners - translation)
@@ -181,7 +191,7 @@ class CameraProcessor:
         )
         reprojection_error = self._pixel_error(projected.reshape(4, 2), corners)
         if reprojection_error > self.max_reprojection_error:
-            return None
+            return self._reject(f"depth_pose_reprojection_error: {reprojection_error:.2f} px")
 
         camera_from_cube = camera_from_marker.copy()
         camera_from_cube[:3, 3] -= rotation[:, 2] * (self.cube_size / 2 + self.label_offset)
@@ -189,7 +199,7 @@ class CameraProcessor:
         mask = valid & np.all(np.abs(points_cube) <= self.cube_size / 2 + self.depth_tolerance, axis=-1)
         ys, xs = np.nonzero(mask)
         if len(xs) == 0:
-            return None
+            return self._reject("cube_surface_not_found")
         return CubeObservation(
             marker_id=self.marker_id, timestamp=float(frame.timestamp),
             corners=corners.copy(), center_pixel=corners.mean(axis=0),
@@ -204,12 +214,25 @@ class CameraProcessor:
     def _pixel_error(projected, measured) -> float:
         return float(np.sqrt(np.mean(np.sum((projected - measured) ** 2, axis=1))))
 
+    def _reject(self, reason: str) -> None:
+        self.last_status = reason
+        return None
+
     def annotate(self, rgb, observation: CubeObservation | None, intrinsics) -> np.ndarray:
         """Return an RGB copy with segmentation, tag corners, and pose axes."""
         image = rgb.copy()
         if observation is None:
-            cv2.putText(image, "Tagged cube not detected", (12, 24),
+            found = self.last_marker_corners is not None
+            if found:
+                cv2.aruco.drawDetectedMarkers(
+                    image, [self.last_marker_corners.astype(np.float32).reshape(1, 4, 2)],
+                    np.array([[self.marker_id]], dtype=np.int32)
+                )
+            message = "Tag found; cube pose rejected" if found else "Tagged cube not detected"
+            cv2.putText(image, message, (12, 24),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 80, 80), 2)
+            cv2.putText(image, self.last_status.replace("_", " "), (12, 72),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 180, 80), 1)
             return image
         mask = observation.mask
         image[mask] = (0.65 * image[mask] + 0.35 * np.array([0, 255, 80])).astype(np.uint8)
