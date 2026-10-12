@@ -12,23 +12,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import cv2
-import mujoco
 import numpy as np
 from scipy.optimize import minimize
 
 from camera_processing import CameraProcessor, CubeObservation
 from controller_config import ControllerConfig
+from robot_state import RGBDFrame
+from kinematics import MujocoKinematics, inverse_pose
 
 if TYPE_CHECKING:
     from interface import RobotInterface
-    from robot_model import RobotModel, RGBDFrame
-
-
-def inverse_pose(transform):
-    result = np.eye(4)
-    result[:3, :3] = transform[:3, :3].T
-    result[:3, 3] = -result[:3, :3] @ transform[:3, 3]
-    return result
 
 
 @dataclass(frozen=True)
@@ -56,94 +49,6 @@ class MPCConfig:
             raise ValueError("horizon must be an integer of at least two steps")
         if not isinstance(self.max_iterations, int) or self.max_iterations < 1:
             raise ValueError("max_iterations must be a positive integer")
-
-
-class MujocoKinematics:
-    """Independent model workspace for Jacobians and known-scene obstacles.
-
-    All collision-enabled environment geoms and nonadjacent robot link pairs
-    are checked. The shoulder/floor pair is omitted because this anchored
-    joint only rotates about the vertical axis and has a fixed 3 mm mounting
-    gap. Same-body and adjacent-body geometries intentionally overlap.
-    Hardware use requires a calibrated kinematic model and obstacle map.
-    """
-
-    def __init__(self, robot: "RobotModel"):
-        self.robot = robot
-        self.model = robot.model
-        self.data = mujoco.MjData(self.model)
-        self.q_indices = self.model.jnt_qposadr[robot.joint_ids]
-        self.v_indices = self.model.jnt_dofadr[robot.joint_ids]
-        self.camera_id = robot.camera_id
-        self.tool_id = self.model.site("attachment_site").id
-        self.limits = np.maximum(self.model.jnt_range[robot.joint_ids, 0],
-                                 self.model.actuator_ctrlrange[robot.actuator_ids, 0]), np.minimum(
-                                     self.model.jnt_range[robot.joint_ids, 1],
-                                     self.model.actuator_ctrlrange[robot.actuator_ids, 1])
-        base = self.model.body("base").id
-        robot_bodies = {base}
-        for body in range(base + 1, self.model.nbody):
-            if int(self.model.body_parentid[body]) in robot_bodies:
-                robot_bodies.add(body)
-        collision = [g for g in range(self.model.ngeom)
-                     if self.model.geom_contype[g] or self.model.geom_conaffinity[g]]
-        moving = [g for g in collision if int(self.model.geom_bodyid[g]) in robot_bodies
-                  and int(self.model.geom_bodyid[g]) != base]
-        environment = [g for g in collision if int(self.model.geom_bodyid[g]) not in robot_bodies]
-        floor = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
-        shoulder = self.model.body("shoulder_link").id
-        self.pairs = [(a, b) for a in moving for b in environment
-                      if not (b == floor and self.model.geom_bodyid[a] == shoulder)]
-        for i, a in enumerate(moving):
-            for b in moving[i + 1:]:
-                ba, bb = int(self.model.geom_bodyid[a]), int(self.model.geom_bodyid[b])
-                if ba != bb and self.model.body_parentid[ba] != bb and self.model.body_parentid[bb] != ba:
-                    self.pairs.append((a, b))
-        self.set_positions(robot.joint_positions)
-        self.tool_from_camera = inverse_pose(self.tool_pose()) @ self.camera_pose()
-
-    def set_positions(self, positions):
-        self.data.qpos[:] = self.robot.data.qpos
-        self.data.qpos[self.q_indices] = positions
-        mujoco.mj_forward(self.model, self.data)
-
-    def camera_pose(self):
-        pose = np.eye(4)
-        pose[:3, :3] = self.data.cam_xmat[self.camera_id].reshape(3, 3) @ np.diag([1, -1, -1])
-        pose[:3, 3] = self.data.cam_xpos[self.camera_id]
-        return pose
-
-    def tool_pose(self):
-        pose = np.eye(4)
-        pose[:3, :3] = self.data.site_xmat[self.tool_id].reshape(3, 3)
-        pose[:3, 3] = self.data.site_xpos[self.tool_id]
-        return pose
-
-    def camera_jacobian(self, positions):
-        self.set_positions(positions)
-        translation, rotation = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
-        mujoco.mj_jac(self.model, self.data, translation, rotation,
-                      self.data.cam_xpos[self.camera_id], int(self.model.cam_bodyid[self.camera_id]))
-        camera_from_world_rotation = self.camera_pose()[:3, :3].T
-        return np.vstack((camera_from_world_rotation @ translation[:, self.v_indices],
-                          camera_from_world_rotation @ rotation[:, self.v_indices]))
-
-    def distances(self, positions, *, gradients=False):
-        self.set_positions(positions)
-        distances = np.empty(len(self.pairs))
-        derivatives = np.zeros((len(self.pairs), 6))
-        segment = np.zeros(6)
-        ja, jb = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
-        for i, (a, b) in enumerate(self.pairs):
-            distances[i] = mujoco.mj_geomDistance(self.model, self.data, a, b, 2.0, segment)
-            if gradients and 0 < distances[i] < 2.0:
-                direction = segment[3:] - segment[:3]
-                length = np.linalg.norm(direction)
-                if length > 1e-9:
-                    mujoco.mj_jac(self.model, self.data, ja, None, segment[:3], int(self.model.geom_bodyid[a]))
-                    mujoco.mj_jac(self.model, self.data, jb, None, segment[3:], int(self.model.geom_bodyid[b]))
-                    derivatives[i] = (direction / length) @ (jb - ja)[:, self.v_indices]
-        return (distances, derivatives) if gradients else distances
 
 
 class PBVS:
@@ -285,14 +190,14 @@ class ControlResult:
 class ApproachController:
     """Detect the cube and move the tool above its tagged face, without grasping."""
 
-    def __init__(self, robot: "RobotModel", interface: "RobotInterface", *,
+    def __init__(self, interface: "RobotInterface", kinematics: MujocoKinematics, *,
                  tool_clearance: float = 0.18, config: MPCConfig | None = None,
                  controller_config: ControllerConfig | None = None):
         if not np.isfinite(tool_clearance) or tool_clearance < 0.16:
             raise ValueError("tool_clearance must be at least 0.16 m to keep the offset camera's tag in view")
         self.interface = interface
         self.processor = CameraProcessor()
-        self.kinematics = MujocoKinematics(robot)
+        self.kinematics = kinematics
         self.settings = controller_config or ControllerConfig()
         self.limits_config = config or MPCConfig()
         self.control_dt = self.limits_config.dt
@@ -304,18 +209,30 @@ class ApproachController:
         marker_from_camera = marker_from_tool @ self.kinematics.tool_from_camera
         self.pbvs = PBVS(inverse_pose(marker_from_camera))
 
-    def update(self, frame: "RGBDFrame") -> ControlResult:
+    def update(self, frame: RGBDFrame | None = None) -> ControlResult:
+        """Acquire through the interface and command one control interval.
+
+        A caller displaying the camera can pass an already acquired interface
+        frame to avoid capturing twice. State is read once for this update.
+        """
+        if frame is None:
+            frame = self.interface.capture_rgbd()
+        state = self.interface.read_state()
+        self.kinematics.synchronize(state)
         observation = self.processor.process(frame)
-        if observation is None or abs(float(self.kinematics.robot.data.time) - frame.timestamp) > 2 * self.control_dt:
+        now = self.interface.timestamp
+        stale_frame = abs(now - frame.timestamp) > 2 * self.control_dt
+        stale_state = abs(now - state.timestamp) > 2 * self.control_dt
+        if observation is None or stale_frame or stale_state:
             self.interface.set_joint_velocities(np.zeros(6))
             if self.mpc is not None:
                 self.mpc.reset()
             return ControlResult(observation, np.zeros(6), np.zeros(6), "target_lost_or_stale",
                                  np.inf, np.inf, np.inf,
-                                 diagnostic=("stale_rgbd_frame" if abs(float(self.kinematics.robot.data.time)
-                                             - frame.timestamp) > 2 * self.control_dt
+                                 diagnostic=("stale_rgbd_frame" if stale_frame
+                                             else "stale_robot_state" if stale_state
                                              else self.processor.last_status))
-        positions = self.interface.joint_positions
+        positions = state.joint_positions
         minimum = (float(np.min(self.kinematics.distances(positions), initial=np.inf))
                    if self.mpc is not None else np.nan)
         if self.mpc is not None and minimum < self.mpc.config.clearance:
@@ -347,7 +264,7 @@ class ApproachController:
             self.interface.set_joint_velocities(command)
             return ControlResult(observation, reference, command, status,
                                  position_error, rotation_error, minimum)
-        solution = self.mpc.solve(positions, self.interface.joint_velocities, reference)
+        solution = self.mpc.solve(positions, state.joint_velocities, reference)
         self.interface.set_joint_velocities(solution.velocity)
         return ControlResult(observation, reference, solution.velocity, solution.status,
                              position_error, rotation_error, solution.minimum_clearance)

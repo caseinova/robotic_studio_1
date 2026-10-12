@@ -7,7 +7,7 @@ or visual servo controller are implemented here.
 Example::
 
     processor = CameraProcessor()
-    frame = robot.capture_rgbd()
+    frame = interface.capture_rgbd()
     observation = processor.process(frame)
     display_rgb = processor.annotate(frame.rgb, observation, frame.intrinsics)
 """
@@ -19,7 +19,7 @@ import cv2
 import numpy as np
 
 if TYPE_CHECKING:
-    from robot_model import RGBDFrame
+    from robot_state import RGBDFrame
 
 
 @dataclass(frozen=True)

@@ -4,11 +4,12 @@ Control access lives in interface.py; simulation execution lives in simulate.py.
 """
 
 from pathlib import Path
-from dataclasses import dataclass
 from contextlib import nullcontext
 
 import mujoco
 import numpy as np
+
+from robot_state import RGBDFrame
 
 
 MODEL_DIRECTORY = (
@@ -16,40 +17,6 @@ MODEL_DIRECTORY = (
     / "universal_robots_ur5e"
     / "universal_robots_ur5e"
 )
-
-
-@dataclass(frozen=True)
-class RGBDFrame:
-    """Registered RGB and metric depth from one simulation state.
-
-    rgb: uint8 (H, W, 3), RGB channel order.
-    depth: float32 (H, W), optical-axis Z in meters, not ray distance.
-    intrinsics: 3x3 pinhole K with pixel coordinates (column, row); integer
-        coordinates denote pixel centers. The simulated lens has no distortion.
-    world_from_camera: 4x4 transform from optical coordinates to world meters.
-        Optical axes are +X right, +Y down, +Z forward.
-    timestamp: simulation time in seconds, shared by both images and the pose.
-    depth_range: near/far clipping distances in meters; background is at far.
-
-    Capture must run on the simulation thread, without concurrent state writes.
-    """
-
-    rgb: np.ndarray
-    depth: np.ndarray
-    intrinsics: np.ndarray
-    world_from_camera: np.ndarray
-    timestamp: float
-    depth_range: tuple[float, float]
-
-    @property
-    def valid_depth(self) -> np.ndarray:
-        """Mask out background and clipped or nonfinite depth pixels."""
-        near, far = self.depth_range
-        return (
-            np.isfinite(self.depth)
-            & (self.depth > near)
-            & (self.depth < far * (1 - 1e-5))
-        )
 
 
 class RobotModel:
@@ -60,6 +27,9 @@ class RobotModel:
     """
 
     camera_name = "wrist_camera"
+    gripper_joint_names = ("gripper_left_joint", "gripper_right_joint")
+    gripper_actuator_names = ("gripper_left", "gripper_right")
+    gripper_max_width = 0.12  # meters between the inner finger faces
 
     joint_names = (
         "shoulder_pan_joint",
@@ -88,6 +58,13 @@ class RobotModel:
         ])
         self._qpos_indices = self.model.jnt_qposadr[self.joint_ids]
         self._qvel_indices = self.model.jnt_dofadr[self.joint_ids]
+        self.gripper_joint_ids = np.array([
+            self.model.joint(name).id for name in self.gripper_joint_names
+        ])
+        self.gripper_actuator_ids = np.array([
+            self.model.actuator(name).id for name in self.gripper_actuator_names
+        ])
+        self.grasp_site_id = self.model.site("grasp_site").id
         self.reset()
 
     @property
@@ -99,6 +76,23 @@ class RobotModel:
     def joint_velocities(self) -> np.ndarray:
         """Return a copy of the six joint velocities in radians/second."""
         return self.data.qvel[self._qvel_indices].copy()
+
+    @property
+    def gripper_width(self) -> float:
+        """Measured inner finger opening in meters (0 to 0.12 nominally)."""
+        return float(np.sum(self.data.qpos[self.model.jnt_qposadr[self.gripper_joint_ids]]))
+
+    @property
+    def grasp_pose(self) -> np.ndarray:
+        """World-from-grasp-site pose; +Z is the finger approach direction.
+
+        The site is 105 mm beyond the gripper mount, between the fingertips.
+        Call after forwarding the simulation state for current transforms.
+        """
+        pose = np.eye(4)
+        pose[:3, :3] = self.data.site_xmat[self.grasp_site_id].reshape(3, 3)
+        pose[:3, 3] = self.data.site_xpos[self.grasp_site_id]
+        return pose
 
     def reset(self) -> None:
         """Reset time, state, and actuator targets to the model's home pose."""

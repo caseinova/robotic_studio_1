@@ -34,7 +34,7 @@ class Simulation:
 
     def reset(self) -> None:
         self.robot.reset()
-        self.interface.set_joint_positions(self.robot.joint_positions)
+        self.interface.set_joint_positions(self.interface.joint_positions)
 
     def step(self, steps: int = 1) -> None:
         """Advance by a non-negative number of fixed physics timesteps."""
@@ -46,20 +46,20 @@ class Simulation:
 
     def run_controlled(self, steps: int, *, tool_clearance: float | None = None):
         """Run the selected visual controller headlessly, stopping at its goal."""
-        from controller import ApproachController
+        from controller import ApproachController, MujocoKinematics
 
         if isinstance(steps, bool) or not isinstance(steps, int) or steps < 0:
             raise ValueError("steps must be a non-negative integer")
         clearance = self.config.tool_clearance if tool_clearance is None else tool_clearance
-        controller = ApproachController(self.robot, self.interface, tool_clearance=clearance,
+        controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=clearance,
                                         controller_config=self.controller_config)
         next_update, result = 0.0, None
         try:
-            with mujoco.Renderer(self.robot.model, height=480, width=640) as renderer:
+            with self.interface:
                 for _ in range(steps):
-                    if self.robot.data.time + 1e-9 >= next_update:
-                        result = controller.update(self.robot.capture_rgbd(renderer=renderer))
-                        next_update = self.robot.data.time + controller.control_dt
+                    if self.interface.timestamp + 1e-9 >= next_update:
+                        result = controller.update()
+                        next_update = self.interface.timestamp + controller.control_dt
                         if result.status == "reached":
                             break
                     self.step()
@@ -77,10 +77,10 @@ class Simulation:
 
         controller = None
         if servo:
-            from controller import ApproachController
+            from controller import ApproachController, MujocoKinematics
 
             clearance = self.config.tool_clearance if tool_clearance is None else tool_clearance
-            controller = ApproachController(self.robot, self.interface, tool_clearance=clearance,
+            controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=clearance,
                                             controller_config=self.controller_config)
             camera = True
         label = "PBVS+MPC" if self.controller_config.mode == "pbvs_mpc" else "PBVS"
@@ -98,12 +98,9 @@ class Simulation:
             viewer = stack.enter_context(
                 mujoco.viewer.launch_passive(self.robot.model, self.robot.data)
             )
-            renderer = None
             window_name = "UR5e wrist camera - RGB"
             if camera:
-                renderer = stack.enter_context(
-                    mujoco.Renderer(self.robot.model, height=480, width=640)
-                )
+                stack.enter_context(self.interface)
                 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
                 stack.callback(cv2.destroyWindow, window_name)
             next_camera_frame = 0.0
@@ -120,10 +117,10 @@ class Simulation:
                 start = time.perf_counter()
                 self.step(frame_steps)
                 viewer.sync()
-                control_due = controller is not None and self.robot.data.time + 1e-9 >= next_control_update
+                control_due = controller is not None and self.interface.timestamp + 1e-9 >= next_control_update
                 display_due = camera and start >= next_camera_frame
-                if renderer is not None and (display_due or control_due):
-                    frame = self.robot.capture_rgbd(renderer=renderer)
+                if camera and (display_due or control_due):
+                    frame = self.interface.capture_rgbd()
                     if control_due:
                         last_control = controller.update(frame)
                         status_key = (last_control.status, last_control.diagnostic)
@@ -136,7 +133,7 @@ class Simulation:
                             print(f"{label}: {last_control.status} | error {error} | "
                                   f"clearance {clearance}{details}", flush=True)
                             last_status = status_key
-                        next_control_update = self.robot.data.time + controller.control_dt
+                        next_control_update = self.interface.timestamp + controller.control_dt
                         observation = last_control.observation
                     else:
                         observation = processor.process(frame)
@@ -200,7 +197,7 @@ def main() -> None:
                       f"rotation error {rotation}; clearance {clearance}{details}")
         else:
             simulation.step(args.steps)
-        print(f"Simulated {simulation.robot.data.time:.3f} seconds")
+        print(f"Simulated {simulation.interface.timestamp:.3f} seconds")
         print("Joint positions (radians):", simulation.interface.joint_positions)
     else:
         simulation.launch_viewer(camera=args.camera, servo=args.servo, tool_clearance=args.tool_clearance)
