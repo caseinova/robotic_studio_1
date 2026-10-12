@@ -108,6 +108,12 @@ minimum is 16 cm because the wrist camera's 6 cm lateral offset must keep
 the whole tag visible. There is no grasping or lifting yet.
 
 `CameraProcessor` estimates marker pose from RGB and registered depth.
+The tag plane fit uses a robust estimate of depth scatter to set its inlier
+threshold (at least `depth_tolerance`, with adaptation capped at 10% of marker
+size). This accepts moderate Gaussian depth noise without discarding a visible
+tag solely because individual pixels differ by more than 3 mm. Insufficient
+depth, excessive scatter, inconsistent metric tag size, and large reprojection
+errors still reject the observation.
 `PBVS` computes a camera-frame pose error, proportional camera twist, and
 damped Jacobian inverse to obtain a joint-velocity reference in rad/s.
 `JointSpaceMPC` optimizes eight future joint-velocity commands at 50 ms
@@ -168,4 +174,110 @@ fingertips, with +Z along the approach direction. The approach controller
 continues to target the flange's `attachment_site`; it does not yet execute
 a grasp. MPC includes the gripper's collision geometry against obstacles
 and nonadjacent robot links, while finger opening remains separately commanded.
-The scene cube remains fixed, so lifting requires a later scene change.
+The scene cube remains fixed in approach-only runs. Pickup runs use a movable
+version of the scene so the gripper can lift it through physical contact.
+
+## Cube pickup
+
+```powershell
+venv/Scripts/python.exe simulate.py --pick
+venv/Scripts/python.exe simulate.py --headless --pick --steps 15000
+```
+
+`--pick` enables the selected approach controller, then hands off its final
+cube observation to `CubePickupController` in `controller.py`. `--servo`
+continues to run only the approach. The existing controller classes are
+unchanged.
+
+The new class contains the complete pickup sequence: open, descend in world
+Z while holding X/Y and orientation, close, wait for the measured finger
+opening to settle on the cube, and lift along the same line to the entry
+height. It then holds a fixed joint position with the gripper closed. The
+grasp site's height is aligned with the detected cube center. Defaults are
+30 mm/s vertical speed, 50 ms updates, and a 20-second timeout per phase;
+constructor arguments can change them.
+
+The sequence uses interface state and actuator commands, not simulator
+measurements. It latches the detected target at handoff and does not require
+the tag to remain visible during pickup. `start(observation)` begins it;
+`update()` advances it without blocking and returns `ControlResult` with
+`pickup_opening`, `pickup_descending`, `pickup_closing`, `pickup_lifting`,
+`pickup_complete`, or `pickup_failed`. `finished` marks completion or failure.
+
+Pickup uses Cartesian velocity feedback rather than the approach MPC. It
+checks known collision geometry at the current and next predicted arm pose,
+keeping 20 mm clearance except for intentional finger/cube contact. A blocked
+path stops the sequence instead of planning a detour. Stale measurements,
+joint-limit violations, timeouts, and empty/lost grasps also stop the arm.
+Width settling is a grasp heuristic, not force or slip sensing.
+
+Only pickup scenes give the cube a free joint and use elliptic contacts with
+increased tangential stiffness. The cube is never welded to the robot; the
+tests check that friction/contact physically lifts it and keeps it raised.
+
+## Measurement noise
+
+The CLI loads `noise_config.json` independently of the working directory.
+Its default profile enables mild measurement noise with seed 42:
+
+```powershell
+venv/Scripts/python.exe simulate.py --servo
+venv/Scripts/python.exe simulate.py --pick
+venv/Scripts/python.exe simulate.py --servo --no-noise
+venv/Scripts/python.exe simulate.py --servo --noise-config my_noise.json
+```
+
+Set `enabled` to false to disable noise, or set individual standard deviations,
+biases, and dropout probability to zero. Set `seed` to an integer for replay,
+or null for a fresh random sequence. These values are example experiment
+settings, not specifications for a particular real sensor.
+
+| Setting | Units / meaning |
+| --- | --- |
+| `joint_position_std`, `joint_position_bias` | Radians; scalar or six values in arm joint order |
+| `joint_velocity_std`, `joint_velocity_bias` | Radians/second; scalar or six values |
+| `gripper_width_std`, `gripper_width_bias` | Meters of inner opening; readings clipped to the gripper range |
+| `rgb_pixel_std` | Intensity levels on the 0–255 scale; RGB remains uint8 |
+| `depth_std` | Base depth standard deviation, meters |
+| `depth_std_per_meter_squared` | Added standard deviation per squared meter of depth; coefficient units 1/m |
+| `depth_bias` | Fixed depth offset, meters |
+| `depth_dropout_probability` | Probability 0–1 that a valid depth pixel becomes a hole |
+
+`noise.py` implements `MeasurementNoise`, with independent Gaussian errors
+and fixed configurable biases. The depth model is
+`sigma(z) = depth_std + depth_std_per_meter_squared * z**2`. Invalid/background
+depth stays invalid; dropouts and readings outside the valid range become zero.
+RGB values are rounded and clipped, and all returned arrays are owned copies.
+
+`MujocoInterface` applies this model only to outgoing measurements. Physics,
+actuator commands, and timestamps stay clean. Camera images are rendered from
+true physics, while `world_from_camera` is calculated from the same noisy
+joint sample returned by `read_state()`. No independent pose noise is added
+on top of encoder noise. The pose estimated by camera processing naturally
+inherits errors from RGB/depth and these camera world coordinates.
+An estimated cube bottom can fluctuate slightly below the floor under noise;
+this is measurement uncertainty, not a change to the simulated cube position.
+No ground-truth floor correction is applied to perception. A controller status
+of `target_lost_or_stale` with `error inf` means there is no usable fresh target
+measurement, rather than an infinite or underground physical pose. The appended
+diagnostic identifies the rejection reason, such as `tag_depth_not_planar`.
+
+Repeated reads of an unchanged state return one cached noisy sample with
+independent arrays. Camera noise is drawn on each capture; its random streams
+do not alter encoder samples. `Simulation.reset()` restarts seeded noise and
+restores nominal home commands. Replay requires the same measurement/capture
+sequence and configuration.
+
+Python callers use noise-free defaults unless they supply settings explicitly:
+
+```python
+from noise_config import NoiseConfig
+from simulate import Simulation
+
+simulation = Simulation(noise_config=NoiseConfig.load())
+state = simulation.interface.read_state()  # Noisy feedback, clean physics.
+```
+
+Only the MuJoCo adapter injects synthetic noise; hardware adapters return their
+real measurements. There is no new state estimator or filtering, actuator
+disturbance model, communication delay/dropout, or calibration perturbation.

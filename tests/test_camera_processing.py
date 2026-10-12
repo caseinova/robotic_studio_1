@@ -8,6 +8,8 @@ import numpy as np
 
 from camera_processing import CameraProcessor
 from robot_model import RobotModel
+from noise import MeasurementNoise
+from noise_config import NoiseConfig
 
 
 class CameraProcessingTests(unittest.TestCase):
@@ -69,6 +71,32 @@ class CameraProcessingTests(unittest.TestCase):
         # Wrong metric scale cannot fit the known 80 mm tag dimensions.
         frame = replace(self.frame, depth=self.frame.depth * 2)
         self.assertIsNone(CameraProcessor().process(frame))
+
+    def test_millimeter_depth_noise_keeps_valid_pose(self):
+        # Regression: the old fixed 3 mm / 80% gate rejected every frame
+        # under this experiment profile, although the tag was visible.
+        noise = MeasurementNoise(NoiseConfig(
+            enabled=True, depth_std=0.002,
+            depth_std_per_meter_squared=0.005,
+            depth_dropout_probability=0.01,
+        ))
+        processor = CameraProcessor()
+        for _ in range(8):
+            observation = processor.process(noise.apply_frame(self.frame))
+            self.assertIsNotNone(observation, processor.last_status)
+            pose = observation.world_from_cube
+            np.testing.assert_allclose(pose[:3, 3], [-0.074, 0.492, 0.05], atol=0.003)
+            np.testing.assert_allclose(pose[:3, :3].T @ pose[:3, :3], np.eye(3), atol=1e-10)
+            self.assertAlmostEqual(np.linalg.det(pose[:3, :3]), 1.0)
+
+    def test_excessive_depth_scatter_is_rejected(self):
+        noise = MeasurementNoise(NoiseConfig(
+            enabled=True, rgb_pixel_std=0, depth_std=0.03,
+            depth_std_per_meter_squared=0, depth_dropout_probability=0,
+        ))
+        processor = CameraProcessor()
+        self.assertIsNone(processor.process(noise.apply_frame(self.frame)))
+        self.assertEqual(processor.last_status, "tag_depth_not_planar")
 
     def test_configuration_and_registration_validation(self):
         for config in ({"marker_size": 0}, {"marker_id": 50}, {"cube_size": 0.01}):

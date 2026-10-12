@@ -155,8 +155,18 @@ class CameraProcessor:
         center = samples.mean(axis=0)
         _, _, axes = np.linalg.svd(samples - center, full_matrices=False)
         normal = axes[-1]
-        residual = np.abs((samples - center) @ normal)
-        inliers = samples[residual <= self.depth_tolerance]
+        signed_residual = (samples - center) @ normal
+        # Estimate random scatter robustly: a fixed 3 mm gate rejects most
+        # legitimate samples when the camera's depth sigma is several mm.
+        # Cap the adaptive gate at 10% of marker size so arbitrary rough or
+        # mixed surfaces cannot expand the gate without limit. Metric-size
+        # and reprojection checks below still validate the fitted pose.
+        median_residual = np.median(signed_residual)
+        depth_sigma = 1.4826 * np.median(np.abs(signed_residual - median_residual))
+        plane_tolerance = max(self.depth_tolerance,
+                              min(3 * depth_sigma, self.marker_size * 0.1))
+        residual = np.abs(signed_residual - median_residual)
+        inliers = samples[residual <= plane_tolerance]
         if len(inliers) < max(16, int(0.8 * len(samples))):
             return self._reject("tag_depth_not_planar")
         center = inliers.mean(axis=0)

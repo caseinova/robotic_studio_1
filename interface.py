@@ -1,11 +1,14 @@
 """Robot measurements, camera acquisition, and commands for every backend."""
 
 from abc import ABC, abstractmethod
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from robot_state import RGBDFrame, RobotState
+from noise import MeasurementNoise
+from noise_config import NoiseConfig
 
 if TYPE_CHECKING:
     from robot_model import RobotModel
@@ -88,22 +91,29 @@ class RobotInterface(ABC):
 class MujocoInterface(RobotInterface):
     """Connect the controller API to an existing MuJoCo robot model."""
 
-    def __init__(self, robot: "RobotModel"):
+    def __init__(self, robot: "RobotModel", *, noise_config: NoiseConfig | None = None):
         self.robot = robot
         ids = robot.actuator_ids
         self._position_gain = robot.model.actuator_gainprm[ids].copy()
         self._position_bias = robot.model.actuator_biasprm[ids].copy()
         self._velocity_mode = False
         self._renderer = None
+        self.noise = MeasurementNoise(noise_config)
+        self._camera_kinematics = None
 
     def read_state(self) -> RobotState:
         """Called on the physics thread, between simulation steps."""
-        return RobotState(
+        clean_state = RobotState(
             timestamp=float(self.robot.data.time),
             joint_positions=self.robot.joint_positions,
             joint_velocities=self.robot.joint_velocities,
             gripper_width=self.robot.gripper_width,
         )
+        return self.noise.apply_state(clean_state, max_gripper_width=self.gripper_max_width)
+
+    def reset_noise(self) -> None:
+        """Start a new experiment with the configured seed and no cached state."""
+        self.noise.reset()
 
     @property
     def timestamp(self) -> float:
@@ -119,7 +129,17 @@ class MujocoInterface(RobotInterface):
             import mujoco
 
             self._renderer = mujoco.Renderer(self.robot.model, height=480, width=640)
-        return self.robot.capture_rgbd(renderer=self._renderer)
+        frame = self.robot.capture_rgbd(renderer=self._renderer)
+        if self.noise.config.enabled:
+            # Images are rendered from true physics. Their world pose is the
+            # encoder-based estimate a real camera adapter would supply.
+            from kinematics import MujocoKinematics
+
+            if self._camera_kinematics is None:
+                self._camera_kinematics = MujocoKinematics(self.robot)
+            self._camera_kinematics.synchronize(self.read_state())
+            frame = replace(frame, world_from_camera=self._camera_kinematics.camera_pose())
+        return self.noise.apply_frame(frame)
 
     def close(self) -> None:
         if self._renderer is not None:

@@ -268,3 +268,225 @@ class ApproachController:
         self.interface.set_joint_velocities(solution.velocity)
         return ControlResult(observation, reference, solution.velocity, solution.status,
                              position_error, rotation_error, solution.minimum_clearance)
+
+
+class CubePickupController:
+    """Open, descend vertically, grip, then return vertically to the entry pose.
+
+    Start only after ApproachController reaches its target. The detected cube
+    pose is latched at handoff: the tag need not remain visible inside the
+    gripper. All measurements and commands go through RobotInterface. The
+    supplied kinematics is a prediction workspace, never live simulator data.
+
+    This is a Cartesian velocity sequence, independent of PBVS/MPC. Known
+    obstacles and other robot links are checked before each motion command.
+    Finger contact with the selected cube is intentionally allowed. Gripper
+    width settling indicates a possible grasp; it is not a force measurement.
+    """
+
+    def __init__(self, interface: "RobotInterface", kinematics: MujocoKinematics, *,
+                 cube_size: float = 0.10, speed: float = 0.03,
+                 control_dt: float = 0.05, phase_timeout: float = 20.0):
+        for name, value in (("cube_size", cube_size), ("speed", speed),
+                            ("control_dt", control_dt), ("phase_timeout", phase_timeout)):
+            if not np.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be finite and positive")
+        self.interface = interface
+        self.kinematics = kinematics
+        self.cube_size = cube_size
+        self.speed = speed
+        self.control_dt = control_dt
+        self.phase_timeout = phase_timeout
+        self.phase = "idle"
+        self.diagnostic = ""
+        self._phase_started = 0.0
+        self._last_width = None
+        self._width_stable_since = 0.0
+        self._entry_pose = None
+        self._descent_pose = None
+        self._pose_integral = np.zeros(6)
+        self._hold_positions = None
+
+        # Existing prediction pairs remain untouched. Only the two finger/cube
+        # pairs may make contact during pickup; the palm must stay clear.
+        model = kinematics.model
+        cube_body = model.body("cube").id
+        cube_geoms = set(np.flatnonzero(model.geom_bodyid == cube_body))
+        fingers = {model.geom(name).id for name in (
+            "gripper_left_geom", "gripper_right_geom"
+        )}
+        self._collision_indices = [
+            index for index, (a, b) in enumerate(kinematics.pairs)
+            if not ((a in fingers and b in cube_geoms)
+                    or (b in fingers and a in cube_geoms))
+        ]
+
+    @property
+    def finished(self) -> bool:
+        return self.phase in ("complete", "failed")
+
+    def start(self, observation: CubeObservation) -> None:
+        """Latch the final approach pose and the observed cube center."""
+        if self.phase != "idle":
+            raise RuntimeError("pickup has already started; construct a new controller to retry")
+        state = self.interface.read_state()
+        now = self.interface.timestamp
+        if (observation is None or not np.isfinite(now)
+                or not np.isfinite(observation.timestamp) or not np.isfinite(state.timestamp)
+                or abs(now - observation.timestamp) > 2 * self.control_dt
+                or abs(now - state.timestamp) > 2 * self.control_dt):
+            self._fail("stale_pickup_target_or_state")
+            return
+        if (not np.all(np.isfinite(observation.world_from_cube))
+                or not np.all(np.isfinite(state.joint_positions))
+                or not np.isfinite(state.gripper_width)):
+            self._fail("invalid_pickup_target_or_state")
+            return
+        self.kinematics.synchronize(state)
+        self._entry_pose = self.kinematics.tool_pose().copy()
+        self._descent_pose = self._entry_pose.copy()
+        grasp_position = self.kinematics.data.site("grasp_site").xpos
+        # Align the grasp site's height with the cube center. Keep flange X/Y
+        # and orientation fixed, giving a vertical path in the world frame.
+        cube_center = observation.world_from_cube[:3, 3]
+        self._descent_pose[2, 3] += cube_center[2] - grasp_position[2]
+        if np.linalg.norm(grasp_position[:2] - cube_center[:2]) > 0.01:
+            self._fail("tool_not_centered_over_cube")
+            return
+        if self._descent_pose[2, 3] >= self._entry_pose[2, 3]:
+            self._fail("cube_not_below_gripper")
+            return
+        if self.interface.gripper_max_width < self.cube_size + 0.01:
+            self._fail("gripper_opening_too_small")
+            return
+        self.interface.set_joint_velocities(np.zeros(6))
+        self.interface.open_gripper()
+        self._change_phase("opening", now)
+
+    def update(self) -> ControlResult:
+        """Advance one phase without blocking, sleeping, or acquiring images."""
+        state = self.interface.read_state()
+        now = self.interface.timestamp
+        if self.phase == "idle":
+            self.interface.set_joint_velocities(np.zeros(6))
+            return self._result()
+        if self.finished:
+            if self.phase == "failed":
+                self.interface.set_joint_velocities(np.zeros(6))
+            return self._result()
+        if (not np.isfinite(now) or not np.isfinite(state.timestamp)
+                or abs(now - state.timestamp) > 2 * self.control_dt
+                or not np.all(np.isfinite(state.joint_positions))
+                or not np.all(np.isfinite(state.joint_velocities))
+                or not np.isfinite(state.gripper_width)):
+            self._fail("stale_or_invalid_robot_state")
+            return self._result()
+        if now - self._phase_started > self.phase_timeout:
+            self._fail("phase_timeout: " + self.phase)
+            return self._result()
+        self.kinematics.synchronize(state)
+
+        if self.phase == "opening":
+            self.interface.set_joint_velocities(np.zeros(6))
+            if state.gripper_width >= self.interface.gripper_max_width - 0.001:
+                self._change_phase("descending", now)
+            return self._result()
+
+        if self.phase == "closing":
+            self.interface.set_joint_velocities(np.zeros(6))
+            if abs(state.gripper_width - self._last_width) > 0.0005:
+                self._width_stable_since = now
+            self._last_width = state.gripper_width
+            elapsed = now - self._phase_started
+            if elapsed >= 0.5:
+                if state.gripper_width < self.cube_size * 0.5:
+                    self._fail("empty_grasp")
+                elif (state.gripper_width <= self.cube_size * 1.15
+                      and now - self._width_stable_since >= 0.3):
+                    self._change_phase("lifting", now)
+            return self._result()
+
+        if self.phase == "lifting" and state.gripper_width < self.cube_size * 0.5:
+            self._fail("grasp_lost")
+            return self._result()
+
+        target = self._descent_pose if self.phase == "descending" else self._entry_pose
+        current = self.kinematics.tool_pose()
+        error = target[:3, 3] - current[:3, 3]
+        rotation_error = cv2.Rodrigues(target[:3, :3] @ current[:3, :3].T)[0].reshape(3)
+        if np.linalg.norm(error) < 0.0015 and np.linalg.norm(rotation_error) < 0.02:
+            self.interface.set_joint_velocities(np.zeros(6))
+            if self.phase == "descending":
+                self.interface.close_gripper()
+                self._last_width = state.gripper_width
+                self._width_stable_since = now
+                self._change_phase("closing", now)
+            else:
+                # Hold a fixed joint position after lifting, including the
+                # payload load, instead of leaving zero-velocity servos free
+                # to drift under the cube's external contact forces.
+                self._hold_positions = state.joint_positions.copy()
+                self.interface.set_joint_positions(self._hold_positions)
+                self._change_phase("complete", now)
+            return self._result(position_error=np.linalg.norm(error))
+
+        # Convert the optical-camera Jacobian into a world-frame flange
+        # Jacobian. The offset correction moves the linear velocity reference
+        # from the camera center to the tool flange.
+        camera_jacobian = self.kinematics.camera_jacobian(state.joint_positions)
+        camera_pose = self.kinematics.camera_pose()
+        angular = camera_pose[:3, :3] @ camera_jacobian[3:]
+        offset = camera_pose[:3, 3] - current[:3, 3]
+        linear = camera_pose[:3, :3] @ camera_jacobian[:3] + np.cross(offset, angular.T).T
+        jacobian = np.vstack((linear, angular))
+        # Integral feedback counters the extra load from the held cube. X/Y
+        # feedback corrects drift off the vertical line rather than planning
+        # horizontal travel.
+        pose_error = np.concatenate((error, rotation_error))
+        # Integrate translation only near the target to avoid winding up
+        # while the vertical speed is saturated over a long descent/lift.
+        integration_error = pose_error.copy()
+        if np.linalg.norm(error) > self.speed / 8:
+            integration_error[2] = 0
+        self._pose_integral = np.clip(
+            self._pose_integral + self.control_dt * integration_error, -0.02, 0.02
+        )
+        twist = 8.0 * pose_error + 4.0 * self._pose_integral
+        linear_velocity = twist[:3]
+        # Limit vertical travel independently, so a large height error cannot
+        # dilute the horizontal feedback that keeps the tool on its line.
+        linear_velocity[:2] *= min(1.0, self.speed / max(np.linalg.norm(linear_velocity[:2]), 1e-12))
+        linear_velocity[2] = np.clip(linear_velocity[2], -self.speed, self.speed)
+        twist[3:] *= min(1.0, 0.3 / max(np.linalg.norm(twist[3:]), 1e-12))
+        command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + 0.01 ** 2 * np.eye(6), twist)
+        command /= max(1.0, np.max(np.abs(command)) / 0.35)
+        lower, upper = self.kinematics.limits
+        prediction = state.joint_positions + self.control_dt * command
+        if np.any(prediction < lower) or np.any(prediction > upper):
+            self._fail("joint_limit_violation")
+            return self._result()
+        minimum = min(self._clearance(state.joint_positions), self._clearance(prediction))
+        if minimum < 0.02:
+            self._fail("pickup_path_blocked")
+            return self._result(minimum_clearance=minimum)
+        self.interface.set_joint_velocities(command)
+        return self._result(command, np.linalg.norm(error), minimum)
+
+    def _clearance(self, positions) -> float:
+        distances = self.kinematics.distances(positions)
+        return float(np.min(distances[self._collision_indices], initial=np.inf))
+
+    def _change_phase(self, phase, now) -> None:
+        self.phase = phase
+        self._phase_started = now
+        self._pose_integral[:] = 0
+
+    def _fail(self, reason) -> None:
+        self.phase = "failed"
+        self.diagnostic = reason
+        self.interface.set_joint_velocities(np.zeros(6))
+
+    def _result(self, command=None, position_error=0.0, minimum_clearance=np.nan) -> ControlResult:
+        velocity = np.zeros(6) if command is None else command.copy()
+        return ControlResult(None, velocity, velocity.copy(), "pickup_" + self.phase,
+                             position_error, 0.0, minimum_clearance, self.diagnostic)

@@ -4,6 +4,7 @@ import argparse
 import time
 import math
 from contextlib import ExitStack
+from dataclasses import replace
 
 import mujoco
 
@@ -11,13 +12,15 @@ from interface import MujocoInterface
 from robot_model import RobotModel
 from simulation_config import DEFAULT_CONFIG_PATH, SimulationConfig
 from controller_config import DEFAULT_CONTROLLER_CONFIG_PATH, ControllerConfig
+from noise_config import DEFAULT_NOISE_CONFIG_PATH, NoiseConfig
 
 
 class Simulation:
     """Own physics execution and expose the portable controller interface."""
 
     def __init__(self, robot: RobotModel | None = None, *, config: SimulationConfig | None = None,
-                 controller_config: ControllerConfig | None = None):
+                 controller_config: ControllerConfig | None = None, pickup: bool = False,
+                 noise_config: NoiseConfig | None = None):
         self.robot = robot if robot is not None else RobotModel()
         self.config = config if config is not None else SimulationConfig()
         self.controller_config = controller_config or ControllerConfig()
@@ -30,11 +33,31 @@ class Simulation:
             self.robot.model.body_quat[cube_id] = self.config.cube_quaternion
             mujoco.mj_setConst(self.robot.model, self.robot.data)
             self.robot.reset()
-        self.interface = MujocoInterface(self.robot)
+        self.pickup = pickup
+        if pickup:
+            # A free joint is required for real contact-driven lifting. Compile
+            # a pickup scene without changing the bundled approach-only model.
+            spec = mujoco.MjSpec.from_file(str(self.robot.model_path))
+            cube = spec.body("cube")
+            cube_id = self.robot.model.body("cube").id
+            cube.pos = self.robot.model.body_pos[cube_id]
+            cube.quat = self.robot.model.body_quat[cube_id]
+            cube.add_freejoint(name="cube_free_joint")
+            # Stiffer tangential contacts prevent slow numerical sliding while
+            # the fingers carry the cube, without welding it to the gripper.
+            spec.option.cone = mujoco.mjtCone.mjCONE_ELLIPTIC
+            spec.option.impratio = 10
+            self.robot.model = spec.compile()
+            self.robot.data = mujoco.MjData(self.robot.model)
+            self.robot.reset()
+        self.interface = MujocoInterface(self.robot, noise_config=noise_config)
 
     def reset(self) -> None:
         self.robot.reset()
-        self.interface.set_joint_positions(self.interface.joint_positions)
+        self.interface.reset_noise()
+        # Reset targets are model commands, not noisy measurements of home.
+        targets = self.robot.model.key("home").ctrl[self.robot.actuator_ids].copy()
+        self.interface.set_joint_positions(targets)
 
     def step(self, steps: int = 1) -> None:
         """Advance by a non-negative number of fixed physics timesteps."""
@@ -45,25 +68,35 @@ class Simulation:
             mujoco.mj_step(self.robot.model, self.robot.data)
 
     def run_controlled(self, steps: int, *, tool_clearance: float | None = None):
-        """Run the selected visual controller headlessly, stopping at its goal."""
-        from controller import ApproachController, MujocoKinematics
+        """Run approach and optional pickup headlessly, stopping at completion."""
+        from controller import ApproachController, CubePickupController, MujocoKinematics
 
         if isinstance(steps, bool) or not isinstance(steps, int) or steps < 0:
             raise ValueError("steps must be a non-negative integer")
         controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
                                         controller_config=self.controller_config)
+        pickup_controller = (CubePickupController(self.interface, controller.kinematics)
+                             if self.pickup else None)
         next_update, result = 0.0, None
         try:
             with self.interface:
                 for _ in range(steps):
                     if self.interface.timestamp + 1e-9 >= next_update:
-                        result = controller.update()
+                        if pickup_controller is not None and pickup_controller.phase != "idle":
+                            result = pickup_controller.update()
+                        else:
+                            result = controller.update()
+                            if result.status == "reached" and pickup_controller is not None:
+                                pickup_controller.start(result.observation)
+                                result = pickup_controller.update()
                         next_update = self.interface.timestamp + controller.control_dt
-                        if result.status == "reached":
+                        if (result.status == "reached"
+                                or pickup_controller is not None and pickup_controller.finished):
                             break
                     self.step()
         finally:
-            self.interface.set_joint_velocities([0.0] * 6)
+            if pickup_controller is None or pickup_controller.phase != "complete":
+                self.interface.set_joint_velocities([0.0] * 6)
         return result
 
     def launch_viewer(self, *, camera: bool = False, servo: bool = False,
@@ -74,12 +107,16 @@ class Simulation:
         """
         import mujoco.viewer
 
+        servo = servo or self.pickup
         controller = None
+        pickup_controller = None
         if servo:
-            from controller import ApproachController, MujocoKinematics
+            from controller import ApproachController, CubePickupController, MujocoKinematics
 
             controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
                                             controller_config=self.controller_config)
+            if self.pickup:
+                pickup_controller = CubePickupController(self.interface, controller.kinematics)
             camera = True
         label = "PBVS+MPC" if self.controller_config.mode == "pbvs_mpc" else "PBVS"
         print("Cube approach controller: " + (label if servo else "OFF (enable with --servo)"), flush=True)
@@ -120,7 +157,14 @@ class Simulation:
                 if camera and (display_due or control_due):
                     frame = self.interface.capture_rgbd()
                     if control_due:
-                        last_control = controller.update(frame)
+                        if pickup_controller is not None and pickup_controller.phase != "idle":
+                            last_control = pickup_controller.update()
+                        else:
+                            last_control = controller.update(frame)
+                            if last_control.status == "reached" and pickup_controller is not None:
+                                pickup_controller.start(last_control.observation)
+                                last_control = pickup_controller.update()
+                        active_label = "Pickup" if last_control.status.startswith("pickup_") else label
                         status_key = (last_control.status, last_control.diagnostic)
                         if status_key != last_status:
                             error = (f"{last_control.position_error:.4f} m"
@@ -128,18 +172,19 @@ class Simulation:
                             clearance = (f"{last_control.minimum_clearance:.4f} m"
                                          if math.isfinite(last_control.minimum_clearance) else "not evaluated")
                             details = f" | {last_control.diagnostic}" if last_control.diagnostic else ""
-                            print(f"{label}: {last_control.status} | error {error} | "
+                            print(f"{active_label}: {last_control.status} | error {error} | "
                                   f"clearance {clearance}{details}", flush=True)
                             last_status = status_key
                         next_control_update = self.interface.timestamp + controller.control_dt
-                        observation = last_control.observation
+                        observation = (processor.process(frame) if last_control.status.startswith("pickup_")
+                                       else last_control.observation)
                     else:
                         observation = processor.process(frame)
                     rgb = processor.annotate(frame.rgb, observation, frame.intrinsics)
                     if last_control is not None:
                         error = (f"{last_control.position_error:.3f} m"
                                  if math.isfinite(last_control.position_error) else "unavailable")
-                        cv2.putText(rgb, f"{label}: {last_control.status} | error {error}",
+                        cv2.putText(rgb, f"{active_label}: {last_control.status} | error {error}",
                                     (12, 48), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                     else:
                         cv2.putText(rgb, "Controller OFF: restart with --servo", (12, 48),
@@ -160,12 +205,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="simulation experiment JSON file")
     parser.add_argument("--controller-config", default=str(DEFAULT_CONTROLLER_CONFIG_PATH), help="controller selection JSON file")
+    parser.add_argument("--noise-config", default=str(DEFAULT_NOISE_CONFIG_PATH), help="simulation measurement noise JSON file")
+    parser.add_argument("--no-noise", action="store_true", help="disable measurement noise for this run")
     parser.add_argument("--headless", action="store_true", help="run without a viewer")
     parser.add_argument("--camera", action="store_true", help="show a wrist-camera RGB window alongside the model viewer")
     parser.add_argument("--steps", type=int, default=1000, help="headless simulation steps")
     parser.add_argument("--servo", action="store_true", help="approach the detected cube using the selected controller mode")
+    parser.add_argument("--pick", action="store_true", help="approach, descend, close the gripper, and lift the movable cube (implies --servo)")
     parser.add_argument("--tool-clearance", type=float, default=None, help="override controller config tool standoff in meters (minimum 0.16)")
     args = parser.parse_args()
+    args.servo = args.servo or args.pick
     if args.steps < 0:
         parser.error("--steps must be non-negative")
     if args.headless and args.camera:
@@ -173,14 +222,17 @@ def main() -> None:
     try:
         config = SimulationConfig.load(args.config)
         controller_config = ControllerConfig.load(args.controller_config)
+        noise_config = NoiseConfig.load(args.noise_config)
+        if args.no_noise:
+            noise_config = replace(noise_config, enabled=False)
         if args.tool_clearance is not None:
-            from dataclasses import replace
-
             controller_config = replace(controller_config, tool_clearance=args.tool_clearance)
     except (OSError, ValueError) as error:
         parser.error(str(error))
-    simulation = Simulation(config=config, controller_config=controller_config)
+    simulation = Simulation(config=config, controller_config=controller_config, pickup=args.pick,
+                            noise_config=noise_config)
     print(f"Experiment cube position (world meters): {config.cube_position}", flush=True)
+    print(f"Measurement noise: {'ON' if noise_config.enabled else 'OFF'} (seed {noise_config.seed})", flush=True)
     if args.servo:
         print(f"Controller mode: {controller_config.mode}", flush=True)
     if args.headless:
