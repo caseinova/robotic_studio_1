@@ -11,6 +11,7 @@ import numpy as np
 import mujoco
 
 from controller import ApproachController
+from kinematics import MujocoKinematics
 from controller_config import ControllerConfig
 from simulate import Simulation
 from simulation_config import SimulationConfig
@@ -33,7 +34,7 @@ class ControllerConfigTests(unittest.TestCase):
     def test_pure_pbvs_bypasses_mpc_and_collision_queries(self):
         config = ControllerConfig(mode="pure_pbvs")
         simulation = Simulation(controller_config=config)
-        controller = ApproachController(simulation.robot, simulation.interface, controller_config=config)
+        controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot), controller_config=config)
         self.assertIsNone(controller.mpc)
         frame = simulation.robot.capture_rgbd()
         with patch("controller.JointSpaceMPC.solve", side_effect=AssertionError("MPC must not run")), \
@@ -61,7 +62,7 @@ class ControllerConfigTests(unittest.TestCase):
             config=SimulationConfig(cube_position=[-0.079, 0.432, 0.05]),
             controller_config=settings,
         )
-        controller = ApproachController(simulation.robot, simulation.interface, controller_config=settings)
+        controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot), controller_config=settings)
         with mujoco.Renderer(simulation.robot.model, height=480, width=640) as renderer:
             for _ in range(200):
                 simulation.step(25)

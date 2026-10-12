@@ -48,7 +48,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_obstacle_constraints_override_pbvs_reference(self):
         robot = self._obstacle_robot()
-        controller = ApproachController(robot, MujocoInterface(robot))
+        controller = ApproachController(MujocoInterface(robot), MujocoKinematics(robot))
         result = controller.update(robot.capture_rgbd())
         self.assertEqual(result.status, "tracking")
         q = robot.joint_positions
@@ -76,7 +76,7 @@ class ControllerTests(unittest.TestCase):
     def test_actual_motion_preserves_clearance_with_blocking_obstacle(self):
         robot = self._obstacle_robot()
         simulation = Simulation(robot)
-        controller = ApproachController(robot, simulation.interface)
+        controller = ApproachController(simulation.interface, MujocoKinematics(robot))
         minimum = np.inf
         with mujoco.Renderer(robot.model, height=480, width=640) as renderer:
             for _ in range(100):
@@ -105,7 +105,7 @@ class ControllerTests(unittest.TestCase):
     def test_target_loss_and_stale_frames_stop(self):
         robot = RobotModel()
         interface = MujocoInterface(robot)
-        controller = ApproachController(robot, interface)
+        controller = ApproachController(interface, MujocoKinematics(robot))
         frame = robot.capture_rgbd()
         controller.update(frame)
         for unusable in (replace(frame, rgb=np.full_like(frame.rgb, 255)),
@@ -125,7 +125,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_initial_clearance_violation_stops(self):
         robot = self._obstacle_robot(offset=0.045)
-        controller = ApproachController(robot, MujocoInterface(robot))
+        controller = ApproachController(MujocoInterface(robot), MujocoKinematics(robot))
         result = controller.update(robot.capture_rgbd())
         self.assertEqual(result.status, "clearance_violation")
         np.testing.assert_array_equal(result.command_velocity, np.zeros(6))
@@ -167,7 +167,10 @@ class ControllerTests(unittest.TestCase):
     @staticmethod
     def _obstacle_robot(offset=0.065):
         robot = RobotModel()
-        center = robot.data.geom_xpos[29] + [0, 0, -offset]
+        # Place the obstacle below the new tool envelope, rather than inside
+        # the gripper added beyond the wrist.
+        palm = robot.model.geom("gripper_palm").id
+        center = robot.data.geom_xpos[palm] + [0, 0, -offset]
         spec = mujoco.MjSpec.from_file(str(robot.model_path))
         body = spec.worldbody.add_body(name="test_obstacle", pos=center)
         body.add_geom(name="test_obstacle_geom", type=mujoco.mjtGeom.mjGEOM_SPHERE, size=[0.02, 0, 0])

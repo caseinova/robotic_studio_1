@@ -10,6 +10,7 @@ import numpy as np
 
 from camera_processing import CameraProcessor
 from controller import ApproachController
+from kinematics import MujocoKinematics
 from simulation_config import SimulationConfig
 from simulate import Simulation
 
@@ -21,7 +22,7 @@ class SimulationConfigTests(unittest.TestCase):
         observation = CameraProcessor().process(simulation.robot.capture_rgbd())
         self.assertIsNotNone(observation)
         np.testing.assert_allclose(observation.world_from_cube[:3, 3], config.cube_position, atol=0.001)
-        controller = ApproachController(simulation.robot, simulation.interface,
+        controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot),
                                         tool_clearance=simulation.config.tool_clearance)
         cube_id = simulation.robot.model.body("cube").id
         np.testing.assert_allclose(controller.kinematics.data.xpos[cube_id], config.cube_position)
