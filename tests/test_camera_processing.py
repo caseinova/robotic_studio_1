@@ -53,6 +53,8 @@ class CameraProcessingTests(unittest.TestCase):
         self.assertIsNotNone(processor.process(self.frame))
         blank = replace(self.frame, rgb=np.full_like(self.frame.rgb, 255))
         self.assertIsNone(processor.process(blank))
+        self.assertEqual(processor.last_status, "tag_not_detected")
+        self.assertIsNone(processor.last_marker_corners)
         self.assertIsNone(CameraProcessor(marker_id=1).process(self.frame))
 
     def test_invalid_depth_is_rejected(self):
@@ -61,6 +63,7 @@ class CameraProcessingTests(unittest.TestCase):
             with self.subTest(depth=value):
                 frame = replace(self.frame, depth=np.full_like(self.frame.depth, value))
                 self.assertIsNone(processor.process(frame))
+                self.assertEqual(processor.last_status, "insufficient_valid_tag_depth")
 
     def test_inconsistent_depth_is_rejected(self):
         # Wrong metric scale cannot fit the known 80 mm tag dimensions.
