@@ -7,12 +7,26 @@ from contextlib import ExitStack
 from dataclasses import replace
 
 import mujoco
+import numpy as np
 
 from interface import MujocoInterface
 from robot_model import RobotModel
 from simulation_config import DEFAULT_CONFIG_PATH, SimulationConfig
 from controller_config import DEFAULT_CONTROLLER_CONFIG_PATH, ControllerConfig
 from noise_config import DEFAULT_NOISE_CONFIG_PATH, NoiseConfig
+from estimator import DEFAULT_ESTIMATOR_CONFIG_PATH, EKFConfig
+
+
+def _pickup_observation(result):
+    """Hand the picker the same filtered target used by the approach."""
+    observation, estimate = result.observation, result.pose_estimate
+    if observation is None or estimate is None:
+        return observation
+    # The marker/cube offset is fixed by perception's geometric model.
+    cube_from_marker = np.linalg.inv(observation.camera_from_cube) @ observation.camera_from_marker
+    return replace(observation, camera_from_cube=estimate.camera_from_cube.copy(),
+                   camera_from_marker=estimate.camera_from_cube @ cube_from_marker,
+                   world_from_cube=estimate.world_from_cube.copy())
 
 
 class Simulation:
@@ -20,10 +34,11 @@ class Simulation:
 
     def __init__(self, robot: RobotModel | None = None, *, config: SimulationConfig | None = None,
                  controller_config: ControllerConfig | None = None, pickup: bool = False,
-                 noise_config: NoiseConfig | None = None):
+                 noise_config: NoiseConfig | None = None, estimator_config: EKFConfig | None = None):
         self.robot = robot if robot is not None else RobotModel()
         self.config = config if config is not None else SimulationConfig()
         self.controller_config = controller_config or ControllerConfig()
+        self.estimator_config = estimator_config or EKFConfig()
         # Preserve an explicitly supplied custom model unless settings are supplied.
         if robot is None or config is not None:
             cube_id = mujoco.mj_name2id(self.robot.model, mujoco.mjtObj.mjOBJ_BODY, "cube")
@@ -74,7 +89,8 @@ class Simulation:
         if isinstance(steps, bool) or not isinstance(steps, int) or steps < 0:
             raise ValueError("steps must be a non-negative integer")
         controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
-                                        controller_config=self.controller_config)
+                                        controller_config=self.controller_config,
+                                        estimator_config=self.estimator_config)
         pickup_controller = (CubePickupController(self.interface, controller.kinematics)
                              if self.pickup else None)
         next_update, result = 0.0, None
@@ -87,7 +103,7 @@ class Simulation:
                         else:
                             result = controller.update()
                             if result.status == "reached" and pickup_controller is not None:
-                                pickup_controller.start(result.observation)
+                                pickup_controller.start(_pickup_observation(result))
                                 result = pickup_controller.update()
                         next_update = self.interface.timestamp + controller.control_dt
                         if (result.status == "reached"
@@ -114,7 +130,8 @@ class Simulation:
             from controller import ApproachController, CubePickupController, MujocoKinematics
 
             controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
-                                            controller_config=self.controller_config)
+                                            controller_config=self.controller_config,
+                                            estimator_config=self.estimator_config)
             if self.pickup:
                 pickup_controller = CubePickupController(self.interface, controller.kinematics)
             camera = True
@@ -162,7 +179,7 @@ class Simulation:
                         else:
                             last_control = controller.update(frame)
                             if last_control.status == "reached" and pickup_controller is not None:
-                                pickup_controller.start(last_control.observation)
+                                pickup_controller.start(_pickup_observation(last_control))
                                 last_control = pickup_controller.update()
                         active_label = "Pickup" if last_control.status.startswith("pickup_") else label
                         status_key = (last_control.status, last_control.diagnostic)
@@ -206,6 +223,7 @@ def main() -> None:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="simulation experiment JSON file")
     parser.add_argument("--controller-config", default=str(DEFAULT_CONTROLLER_CONFIG_PATH), help="controller selection JSON file")
     parser.add_argument("--noise-config", default=str(DEFAULT_NOISE_CONFIG_PATH), help="simulation measurement noise JSON file")
+    parser.add_argument("--estimator-config", default=str(DEFAULT_ESTIMATOR_CONFIG_PATH), help="relative pose EKF JSON file")
     parser.add_argument("--no-noise", action="store_true", help="disable measurement noise for this run")
     parser.add_argument("--headless", action="store_true", help="run without a viewer")
     parser.add_argument("--camera", action="store_true", help="show a wrist-camera RGB window alongside the model viewer")
@@ -223,6 +241,7 @@ def main() -> None:
         config = SimulationConfig.load(args.config)
         controller_config = ControllerConfig.load(args.controller_config)
         noise_config = NoiseConfig.load(args.noise_config)
+        estimator_config = EKFConfig.load(args.estimator_config)
         if args.no_noise:
             noise_config = replace(noise_config, enabled=False)
         if args.tool_clearance is not None:
@@ -230,11 +249,12 @@ def main() -> None:
     except (OSError, ValueError) as error:
         parser.error(str(error))
     simulation = Simulation(config=config, controller_config=controller_config, pickup=args.pick,
-                            noise_config=noise_config)
+                            noise_config=noise_config, estimator_config=estimator_config)
     print(f"Experiment cube position (world meters): {config.cube_position}", flush=True)
     print(f"Measurement noise: {'ON' if noise_config.enabled else 'OFF'} (seed {noise_config.seed})", flush=True)
     if args.servo:
         print(f"Controller mode: {controller_config.mode}", flush=True)
+        print(f"Relative pose EKF: {'ON' if estimator_config.enabled else 'OFF'}", flush=True)
     if args.headless:
         if args.servo:
             result = simulation.run_controlled(args.steps, tool_clearance=args.tool_clearance)
