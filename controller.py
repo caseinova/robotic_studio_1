@@ -19,6 +19,7 @@ from camera_processing import CameraProcessor, CubeObservation
 from controller_config import ControllerConfig
 from robot_state import RGBDFrame
 from kinematics import MujocoKinematics, inverse_pose
+from estimator import EKFConfig, RelativePoseEKF, RelativePoseEstimate
 
 if TYPE_CHECKING:
     from interface import RobotInterface
@@ -185,6 +186,7 @@ class ControlResult:
     rotation_error: float
     minimum_clearance: float
     diagnostic: str = ""
+    pose_estimate: RelativePoseEstimate | None = None
 
 
 class ApproachController:
@@ -192,9 +194,12 @@ class ApproachController:
 
     def __init__(self, interface: "RobotInterface", kinematics: MujocoKinematics, *,
                  tool_clearance: float | None = None, config: MPCConfig | None = None,
-                 controller_config: ControllerConfig | None = None):
+                 controller_config: ControllerConfig | None = None,
+                 estimator_config: EKFConfig | None = None):
         self.interface = interface
         self.processor = CameraProcessor()
+        self.estimator = RelativePoseEKF(estimator_config)
+        self.pose_estimate = None
         self.kinematics = kinematics
         self.settings = controller_config or ControllerConfig()
         if tool_clearance is not None:
@@ -221,8 +226,15 @@ class ApproachController:
         self.kinematics.synchronize(state)
         observation = self.processor.process(frame)
         now = self.interface.timestamp
-        stale_frame = abs(now - frame.timestamp) > 2 * self.control_dt
+        if self.estimator.timestamp is not None and now < self.estimator.timestamp:
+            self.estimator.reset()  # Simulation/interface clock was restarted.
+        out_of_order = (self.estimator.config.enabled and self.estimator.timestamp is not None
+                        and frame.timestamp < self.estimator.timestamp)
+        stale_frame = abs(now - frame.timestamp) > 2 * self.control_dt or out_of_order
         stale_state = abs(now - state.timestamp) > 2 * self.control_dt
+        self.pose_estimate = None
+        if self.estimator.config.enabled and not stale_frame and not stale_state:
+            self.pose_estimate = self.estimator.step(frame, observation)
         if observation is None or stale_frame or stale_state:
             self.interface.set_joint_velocities(np.zeros(6))
             if self.mpc is not None:
@@ -232,6 +244,15 @@ class ApproachController:
                                  diagnostic=("stale_rgbd_frame" if stale_frame
                                              else "stale_robot_state" if stale_state
                                              else self.processor.last_status))
+        if self.estimator.config.enabled and (self.pose_estimate is None
+                                             or not self.pose_estimate.measurement_accepted):
+            self.interface.set_joint_velocities(np.zeros(6))
+            if self.mpc is not None:
+                self.mpc.reset()
+            return ControlResult(observation, np.zeros(6), np.zeros(6), "target_lost_or_stale",
+                                 np.inf, np.inf, np.inf,
+                                 diagnostic="ekf_" + self.estimator.last_status,
+                                 pose_estimate=self.pose_estimate)
         positions = state.joint_positions
         minimum = (float(np.min(self.kinematics.distances(positions), initial=np.inf))
                    if self.mpc is not None else np.nan)
@@ -241,14 +262,19 @@ class ApproachController:
             return ControlResult(observation, np.zeros(6), np.zeros(6), "clearance_violation",
                                  np.inf, np.inf, minimum)
         jacobian = self.kinematics.camera_jacobian(positions)
-        reference, error = self.pbvs.reference(observation.camera_from_marker, jacobian)
+        camera_from_marker = observation.camera_from_marker
+        if self.pose_estimate is not None:
+            cube_from_marker = np.eye(4)
+            cube_from_marker[2, 3] = self.processor.cube_size / 2 + self.processor.label_offset
+            camera_from_marker = self.pose_estimate.camera_from_cube @ cube_from_marker
+        reference, error = self.pbvs.reference(camera_from_marker, jacobian)
         position_error, rotation_error = np.linalg.norm(error[:3]), np.linalg.norm(error[3:])
         if position_error < 0.003 and rotation_error < 0.025:
             self.interface.set_joint_velocities(np.zeros(6))
             if self.mpc is not None:
                 self.mpc.reset()
             return ControlResult(observation, reference, np.zeros(6), "reached",
-                                 position_error, rotation_error, minimum)
+                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate)
         if self.mpc is None:
             # Direct PBVS: basic speed/joint bounds, with no collision optimizer.
             limit = self.limits_config.velocity_limit
@@ -263,11 +289,12 @@ class ApproachController:
                 status = "tracking"
             self.interface.set_joint_velocities(command)
             return ControlResult(observation, reference, command, status,
-                                 position_error, rotation_error, minimum)
+                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate)
         solution = self.mpc.solve(positions, state.joint_velocities, reference)
         self.interface.set_joint_velocities(solution.velocity)
         return ControlResult(observation, reference, solution.velocity, solution.status,
-                             position_error, rotation_error, solution.minimum_clearance)
+                             position_error, rotation_error, solution.minimum_clearance,
+                             pose_estimate=self.pose_estimate)
 
 
 class CubePickupController:
@@ -300,8 +327,7 @@ class CubePickupController:
         self.phase = "idle"
         self.diagnostic = ""
         self._phase_started = 0.0
-        self._last_width = None
-        self._width_stable_since = 0.0
+        self._width_history = []
         self._entry_pose = None
         self._descent_pose = None
         self._pose_integral = np.zeros(6)
@@ -394,15 +420,12 @@ class CubePickupController:
 
         if self.phase == "closing":
             self.interface.set_joint_velocities(np.zeros(6))
-            if abs(state.gripper_width - self._last_width) > 0.0005:
-                self._width_stable_since = now
-            self._last_width = state.gripper_width
+            width, settled = self._gripper_settling(now, state.gripper_width)
             elapsed = now - self._phase_started
             if elapsed >= 0.5:
-                if state.gripper_width < self.cube_size * 0.5:
+                if width < self.cube_size * 0.5:
                     self._fail("empty_grasp")
-                elif (state.gripper_width <= self.cube_size * 1.15
-                      and now - self._width_stable_since >= 0.3):
+                elif width <= self.cube_size * 1.15 and settled:
                     self._change_phase("lifting", now)
             return self._result()
 
@@ -418,9 +441,8 @@ class CubePickupController:
             self.interface.set_joint_velocities(np.zeros(6))
             if self.phase == "descending":
                 self.interface.close_gripper()
-                self._last_width = state.gripper_width
-                self._width_stable_since = now
                 self._change_phase("closing", now)
+                self._gripper_settling(now, state.gripper_width)
             else:
                 # Hold a fixed joint position after lifting, including the
                 # payload load, instead of leaving zero-velocity servos free
@@ -476,10 +498,31 @@ class CubePickupController:
         distances = self.kinematics.distances(positions)
         return float(np.min(distances[self._collision_indices], initial=np.inf))
 
+    def _gripper_settling(self, now, width) -> tuple[float, bool]:
+        """Estimate finger motion over 0.5 s instead of comparing noisy pairs.
+
+        A median width supports the grasp check. A fitted width trend below
+        2 mm/s indicates settling, even when individual encoder samples jitter.
+        Repeated updates at one timestamp do not count as new measurements.
+        """
+        if not self._width_history or now > self._width_history[-1][0]:
+            self._width_history.append((now, width))
+        self._width_history = [(t, w) for t, w in self._width_history
+                               if t >= now - 0.5 - 1e-9]
+        times, widths = np.asarray(self._width_history).T
+        measured_width = float(np.median(widths))
+        if len(times) < 5 or times[-1] - times[0] < 0.5 - 1e-9:
+            return measured_width, False
+        centered_times = times - times.mean()
+        width_speed = float(centered_times @ (widths - widths.mean())
+                            / (centered_times @ centered_times))
+        return measured_width, abs(width_speed) <= 0.002
+
     def _change_phase(self, phase, now) -> None:
         self.phase = phase
         self._phase_started = now
         self._pose_integral[:] = 0
+        self._width_history.clear()
 
     def _fail(self, reason) -> None:
         self.phase = "failed"
