@@ -177,6 +177,82 @@ and nonadjacent robot links, while finger opening remains separately commanded.
 The scene cube remains fixed in approach-only runs. Pickup runs use a movable
 version of the scene so the gripper can lift it through physical contact.
 
+## Relative pose EKF
+
+`estimator.py` provides `RelativePoseEKF`, an error-state extended Kalman
+filter for a translating and rotating cube. The CLI loads
+`estimator_config.json` (`--estimator-config path.json` selects another file).
+`enabled` controls whether the approach controller uses the EKF; set it to
+false to use the raw camera pose. Python callers can pass `EKFConfig` to
+`Simulation` or `ApproachController` through `estimator_config`.
+
+The filter's nominal state contains world-frame cube position, rotation,
+linear velocity, and angular velocity. Prediction uses constant velocity:
+`p_next = p + v*dt`, `R_next = Exp(omega*dt) @ R`. Acceleration process noise
+allows these velocities to change. The 12-dimensional error state is
+`[position error, rotation error, linear velocity error, angular velocity error]`.
+Camera measurements correct position and orientation; velocities are inferred
+over multiple frames. Rotation innovations use the SO(3) logarithm, avoiding
+Euler-angle wraparound. Covariance uses a Joseph update and an orientation
+error reset after injection. This follows the error-state formulation described
+by [Solà](https://arxiv.org/abs/1711.02508).
+
+Perception supplies `camera_from_cube`; the interface supplies the measured
+`world_from_camera` for that exposure. Their product is a world-frame cube
+measurement, so robot/camera movement is separated from cube movement. The
+filter then converts its world estimate back to the current optical camera
+frame. It consumes measurements only, with no access to MuJoCo object truth.
+Camera extrinsic uncertainty is approximated in the configured pose measurement
+noise; encoder biases and correlated errors are not separately estimated.
+
+The returned `RelativePoseEstimate` includes:
+
+- `cube_from_camera`: camera pose expressed in the cube frame, as requested.
+- `camera_from_cube`: inverse transform, used for PBVS.
+- `world_from_cube`, estimated world linear/angular velocity, and 12x12
+  world error covariance.
+- Measurement timestamp, acceptance flag, and status.
+
+The approach controller exposes the estimate as `pose_estimate`, also carried
+by successful `ControlResult` values. It converts the filtered cube pose back
+to the marker pose before computing PBVS. `ControlResult.observation` retains
+the raw perception output and segmentation; camera annotations still show
+that raw measurement. Pickup latches the filtered target at handoff when the
+EKF is enabled (the raw target otherwise);
+tracking a moving cube during descent is not implemented by the picker.
+
+The position/orientation measurement standard deviations are in meters/radians
+and describe the full pose estimate, rather than individual depth pixels.
+Acceleration settings are continuous noise densities (m/s^(3/2) and
+rad/s^(3/2)); increasing them makes the filter respond faster to changes in
+cube motion, at the cost of less smoothing. Initial velocity uncertainties
+are in m/s and rad/s. `innovation_gate` limits the squared Mahalanobis
+innovation distance. Tune these for the camera and expected object motion.
+
+`predict()` supports short detection gaps up to `max_prediction_age` (default
+0.3 s). Afterwards it returns `None`, and a subsequent measurement starts a
+new track. The controller still stops on missing/stale/rejected measurements;
+it does not command motion from prediction alone. Repeated exposure timestamps
+are not fused twice. Call `reset()` after restarting an interface clock.
+
+```python
+from camera_processing import CameraProcessor
+from estimator import EKFConfig, RelativePoseEKF
+
+processor = CameraProcessor()
+ekf = RelativePoseEKF(EKFConfig.load())
+frame = interface.capture_rgbd()
+observation = processor.process(frame)
+estimate = ekf.step(frame, observation)
+if estimate is not None:
+    camera_pose_in_cube = estimate.cube_from_camera
+```
+
+The simulation cube remains stationary unless the experiment moves it. The
+EKF's moving-target tests exercise simultaneous camera translation/rotation
+and cube translation/rotation, noisy poses, dropouts, and pose outliers.
+Headless approach runs still stop when the target is reached.
+
 ## Cube pickup
 
 ```powershell
@@ -186,8 +262,7 @@ venv/Scripts/python.exe simulate.py --headless --pick --steps 15000
 
 `--pick` enables the selected approach controller, then hands off its final
 cube observation to `CubePickupController` in `controller.py`. `--servo`
-continues to run only the approach. The existing controller classes are
-unchanged.
+continues to run only the approach.
 
 The new class contains the complete pickup sequence: open, descend in world
 Z while holding X/Y and orientation, close, wait for the measured finger
@@ -210,6 +285,11 @@ keeping 20 mm clearance except for intentional finger/cube contact. A blocked
 path stops the sequence instead of planning a detour. Stale measurements,
 joint-limit violations, timeouts, and empty/lost grasps also stop the arm.
 Width settling is a grasp heuristic, not force or slip sensing.
+During closing, the controller uses the median opening and a fitted width
+trend over 0.5 seconds. A trend below 2 mm/s indicates settling; individual
+noisy readings no longer reset a consecutive-sample timer. The window must
+contain at least five distinct acquisitions. Empty grasps still stop the
+sequence, and fingers that continue closing do not trigger the lift.
 
 Only pickup scenes give the cube a free joint and use elliptic contacts with
 increased tangential stiffness. The cube is never welded to the robot; the
@@ -279,5 +359,53 @@ state = simulation.interface.read_state()  # Noisy feedback, clean physics.
 ```
 
 Only the MuJoCo adapter injects synthetic noise; hardware adapters return their
-real measurements. There is no new state estimator or filtering, actuator
-disturbance model, communication delay/dropout, or calibration perturbation.
+real measurements. The relative pose EKF filters the camera target downstream
+of this interface. The noise module does not add actuator disturbances,
+communication delays/dropouts, or calibration perturbations.
+
+## Simulation plots
+
+`plots.py` provides `SimulationPlots`. Simulation records every control update
+in `simulation.plots`, including approach, target loss, and pickup. Samples use
+interface joint position/velocity measurements and a separate FK/Jacobian
+workspace. Recording does not read simulator ground truth, send commands, or
+alter the controller's prediction workspace.
+
+To show live plots alongside the model and camera:
+
+```powershell
+py simulate.py --servo --plots
+py simulate.py --pick --plots
+```
+
+To export without opening plot windows:
+
+```powershell
+py simulate.py --headless --servo --plots --steps 6000
+py simulate.py --servo --plot-dir results/test_01
+```
+
+`--plots` saves to `simulation_plots` after the run ends; `--plot-dir` selects
+another output directory and enables export. Headless mode exports without a
+GUI backend. The generated files are:
+
+- `trajectory.png`: measured camera and tool flange paths in world coordinates,
+  plus the estimated cube path when an observation is available.
+- `linear_velocity.png`: camera X/Y/Z linear velocity, in m/s.
+- `angular_velocity.png`: camera X/Y/Z angular velocity, in rad/s.
+- `trajectory.csv`: all plotted values, controller status, elapsed simulation
+  time, and absolute interface timestamps. Positions use meters; velocity
+  columns use m/s and rad/s as above.
+
+The velocity figures compare measured motion, the PBVS joint reference, and
+the applied joint command after mapping all three through the camera Jacobian
+into world axes. Measured velocity comes from `J(q) @ measured_joint_velocity`,
+not numerical differentiation of noisy positions. With MPC enabled, its applied
+command may differ from the PBVS reference. Pickup samples retain measured and
+commanded motion but leave the PBVS reference blank because pickup uses a
+separate controller.
+
+Matplotlib is included in `requirements.txt`. Python callers can export after
+`run_controlled()` with `simulation.plots.save("results/test_01")`, inspect the
+owned arrays in `simulation.plots.data`, and release figure resources with
+`simulation.plots.close()`. Simulation reset clears the recorded history.

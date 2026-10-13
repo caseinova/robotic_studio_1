@@ -15,6 +15,7 @@ from simulation_config import DEFAULT_CONFIG_PATH, SimulationConfig
 from controller_config import DEFAULT_CONTROLLER_CONFIG_PATH, ControllerConfig
 from noise_config import DEFAULT_NOISE_CONFIG_PATH, NoiseConfig
 from estimator import DEFAULT_ESTIMATOR_CONFIG_PATH, EKFConfig
+from plots import SimulationPlots
 
 
 def _pickup_observation(result):
@@ -66,10 +67,21 @@ class Simulation:
             self.robot.data = mujoco.MjData(self.robot.model)
             self.robot.reset()
         self.interface = MujocoInterface(self.robot, noise_config=noise_config)
+        self.plots = SimulationPlots()
+        self._plot_kinematics = None
+
+    def _record_control(self, result):
+        """Reconstruct measured motion in a separate telemetry workspace."""
+        from kinematics import MujocoKinematics
+
+        if self._plot_kinematics is None:
+            self._plot_kinematics = MujocoKinematics(self.robot)
+        self.plots.record(self.interface.read_state(), self._plot_kinematics, result)
 
     def reset(self) -> None:
         self.robot.reset()
         self.interface.reset_noise()
+        self.plots.reset()
         # Reset targets are model commands, not noisy measurements of home.
         targets = self.robot.model.key("home").ctrl[self.robot.actuator_ids].copy()
         self.interface.set_joint_positions(targets)
@@ -91,6 +103,7 @@ class Simulation:
         controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
                                         controller_config=self.controller_config,
                                         estimator_config=self.estimator_config)
+        self.plots.reset()
         pickup_controller = (CubePickupController(self.interface, controller.kinematics)
                              if self.pickup else None)
         next_update, result = 0.0, None
@@ -105,6 +118,7 @@ class Simulation:
                             if result.status == "reached" and pickup_controller is not None:
                                 pickup_controller.start(_pickup_observation(result))
                                 result = pickup_controller.update()
+                        self._record_control(result)
                         next_update = self.interface.timestamp + controller.control_dt
                         if (result.status == "reached"
                                 or pickup_controller is not None and pickup_controller.finished):
@@ -116,7 +130,7 @@ class Simulation:
         return result
 
     def launch_viewer(self, *, camera: bool = False, servo: bool = False,
-                      tool_clearance: float | None = None) -> None:
+                      tool_clearance: float | None = None, plots: bool = False) -> None:
         """Show the model overview and optionally a separate wrist RGB window.
 
         Close either window, or press Q/Escape in the camera window, to stop.
@@ -124,6 +138,9 @@ class Simulation:
         import mujoco.viewer
 
         servo = servo or self.pickup
+        if plots and not servo:
+            raise ValueError("plots require --servo or --pick")
+        self.plots.reset()
         controller = None
         pickup_controller = None
         if servo:
@@ -140,6 +157,8 @@ class Simulation:
         with ExitStack() as stack:
             if controller is not None:
                 stack.callback(self.interface.set_joint_velocities, [0.0] * 6)
+            if plots:
+                self.plots.start_live()
             cv2 = None
             if camera:
                 import cv2
@@ -157,6 +176,7 @@ class Simulation:
                 stack.callback(cv2.destroyWindow, window_name)
             next_camera_frame = 0.0
             next_control_update = 0.0
+            next_plot_refresh = 0.0
             last_control = None
             last_status = None
             # Rendering/optimization can cost more than one 2 ms physics step.
@@ -181,6 +201,10 @@ class Simulation:
                             if last_control.status == "reached" and pickup_controller is not None:
                                 pickup_controller.start(_pickup_observation(last_control))
                                 last_control = pickup_controller.update()
+                        self._record_control(last_control)
+                        if plots and time.perf_counter() >= next_plot_refresh:
+                            self.plots.refresh()
+                            next_plot_refresh = time.perf_counter() + 0.5
                         active_label = "Pickup" if last_control.status.startswith("pickup_") else label
                         status_key = (last_control.status, last_control.diagnostic)
                         if status_key != last_status:
@@ -227,6 +251,8 @@ def main() -> None:
     parser.add_argument("--no-noise", action="store_true", help="disable measurement noise for this run")
     parser.add_argument("--headless", action="store_true", help="run without a viewer")
     parser.add_argument("--camera", action="store_true", help="show a wrist-camera RGB window alongside the model viewer")
+    parser.add_argument("--plots", action="store_true", help="show live control plots in viewer mode and save PNG/CSV results")
+    parser.add_argument("--plot-dir", default=None, help="save control plots and CSV to this directory (enables export)")
     parser.add_argument("--steps", type=int, default=1000, help="headless simulation steps")
     parser.add_argument("--servo", action="store_true", help="approach the detected cube using the selected controller mode")
     parser.add_argument("--pick", action="store_true", help="approach, descend, close the gripper, and lift the movable cube (implies --servo)")
@@ -237,6 +263,8 @@ def main() -> None:
         parser.error("--steps must be non-negative")
     if args.headless and args.camera:
         parser.error("--camera requires a viewer; omit --headless")
+    if (args.plots or args.plot_dir is not None) and not args.servo:
+        parser.error("--plots/--plot-dir require --servo or --pick")
     try:
         config = SimulationConfig.load(args.config)
         controller_config = ControllerConfig.load(args.controller_config)
@@ -255,6 +283,19 @@ def main() -> None:
     if args.servo:
         print(f"Controller mode: {controller_config.mode}", flush=True)
         print(f"Relative pose EKF: {'ON' if estimator_config.enabled else 'OFF'}", flush=True)
+    # Export even if the viewer is interrupted, retaining the recorded run.
+    try:
+        _run_simulation(simulation, args)
+    finally:
+        if args.plots or args.plot_dir is not None:
+            paths = simulation.plots.save(args.plot_dir or "simulation_plots")
+            if paths:
+                print(f"Saved control plots and CSV to {paths[0].parent.resolve()}", flush=True)
+        simulation.plots.close()
+
+
+def _run_simulation(simulation, args):
+    """Run without mixing plot export and viewer/headless control flow."""
     if args.headless:
         if args.servo:
             result = simulation.run_controlled(args.steps, tool_clearance=args.tool_clearance)
@@ -270,7 +311,8 @@ def main() -> None:
         print(f"Simulated {simulation.interface.timestamp:.3f} seconds")
         print("Joint positions (radians):", simulation.interface.joint_positions)
     else:
-        simulation.launch_viewer(camera=args.camera, servo=args.servo, tool_clearance=args.tool_clearance)
+        simulation.launch_viewer(camera=args.camera, servo=args.servo,
+                                 tool_clearance=args.tool_clearance, plots=args.plots)
 
 
 if __name__ == "__main__":

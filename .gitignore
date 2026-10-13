@@ -2,3 +2,4 @@ venv/*
 mujoco/
 MJMODEL.TXT
 __pycache__/
+simulation_plots/

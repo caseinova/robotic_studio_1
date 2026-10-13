@@ -16,6 +16,7 @@ from robot_model import RobotModel
 from robot_state import RobotState
 from simulate import Simulation
 from simulation_config import SimulationConfig
+from noise_config import NoiseConfig
 
 
 class PickupTests(unittest.TestCase):
@@ -123,13 +124,60 @@ class PickupTests(unittest.TestCase):
         # Reproduce the measured result of fingers closing on empty space.
         controller.phase = "closing"
         controller._phase_started = 10.0
-        controller._last_width = 0.0
         interface.timestamp = 11.0
         interface.read_state.return_value = replace(state, timestamp=11.0, gripper_width=0.0)
         result = controller.update()
         self.assertEqual(result.status, "pickup_failed")
         self.assertEqual(result.diagnostic, "empty_grasp")
         np.testing.assert_array_equal(interface.set_joint_velocities.call_args.args[0], np.zeros(6))
+
+    def test_closing_accepts_noisy_settled_width_but_not_moving_fingers(self):
+        for moving in (False, True):
+            with self.subTest(moving=moving):
+                controller, interface, observation, state = self._recorded_pickup()
+                controller.start(observation)
+                controller._change_phase("closing", 10.0)
+                for i in range(21):
+                    now = 10.0 + 0.05 * i
+                    width = (0.114 - 0.005 * (now - 10.0) if moving
+                             else 0.10 + (0.001 if i % 2 else -0.001))
+                    interface.timestamp = now
+                    interface.read_state.return_value = replace(
+                        state, timestamp=now, gripper_width=width,
+                    )
+                    controller.update()
+                    if i < 10:
+                        self.assertEqual(controller.phase, "closing")
+                    if controller.phase == "lifting":
+                        break
+                self.assertEqual(controller.phase, "closing" if moving else "lifting")
+
+    def test_repeated_width_read_does_not_count_as_settling(self):
+        controller, interface, observation, state = self._recorded_pickup()
+        controller.start(observation)
+        controller._change_phase("closing", 10.0)
+        interface.timestamp = 11.0
+        interface.read_state.return_value = replace(state, timestamp=11.0, gripper_width=0.10)
+        for _ in range(20):
+            controller.update()
+        self.assertEqual(controller.phase, "closing")
+
+    def test_physical_pickup_with_noisy_measurements(self):
+        simulation = Simulation(
+            pickup=True, config=SimulationConfig(cube_position=[-0.079, 0.5, 0.05]),
+            controller_config=ControllerConfig(mode="pure_pbvs"),
+            noise_config=NoiseConfig(
+                enabled=True, seed=42, joint_position_std=0.003,
+                joint_velocity_std=0.01, gripper_width_std=0.001,
+                depth_std=0.002, depth_std_per_meter_squared=0.005,
+                depth_dropout_probability=0.01,
+            ),
+        )
+        result = simulation.run_controlled(20000)
+        self.assertEqual(result.status, "pickup_complete", result.diagnostic)
+        self.assertGreater(simulation.robot.data.body("cube").xpos[2], 0.14)
+        simulation.step(1000)
+        self.assertGreater(simulation.robot.data.body("cube").xpos[2], 0.13)
 
     def test_other_obstacle_contact_is_not_allowed(self):
         robot = RobotModel()

@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "position_measurement_std": 0.004,
   "orientation_measurement_std": 0.03,
   "linear_acceleration_noise": 0.05,
