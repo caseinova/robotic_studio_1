@@ -18,7 +18,9 @@ from scipy.optimize import minimize
 from camera_processing import CameraProcessor, TaggedCubeProcessor, CubeObservation, MarkerObservation
 from controller_config import ControllerConfig
 from robot_state import RGBDFrame
-from kinematics import MujocoKinematics, inverse_pose
+# Keep the existing MujocoKinematics import available for simulation callers;
+# importing its definition does not import MuJoCo or construct a model.
+from kinematics import Kinematics, MujocoKinematics, inverse_pose
 from estimator import EKFConfig, RelativePoseEKF, RelativePoseEstimate
 
 if TYPE_CHECKING:
@@ -97,7 +99,7 @@ class MPCSolution:
 class JointSpaceMPC:
     """Receding-horizon velocity tracking with hard clearance inequalities."""
 
-    def __init__(self, kinematics: MujocoKinematics, config: MPCConfig | None = None):
+    def __init__(self, kinematics: Kinematics, config: MPCConfig | None = None):
         self.kinematics = kinematics
         self.config = config or MPCConfig()
         n = self.config.horizon
@@ -198,7 +200,7 @@ class ControlResult:
 class ApproachController:
     """Detect the cube and move the tool above its tagged face, without grasping."""
 
-    def __init__(self, interface: "RobotInterface", kinematics: MujocoKinematics, *,
+    def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  tool_clearance: float | None = None, config: MPCConfig | None = None,
                  controller_config: ControllerConfig | None = None,
                  estimator_config: EKFConfig | None = None):
@@ -365,7 +367,7 @@ class CubePickupController:
     width settling indicates a possible grasp; it is not a force measurement.
     """
 
-    def __init__(self, interface: "RobotInterface", kinematics: MujocoKinematics, *,
+    def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  cube_size: float = 0.10, speed: float = 0.03,
                  control_dt: float = 0.05, phase_timeout: float = 20.0):
         for name, value in (("cube_size", cube_size), ("speed", speed),
@@ -389,17 +391,7 @@ class CubePickupController:
 
         # Existing prediction pairs remain untouched. Only the two finger/cube
         # pairs may make contact during pickup; the palm must stay clear.
-        model = kinematics.model
-        cube_body = model.body("cube").id
-        cube_geoms = set(np.flatnonzero(model.geom_bodyid == cube_body))
-        fingers = {model.geom(name).id for name in (
-            "gripper_left_geom", "gripper_right_geom"
-        )}
-        self._collision_indices = [
-            index for index, (a, b) in enumerate(kinematics.pairs)
-            if not ((a in fingers and b in cube_geoms)
-                    or (b in fingers and a in cube_geoms))
-        ]
+        self._collision_indices = kinematics.pickup_collision_indices()
 
     @property
     def finished(self) -> bool:
@@ -425,7 +417,7 @@ class CubePickupController:
         self.kinematics.synchronize(state)
         self._entry_pose = self.kinematics.tool_pose().copy()
         self._descent_pose = self._entry_pose.copy()
-        grasp_position = self.kinematics.data.site("grasp_site").xpos
+        grasp_position = self.kinematics.grasp_pose()[:3, 3]
         # Align the grasp site's height with the cube center. Keep flange X/Y
         # and orientation fixed, giving a vertical path in the world frame.
         cube_center = observation.world_from_cube[:3, 3]

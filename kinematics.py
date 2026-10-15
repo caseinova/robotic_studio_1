@@ -1,8 +1,7 @@
 """Prediction-only kinematics and collision geometry, independent of live I/O."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-import mujoco
 import numpy as np
 
 from robot_state import RobotState
@@ -18,6 +17,27 @@ def inverse_pose(transform):
     return result
 
 
+class Kinematics(Protocol):
+    """Calculations used by controllers; inputs come from RobotInterface.
+
+    Poses map local coordinates into world coordinates. Jacobians have linear
+    rows followed by angular rows, with columns in interface joint order.
+    Collision-pair ordering must remain stable over an MPC solve.
+    """
+
+    limits: tuple[np.ndarray, np.ndarray]
+    end_effector_marker_id: int
+    end_effector_marker_size: float
+    tool_from_end_effector_marker: np.ndarray
+
+    def synchronize(self, state: RobotState) -> None: ...
+    def tool_pose(self) -> np.ndarray: ...
+    def grasp_pose(self) -> np.ndarray: ...
+    def tool_jacobian(self, positions, *, local=False) -> np.ndarray: ...
+    def distances(self, positions, *, gradients=False): ...
+    def pickup_collision_indices(self) -> list[int]: ...
+
+
 class MujocoKinematics:
     """Independent model workspace for Jacobians and known-scene obstacles.
 
@@ -29,6 +49,8 @@ class MujocoKinematics:
     """
 
     def __init__(self, robot: "RobotModel"):
+        import mujoco
+
         # Only the model definition is shared. This workspace never reads the
         # simulator's live data; measured state arrives through synchronize().
         self.model = robot.model
@@ -89,6 +111,8 @@ class MujocoKinematics:
         self.set_positions(state.joint_positions)
 
     def set_positions(self, positions):
+        import mujoco
+
         self.data.qpos[self.q_indices] = positions
         mujoco.mj_forward(self.model, self.data)
 
@@ -104,12 +128,31 @@ class MujocoKinematics:
         pose[:3, 3] = self.data.site_xpos[self.tool_id]
         return pose
 
+    def grasp_pose(self):
+        site = self.data.site("grasp_site")
+        pose = np.eye(4)
+        pose[:3, :3] = site.xmat.reshape(3, 3)
+        pose[:3, 3] = site.xpos
+        return pose
+
+    def pickup_collision_indices(self):
+        """Keep all constraints except intended finger/target contact."""
+        cube_body = self.model.body("cube").id
+        cube_geoms = set(np.flatnonzero(self.model.geom_bodyid == cube_body))
+        fingers = {self.model.geom(name).id for name in (
+            "gripper_left_geom", "gripper_right_geom")}
+        return [i for i, (a, b) in enumerate(self.pairs)
+                if not ((a in fingers and b in cube_geoms)
+                        or (b in fingers and a in cube_geoms))]
+
     def tool_jacobian(self, positions, *, local=False):
         """Flange linear/angular velocity Jacobian in world or tool axes.
 
         Unlike camera_jacobian, this remains nonzero with a fixed camera.
         Positions come from interface measurements, not live simulator data.
         """
+        import mujoco
+
         self.set_positions(positions)
         translation, rotation = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
         mujoco.mj_jacSite(self.model, self.data, translation, rotation, self.tool_id)
@@ -118,6 +161,8 @@ class MujocoKinematics:
                           axes @ rotation[:, self.v_indices]))
 
     def camera_jacobian(self, positions):
+        import mujoco
+
         self.set_positions(positions)
         translation, rotation = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
         mujoco.mj_jac(self.model, self.data, translation, rotation,
@@ -127,6 +172,8 @@ class MujocoKinematics:
                           camera_from_world_rotation @ rotation[:, self.v_indices]))
 
     def distances(self, positions, *, gradients=False):
+        import mujoco
+
         self.set_positions(positions)
         distances = np.empty(len(self.pairs))
         derivatives = np.zeros((len(self.pairs), 6))

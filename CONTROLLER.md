@@ -27,16 +27,19 @@ The controller never reads live `RobotModel.data`. The responsibilities are:
 | --- | --- |
 | `interface.py` | Robot state, clock, RGBD acquisition, arm/gripper commands, resource cleanup |
 | `robot_state.py` | Backend-independent `RobotState` and `RGBDFrame` data |
-| `kinematics.py` | MuJoCo prediction workspace for Jacobians and collision distances |
+| `kinematics.py` | Shared calculation contract and MuJoCo prediction workspace |
+| `hardware_kinematics.py` | UR3 FK, Jacobians, and geometric constraints without MuJoCo |
 | `controller.py` | Camera processing, PBVS, and optional MPC |
 | `simulate.py` | Physics stepping, experiment scene configuration, and viewer windows |
+
+The UR3 backend and its calibration inputs are described in [HARDWARE.md](HARDWARE.md).
+Both the approach and pickup controllers accept either calculation backend.
 
 The controller reads one `RobotState` per update. The prediction workspace
 is synchronized from measured arm positions and gripper width; it does not
 copy the simulator's state. Finger positions are modeled symmetrically from
-the measured width and remain fixed during arm prediction. MuJoCo remains a
-prediction library when controlling hardware; no live physics simulation is
-required by the controller.
+the measured width and remain fixed during arm prediction. Hardware can use
+`UR3Kinematics` without MuJoCo; simulation uses `MujocoKinematics`.
 
 ```python
 from controller import ApproachController

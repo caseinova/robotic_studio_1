@@ -23,7 +23,9 @@ class RobotInterface(ABC):
     State and camera timestamps must share a monotonic clock in seconds.
     MuJoCo uses simulation time; hardware can use a monotonic host clock with
     camera/device timestamps mapped onto it. Camera poses use the model's
-    world frame and a calibrated camera-to-tool transform.
+    world frame and calibrated camera extrinsics. Geometry calculations live
+    behind kinematics.Kinematics (UR3Kinematics for hardware); this class owns
+    sensor/command communication, not a second robot-state prediction.
     """
 
     @abstractmethod
