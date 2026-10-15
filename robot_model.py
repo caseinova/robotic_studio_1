@@ -26,7 +26,10 @@ class RobotModel:
     estimators, rendering, and other simulation integrations.
     """
 
-    camera_name = "wrist_camera"
+    camera_name = "external_camera"
+    camera_names = ("external_camera",)
+    end_effector_marker_id = 1
+    end_effector_marker_size = 0.08  # black square side length, meters
     gripper_joint_names = ("gripper_left_joint", "gripper_right_joint")
     gripper_actuator_names = ("gripper_left", "gripper_right")
     gripper_max_width = 0.12  # meters between the inner finger faces
@@ -43,7 +46,10 @@ class RobotModel:
         "shoulder_pan", "shoulder_lift", "elbow", "wrist_1", "wrist_2", "wrist_3"
     )
 
-    def __init__(self, *, include_scene: bool = True):
+    def __init__(self, *, include_scene: bool = True, camera_name: str = "external_camera"):
+        if camera_name not in self.camera_names:
+            raise ValueError("camera_name must be external_camera")
+        self.camera_name = camera_name
         self.model_path = MODEL_DIRECTORY / (
             "scene.xml" if include_scene else "ur5e.xml"
         )
@@ -104,12 +110,12 @@ class RobotModel:
     def capture_image(
         self, *, width: int = 640, height: int = 480, depth: bool = False
     ) -> np.ndarray:
-        """Render the wrist camera at the current robot state.
+        """Render the selected RGB-D camera at the current robot state.
 
         Returns RGB uint8 pixels shaped (height, width, 3), or a floating
         point depth image shaped (height, width) with optical-axis Z in meters.
         Use capture_rgbd() for a synchronized pair with calibration and pose.
-        The camera moves with wrist_3_link and looks along the tool axis.
+        external_camera is fixed above and diagonally in front-right of the robot.
         Rendering requires an OpenGL context but does not open a viewer.
         """
         self._prepare_camera(width, height)

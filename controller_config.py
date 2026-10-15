@@ -16,6 +16,10 @@ class ControllerConfig:
     # Final tool flange distance from the tagged face, along its outward normal.
     # The flange is centered over the tag; units are meters.
     tool_clearance: float = 0.18
+    # Desired yaw about the cube tag's outward normal, in degrees.
+    tool_yaw_deg: float = 90.0
+    # Use both tags when visible; encoders provide a fallback for tool-tag loss.
+    tool_pose_source: str = "tag_with_fk_fallback"
 
     def __post_init__(self):
         if self.mode not in CONTROLLER_MODES:
@@ -24,6 +28,12 @@ class ControllerConfig:
                 or not isinstance(self.tool_clearance, (int, float))
                 or not math.isfinite(self.tool_clearance) or self.tool_clearance < 0.16):
             raise ValueError("tool_clearance must be a finite number of at least 0.16 meters")
+        if (isinstance(self.tool_yaw_deg, bool)
+                or not isinstance(self.tool_yaw_deg, (int, float))
+                or not math.isfinite(self.tool_yaw_deg)):
+            raise ValueError("tool_yaw_deg must be a finite number")
+        if self.tool_pose_source not in ("tag_only", "tag_with_fk_fallback", "fk"):
+            raise ValueError("tool_pose_source must be tag_only, tag_with_fk_fallback, or fk")
 
     @classmethod
     def load(cls, path: str | Path = DEFAULT_CONTROLLER_CONFIG_PATH) -> "ControllerConfig":
@@ -31,7 +41,7 @@ class ControllerConfig:
             values = json.load(source)
         if not isinstance(values, dict):
             raise ValueError("controller config must be a JSON object")
-        unknown = set(values) - {"mode", "tool_clearance"}
+        unknown = set(values) - {"mode", "tool_clearance", "tool_yaw_deg", "tool_pose_source"}
         if unknown:
             raise ValueError("unknown controller config settings: " + ", ".join(sorted(unknown)))
         return cls(**values)

@@ -22,10 +22,13 @@ class ControllerConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "controller.json"
             for mode in ("pure_pbvs", "pbvs_mpc"):
-                path.write_text(json.dumps({"mode": mode, "tool_clearance": 0.2}), encoding="utf-8")
+                path.write_text(json.dumps({"mode": mode, "tool_clearance": 0.2,
+                                            "tool_yaw_deg": 45, "tool_pose_source": "tag_only"}), encoding="utf-8")
                 loaded = ControllerConfig.load(path)
                 self.assertEqual(loaded.mode, mode)
                 self.assertEqual(loaded.tool_clearance, 0.2)
+                self.assertEqual(loaded.tool_yaw_deg, 45)
+                self.assertEqual(loaded.tool_pose_source, "tag_only")
             path.write_text('{"mode": "invalid"}', encoding="utf-8")
             with self.assertRaises(ValueError):
                 ControllerConfig.load(path)
@@ -39,6 +42,23 @@ class ControllerConfigTests(unittest.TestCase):
                 ControllerConfig(tool_clearance=distance)
         self.assertEqual(ControllerConfig(tool_clearance=0.16).tool_clearance, 0.16)
 
+    def test_configurable_yaw_and_invalid_pose_sources(self):
+        for yaw in (0, 45, -90, 180):
+            simulation = Simulation()
+            controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot),
+                                            controller_config=ControllerConfig(tool_yaw_deg=yaw))
+            desired = np.linalg.inv(controller.pbvs.desired)
+            angle = np.deg2rad(yaw)
+            expected = np.array([[np.cos(angle), np.sin(angle), 0],
+                                 [np.sin(angle), -np.cos(angle), 0], [0, 0, -1]])
+            np.testing.assert_allclose(desired[:3, :3], expected, atol=1e-12)
+        for yaw in (True, "90", None, float("nan"), float("inf")):
+            with self.assertRaises(ValueError):
+                ControllerConfig(tool_yaw_deg=yaw)
+        for source in ("unknown", None, 1):
+            with self.assertRaises(ValueError):
+                ControllerConfig(tool_pose_source=source)
+
     def test_configured_final_position_and_explicit_override(self):
         simulation = Simulation()
         settings = ControllerConfig(tool_clearance=0.2)
@@ -47,12 +67,9 @@ class ControllerConfigTests(unittest.TestCase):
                 simulation.interface, MujocoKinematics(simulation.robot),
                 controller_config=settings, tool_clearance=override,
             )
-            # Desired marker-from-tool = marker-from-camera * camera-from-tool.
-            desired = np.linalg.inv(controller.pbvs.desired) @ np.linalg.inv(
-                controller.kinematics.tool_from_camera
-            )
+            desired = np.linalg.inv(controller.pbvs.desired)
             np.testing.assert_allclose(desired[:3, 3], [0, 0, distance], atol=1e-12)
-            np.testing.assert_allclose(desired[:3, :3], np.diag([1, -1, -1]), atol=1e-12)
+            np.testing.assert_allclose(desired[:3, :3], [[0, 1, 0], [1, 0, 0], [0, 0, -1]], atol=1e-12)
 
     def test_nondefault_distance_reached_by_both_modes(self):
         for mode in ("pure_pbvs", "pbvs_mpc"):

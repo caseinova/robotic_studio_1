@@ -15,12 +15,23 @@
     <texture name="cube_aruco_texture" type="2d" file="assets/aruco_4x4_50_id0.png"/>
     <material name="cube_aruco_material" texture="cube_aruco_texture"
       texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
+    <texture name="cube_tag_2_texture" type="2d" file="assets/aruco_4x4_50_id2.png"/>
+    <material name="cube_tag_2_material" texture="cube_tag_2_texture" texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
+    <texture name="cube_tag_3_texture" type="2d" file="assets/aruco_4x4_50_id3.png"/>
+    <material name="cube_tag_3_material" texture="cube_tag_3_texture" texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
+    <texture name="cube_tag_4_texture" type="2d" file="assets/aruco_4x4_50_id4.png"/>
+    <material name="cube_tag_4_material" texture="cube_tag_4_texture" texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
+    <texture name="cube_tag_5_texture" type="2d" file="assets/aruco_4x4_50_id5.png"/>
+    <material name="cube_tag_5_material" texture="cube_tag_5_texture" texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
+    <texture name="cube_tag_6_texture" type="2d" file="assets/aruco_4x4_50_id6.png"/>
+    <material name="cube_tag_6_material" texture="cube_tag_6_texture" texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
   </asset>
 
   <worldbody>
-    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+    <!-- Diffuse task lighting keeps the small calibration tags readable. -->
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true" castshadow="false"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-    <!-- 10 cm cube on the floor, visible to the wrist camera at home. -->
+    <!-- 10 cm cube on the floor, visible to the fixed camera at home. -->
     <body name="cube" pos="-0.074 0.492 0.05">
       <geom name="cube_geom" type="box" size="0.05 0.05 0.05"
         rgba="0.9 0.25 0.08 1"/>
@@ -30,6 +41,17 @@
       <geom name="cube_aruco" type="box" pos="0 0 0.0501"
         size="0.045 0.045 0.00005" material="cube_aruco_material"
         contype="0" conaffinity="0" mass="0"/>
+      <!-- One calibrated, visual-only marker on each remaining face. -->
+      <geom name="cube_aruco_2" type="box" pos="0.0 0.0501 0.0" quat="0.707106781187 -0.707106781187 0 0"
+        size="0.045 0.045 0.00005" material="cube_tag_2_material" contype="0" conaffinity="0" mass="0"/>
+      <geom name="cube_aruco_3" type="box" pos="0.0501 0.0 0.0" quat="0.707106781187 0 0.707106781187 0"
+        size="0.045 0.045 0.00005" material="cube_tag_3_material" contype="0" conaffinity="0" mass="0"/>
+      <geom name="cube_aruco_4" type="box" pos="0.0 -0.0501 0.0" quat="0.707106781187 0.707106781187 0 0"
+        size="0.045 0.045 0.00005" material="cube_tag_4_material" contype="0" conaffinity="0" mass="0"/>
+      <geom name="cube_aruco_5" type="box" pos="-0.0501 0.0 0.0" quat="0.707106781187 0 -0.707106781187 0"
+        size="0.045 0.045 0.00005" material="cube_tag_5_material" contype="0" conaffinity="0" mass="0"/>
+      <geom name="cube_aruco_6" type="box" pos="0.0 0.0 -0.0501" quat="6.12323399574e-17 1 0 0"
+        size="0.045 0.045 0.00005" material="cube_tag_6_material" contype="0" conaffinity="0" mass="0"/>
     </body>
   </worldbody>
 </mujoco>

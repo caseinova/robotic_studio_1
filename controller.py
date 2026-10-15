@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 from scipy.optimize import minimize
 
-from camera_processing import CameraProcessor, CubeObservation
+from camera_processing import CameraProcessor, TaggedCubeProcessor, CubeObservation, MarkerObservation
 from controller_config import ControllerConfig
 from robot_state import RGBDFrame
 from kinematics import MujocoKinematics, inverse_pose
@@ -53,7 +53,11 @@ class MPCConfig:
 
 
 class PBVS:
-    """Pose error -> optical camera twist -> damped joint-velocity reference."""
+    """Relative pose error -> controlled-frame twist -> damped joint reference.
+
+    The pose and Jacobian must share the controlled frame's axes. Eye-to-hand
+    control uses tool-from-marker and a tool-frame flange Jacobian.
+    """
 
     def __init__(self, desired_camera_from_marker, *, gain=1.2, damping=0.025):
         self.desired = np.asarray(desired_camera_from_marker, dtype=float)
@@ -65,7 +69,7 @@ class PBVS:
         self.damping = damping
 
     def reference(self, camera_from_marker, camera_jacobian):
-        # Desired camera pose expressed in the current optical camera frame.
+        # Desired controlled-frame pose expressed in its current frame.
         error_pose = camera_from_marker @ inverse_pose(self.desired)
         rotation_error, _ = cv2.Rodrigues(error_pose[:3, :3])
         error = np.concatenate((error_pose[:3, 3], rotation_error.reshape(3)))
@@ -187,6 +191,8 @@ class ControlResult:
     minimum_clearance: float
     diagnostic: str = ""
     pose_estimate: RelativePoseEstimate | None = None
+    tool_observation: MarkerObservation | None = None
+    tool_pose_source: str = ""
 
 
 class ApproachController:
@@ -197,10 +203,17 @@ class ApproachController:
                  controller_config: ControllerConfig | None = None,
                  estimator_config: EKFConfig | None = None):
         self.interface = interface
-        self.processor = CameraProcessor()
+        self.processor = TaggedCubeProcessor()
         self.estimator = RelativePoseEKF(estimator_config)
+        # A separate tracker smooths the moving tool measured by its tag.
+        # It uses the same optional noise settings, without sharing cube state.
+        self.tool_estimator = RelativePoseEKF(estimator_config)
         self.pose_estimate = None
         self.kinematics = kinematics
+        self.tool_processor = CameraProcessor(marker_id=kinematics.end_effector_marker_id,
+                                             marker_size=kinematics.end_effector_marker_size)
+        self.tool_observation = None
+        self.tool_pose_source = ""
         self.settings = controller_config or ControllerConfig()
         if tool_clearance is not None:
             self.settings = replace(self.settings, tool_clearance=tool_clearance)
@@ -209,10 +222,12 @@ class ApproachController:
         self.mpc = (JointSpaceMPC(self.kinematics, self.limits_config)
                     if self.settings.mode == "pbvs_mpc" else None)
         marker_from_tool = np.eye(4)
-        marker_from_tool[:3, :3] = np.diag([1, -1, -1])
+        yaw = np.deg2rad(self.settings.tool_yaw_deg)
+        marker_from_tool[:3, :3] = np.array([
+            [np.cos(yaw), -np.sin(yaw), 0],
+            [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]]) @ np.diag([1, -1, -1])
         marker_from_tool[:3, 3] = [0, 0, self.settings.tool_clearance]
-        marker_from_camera = marker_from_tool @ self.kinematics.tool_from_camera
-        self.pbvs = PBVS(inverse_pose(marker_from_camera))
+        self.pbvs = PBVS(inverse_pose(marker_from_tool))
 
     def update(self, frame: RGBDFrame | None = None) -> ControlResult:
         """Acquire through the interface and command one control interval.
@@ -225,9 +240,13 @@ class ApproachController:
         state = self.interface.read_state()
         self.kinematics.synchronize(state)
         observation = self.processor.process(frame)
+        self.tool_observation = None
+        self.tool_pose_source = ""
         now = self.interface.timestamp
         if self.estimator.timestamp is not None and now < self.estimator.timestamp:
             self.estimator.reset()  # Simulation/interface clock was restarted.
+        if self.tool_estimator.timestamp is not None and now < self.tool_estimator.timestamp:
+            self.tool_estimator.reset()
         out_of_order = (self.estimator.config.enabled and self.estimator.timestamp is not None
                         and frame.timestamp < self.estimator.timestamp)
         stale_frame = abs(now - frame.timestamp) > 2 * self.control_dt or out_of_order
@@ -261,20 +280,53 @@ class ApproachController:
             self.mpc.reset()
             return ControlResult(observation, np.zeros(6), np.zeros(6), "clearance_violation",
                                  np.inf, np.inf, minimum)
-        jacobian = self.kinematics.camera_jacobian(positions)
+        jacobian = self.kinematics.tool_jacobian(positions, local=True)
         camera_from_marker = observation.camera_from_marker
         if self.pose_estimate is not None:
             cube_from_marker = np.eye(4)
             cube_from_marker[2, 3] = self.processor.cube_size / 2 + self.processor.label_offset
             camera_from_marker = self.pose_estimate.camera_from_cube @ cube_from_marker
-        reference, error = self.pbvs.reference(camera_from_marker, jacobian)
+        # Both tags are measured in this same exposure. Their relative pose
+        # cancels camera-to-world extrinsics; the rigid tool-tag mounting
+        # calibration converts the tool tag frame into the flange frame.
+        if self.settings.tool_pose_source != "fk":
+            self.tool_observation = self.tool_processor.process_marker(frame)
+        tool_diagnostic = self.tool_processor.last_status
+        if self.tool_observation is not None and self.settings.tool_pose_source != "fk":
+            camera_from_tool = (self.tool_observation.camera_from_marker
+                                @ inverse_pose(self.kinematics.tool_from_end_effector_marker))
+            if self.tool_estimator.config.enabled:
+                tool_estimate = self.tool_estimator.update(
+                    frame.timestamp, camera_from_tool, frame.world_from_camera)
+                if tool_estimate is not None and tool_estimate.measurement_accepted:
+                    # This generic rigid-body tracker retains cube-named pose
+                    # fields for compatibility; here its tracked body is the tool.
+                    camera_from_tool = tool_estimate.camera_from_cube
+                else:
+                    self.tool_observation = None
+                    tool_diagnostic = "tool_ekf_" + self.tool_estimator.last_status
+        if self.tool_observation is not None and self.settings.tool_pose_source != "fk":
+            self.tool_pose_source = "tag"
+        elif self.settings.tool_pose_source == "tag_only":
+            self.interface.set_joint_velocities(np.zeros(6))
+            if self.mpc is not None:
+                self.mpc.reset()
+            return ControlResult(observation, np.zeros(6), np.zeros(6), "tool_lost_or_rejected",
+                np.inf, np.inf, minimum, diagnostic=tool_diagnostic,
+                pose_estimate=self.pose_estimate, tool_pose_source="unavailable")
+        else:
+            camera_from_tool = inverse_pose(frame.world_from_camera) @ self.kinematics.tool_pose()
+            self.tool_pose_source = "fk" if self.settings.tool_pose_source == "fk" else "fk_fallback"
+        tool_from_marker = inverse_pose(camera_from_tool) @ camera_from_marker
+        reference, error = self.pbvs.reference(tool_from_marker, jacobian)
         position_error, rotation_error = np.linalg.norm(error[:3]), np.linalg.norm(error[3:])
         if position_error < 0.003 and rotation_error < 0.025:
             self.interface.set_joint_velocities(np.zeros(6))
             if self.mpc is not None:
                 self.mpc.reset()
             return ControlResult(observation, reference, np.zeros(6), "reached",
-                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate)
+                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate,
+                                 tool_observation=self.tool_observation, tool_pose_source=self.tool_pose_source)
         if self.mpc is None:
             # Direct PBVS: basic speed/joint bounds, with no collision optimizer.
             limit = self.limits_config.velocity_limit
@@ -289,12 +341,14 @@ class ApproachController:
                 status = "tracking"
             self.interface.set_joint_velocities(command)
             return ControlResult(observation, reference, command, status,
-                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate)
+                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate,
+                                 tool_observation=self.tool_observation, tool_pose_source=self.tool_pose_source)
         solution = self.mpc.solve(positions, state.joint_velocities, reference)
         self.interface.set_joint_velocities(solution.velocity)
         return ControlResult(observation, reference, solution.velocity, solution.status,
                              position_error, rotation_error, solution.minimum_clearance,
-                             pose_estimate=self.pose_estimate)
+                             pose_estimate=self.pose_estimate, tool_observation=self.tool_observation,
+                             tool_pose_source=self.tool_pose_source)
 
 
 class CubePickupController:
@@ -452,15 +506,7 @@ class CubePickupController:
                 self._change_phase("complete", now)
             return self._result(position_error=np.linalg.norm(error))
 
-        # Convert the optical-camera Jacobian into a world-frame flange
-        # Jacobian. The offset correction moves the linear velocity reference
-        # from the camera center to the tool flange.
-        camera_jacobian = self.kinematics.camera_jacobian(state.joint_positions)
-        camera_pose = self.kinematics.camera_pose()
-        angular = camera_pose[:3, :3] @ camera_jacobian[3:]
-        offset = camera_pose[:3, 3] - current[:3, 3]
-        linear = camera_pose[:3, :3] @ camera_jacobian[:3] + np.cross(offset, angular.T).T
-        jacobian = np.vstack((linear, angular))
+        jacobian = self.kinematics.tool_jacobian(state.joint_positions)
         # Integral feedback counters the extra load from the held cube. X/Y
         # feedback corrects drift off the vertical line rather than planning
         # horizontal travel.

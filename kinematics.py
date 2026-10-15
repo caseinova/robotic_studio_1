@@ -38,6 +38,8 @@ class MujocoKinematics:
         self.camera_id = robot.camera_id
         self.gripper_indices = self.model.jnt_qposadr[robot.gripper_joint_ids]
         self.tool_id = self.model.site("attachment_site").id
+        self.end_effector_marker_id = robot.end_effector_marker_id
+        self.end_effector_marker_size = robot.end_effector_marker_size
         self.limits = np.maximum(self.model.jnt_range[robot.joint_ids, 0],
                                  self.model.actuator_ctrlrange[robot.actuator_ids, 0]), np.minimum(
                                      self.model.jnt_range[robot.joint_ids, 1],
@@ -69,7 +71,13 @@ class MujocoKinematics:
                     self.pairs.append((a, b))
         mujoco.mj_resetDataKeyframe(self.model, self.data, self.model.key("home").id)
         mujoco.mj_forward(self.model, self.data)
-        self.tool_from_camera = inverse_pose(self.tool_pose()) @ self.camera_pose()
+        # Rigid marker-to-flange calibration from the model definition. Hardware
+        # must provide the measured mounting transform in its kinematic model.
+        marker_site = self.data.site("end_effector_marker_site")
+        world_from_marker = np.eye(4)
+        world_from_marker[:3, :3] = marker_site.xmat.reshape(3, 3)
+        world_from_marker[:3, 3] = marker_site.xpos
+        self.tool_from_end_effector_marker = inverse_pose(self.tool_pose()) @ world_from_marker
 
     def synchronize(self, state: RobotState) -> None:
         """Set the prediction starting state from interface measurements.
@@ -95,6 +103,19 @@ class MujocoKinematics:
         pose[:3, :3] = self.data.site_xmat[self.tool_id].reshape(3, 3)
         pose[:3, 3] = self.data.site_xpos[self.tool_id]
         return pose
+
+    def tool_jacobian(self, positions, *, local=False):
+        """Flange linear/angular velocity Jacobian in world or tool axes.
+
+        Unlike camera_jacobian, this remains nonzero with a fixed camera.
+        Positions come from interface measurements, not live simulator data.
+        """
+        self.set_positions(positions)
+        translation, rotation = np.zeros((3, self.model.nv)), np.zeros((3, self.model.nv))
+        mujoco.mj_jacSite(self.model, self.data, translation, rotation, self.tool_id)
+        axes = self.tool_pose()[:3, :3].T if local else np.eye(3)
+        return np.vstack((axes @ translation[:, self.v_indices],
+                          axes @ rotation[:, self.v_indices]))
 
     def camera_jacobian(self, positions):
         self.set_positions(positions)

@@ -34,9 +34,7 @@ class SimulationPlots:
         kinematics.synchronize(state)
         camera = kinematics.camera_pose()
         tool = kinematics.tool_pose()
-        optical_jacobian = kinematics.camera_jacobian(state.joint_positions)
-        world_jacobian = np.vstack((camera[:3, :3] @ optical_jacobian[:3],
-                                   camera[:3, :3] @ optical_jacobian[3:]))
+        world_jacobian = kinematics.tool_jacobian(state.joint_positions)
         measured_twist = world_jacobian @ state.joint_velocities
         commanded_twist = world_jacobian @ result.command_velocity
         reference_twist = (np.full(6, np.nan) if result.status.startswith("pickup_")
@@ -118,7 +116,7 @@ class SimulationPlots:
                 axis.set_ylabel(f"{'xyz'[index]} ({unit})")
                 axis.grid(alpha=0.3)
             subplots[0].set_title(quantity.replace("_", " ").capitalize()
-                                  + " — camera, world axes")
+                                  + " — tool flange, world axes")
             subplots[0].legend(ncol=3, fontsize=8)
             subplots[-1].set_xlabel("Simulation time since first sample (s)")
             self._figures[quantity] = figure

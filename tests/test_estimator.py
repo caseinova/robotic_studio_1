@@ -155,9 +155,13 @@ class EstimatorTests(unittest.TestCase):
                 self.assertIsNotNone(result.pose_estimate)
                 self.assertFalse(np.allclose(result.pose_estimate.camera_from_cube, measured))
                 marker_offset = pose((0, 0, 0.05015))
+                tool_observation = controller.tool_processor.process_marker(current_frame)
+                camera_from_tool = tool_observation.camera_from_marker @ np.linalg.inv(
+                    controller.kinematics.tool_from_end_effector_marker)
                 expected, _ = controller.pbvs.reference(
-                    result.pose_estimate.camera_from_cube @ marker_offset,
-                    controller.kinematics.camera_jacobian(simulation.interface.joint_positions),
+                    np.linalg.inv(camera_from_tool)
+                    @ result.pose_estimate.camera_from_cube @ marker_offset,
+                    controller.kinematics.tool_jacobian(simulation.interface.joint_positions, local=True),
                 )
                 np.testing.assert_allclose(result.reference_velocity, expected)
             if i == 2:

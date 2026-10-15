@@ -72,8 +72,13 @@ class InterfaceTests(unittest.TestCase):
                     interface, kinematics, controller_config=ControllerConfig(mode=mode)
                 )
                 observation = controller.processor.process(frame)
+                kinematics.synchronize(state)
+                tool_observation = controller.tool_processor.process_marker(frame)
+                camera_from_tool = (tool_observation.camera_from_marker
+                                    @ np.linalg.inv(kinematics.tool_from_end_effector_marker))
                 expected_reference, _ = controller.pbvs.reference(
-                    observation.camera_from_marker, kinematics.camera_jacobian(positions)
+                    np.linalg.inv(camera_from_tool) @ observation.camera_from_marker,
+                    kinematics.tool_jacobian(positions, local=True),
                 )
                 result = controller.update()
                 self.assertEqual(result.status, "tracking")

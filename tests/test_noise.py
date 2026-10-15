@@ -162,7 +162,8 @@ class NoiseTests(unittest.TestCase):
         clean_pose = prediction.camera_pose()
         prediction.synchronize(state)
         np.testing.assert_allclose(frame.world_from_camera, prediction.camera_pose(), atol=1e-12)
-        self.assertFalse(np.allclose(frame.world_from_camera, clean_pose))
+        # Encoder noise affects tool FK, but not the fixed camera mount.
+        np.testing.assert_allclose(frame.world_from_camera, clean_pose, atol=1e-12)
         np.testing.assert_array_equal(robot.data.qpos, qpos)
         np.testing.assert_array_equal(robot.data.qvel, qvel)
         np.testing.assert_array_equal(robot.data.ctrl, ctrl)

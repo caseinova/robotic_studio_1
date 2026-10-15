@@ -48,6 +48,10 @@ class ControllerTests(unittest.TestCase):
 
     def test_obstacle_constraints_override_pbvs_reference(self):
         robot = self._obstacle_robot()
+        # Start after the eye-to-hand orientation alignment, so the PBVS
+        # reference descends toward this obstacle rather than turning in place.
+        robot.data.qpos[robot._qpos_indices[5]] = -np.pi / 2
+        mujoco.mj_forward(robot.model, robot.data)
         controller = ApproachController(MujocoInterface(robot), MujocoKinematics(robot))
         result = controller.update(robot.capture_rgbd())
         self.assertEqual(result.status, "tracking")
@@ -146,7 +150,7 @@ class ControllerTests(unittest.TestCase):
         simulation = Simulation()
         initial = simulation.robot.joint_positions
         viewer = MagicMock()
-        viewer.is_running.side_effect = [True] * 105 + [False]
+        viewer.is_running.side_effect = [True] * 245 + [False]
         context = MagicMock()
         context.__enter__.return_value = viewer
         with ExitStack() as stack:
@@ -157,7 +161,7 @@ class ControllerTests(unittest.TestCase):
             stack.enter_context(patch("cv2.getWindowProperty", return_value=1))
             stack.enter_context(patch("simulate.time.sleep"))
             simulation.launch_viewer(servo=True)
-        self.assertAlmostEqual(simulation.robot.data.time, 5.25, places=6)
+        self.assertAlmostEqual(simulation.robot.data.time, 12.25, places=6)
         self.assertGreater(np.linalg.norm(simulation.robot.joint_positions - initial), 0.3)
         mujoco.mj_forward(simulation.robot.model, simulation.robot.data)
         np.testing.assert_allclose(simulation.robot.data.site("attachment_site").xpos,

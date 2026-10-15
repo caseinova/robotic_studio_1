@@ -35,8 +35,14 @@ class Simulation:
 
     def __init__(self, robot: RobotModel | None = None, *, config: SimulationConfig | None = None,
                  controller_config: ControllerConfig | None = None, pickup: bool = False,
-                 noise_config: NoiseConfig | None = None, estimator_config: EKFConfig | None = None):
-        self.robot = robot if robot is not None else RobotModel()
+                 noise_config: NoiseConfig | None = None, estimator_config: EKFConfig | None = None,
+                 camera_name: str | None = None):
+        self.robot = robot if robot is not None else RobotModel(camera_name=camera_name or RobotModel.camera_name)
+        if robot is not None and camera_name is not None:
+            if camera_name not in RobotModel.camera_names:
+                raise ValueError("camera_name must be external_camera")
+            self.robot.camera_name = camera_name
+            self.robot.camera_id = self.robot.model.camera(camera_name).id
         self.config = config if config is not None else SimulationConfig()
         self.controller_config = controller_config or ControllerConfig()
         self.estimator_config = estimator_config or EKFConfig()
@@ -131,7 +137,7 @@ class Simulation:
 
     def launch_viewer(self, *, camera: bool = False, servo: bool = False,
                       tool_clearance: float | None = None, plots: bool = False) -> None:
-        """Show the model overview and optionally a separate wrist RGB window.
+        """Show the model overview and optionally a separate fixed-camera RGB window.
 
         Close either window, or press Q/Escape in the camera window, to stop.
         """
@@ -162,14 +168,14 @@ class Simulation:
             cv2 = None
             if camera:
                 import cv2
-                from camera_processing import CameraProcessor
+                from camera_processing import TaggedCubeProcessor
 
-                processor = controller.processor if controller is not None else CameraProcessor()
+                processor = controller.processor if controller is not None else TaggedCubeProcessor()
 
             viewer = stack.enter_context(
                 mujoco.viewer.launch_passive(self.robot.model, self.robot.data)
             )
-            window_name = "UR5e wrist camera - RGB"
+            window_name = "UR5e " + self.robot.camera_name.replace("_", " ") + " - RGB"
             if camera:
                 stack.enter_context(self.interface)
                 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
@@ -206,13 +212,15 @@ class Simulation:
                             self.plots.refresh()
                             next_plot_refresh = time.perf_counter() + 0.5
                         active_label = "Pickup" if last_control.status.startswith("pickup_") else label
-                        status_key = (last_control.status, last_control.diagnostic)
+                        status_key = (last_control.status, last_control.diagnostic, last_control.tool_pose_source)
                         if status_key != last_status:
                             error = (f"{last_control.position_error:.4f} m"
                                      if math.isfinite(last_control.position_error) else "unavailable")
                             clearance = (f"{last_control.minimum_clearance:.4f} m"
                                          if math.isfinite(last_control.minimum_clearance) else "not evaluated")
                             details = f" | {last_control.diagnostic}" if last_control.diagnostic else ""
+                            if last_control.tool_pose_source:
+                                details += f" | tool pose: {last_control.tool_pose_source}"
                             print(f"{active_label}: {last_control.status} | error {error} | "
                                   f"clearance {clearance}{details}", flush=True)
                             last_status = status_key
@@ -222,11 +230,22 @@ class Simulation:
                     else:
                         observation = processor.process(frame)
                     rgb = processor.annotate(frame.rgb, observation, frame.intrinsics)
+                    # The calibration marker is distinct from the cube target.
+                    tag_corners, tag_ids, _ = processor.detector.detectMarkers(
+                        cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2GRAY))
+                    if tag_ids is not None:
+                        for corners, marker_id in zip(tag_corners, tag_ids.reshape(-1)):
+                            if int(marker_id) == self.robot.end_effector_marker_id:
+                                cv2.aruco.drawDetectedMarkers(
+                                    rgb, [corners], np.array([[int(marker_id)]], dtype=np.int32))
                     if last_control is not None:
                         error = (f"{last_control.position_error:.3f} m"
                                  if math.isfinite(last_control.position_error) else "unavailable")
                         cv2.putText(rgb, f"{active_label}: {last_control.status} | error {error}",
                                     (12, 48), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        if last_control.tool_pose_source:
+                            cv2.putText(rgb, f"Tool pose: {last_control.tool_pose_source}",
+                                        (12, 94), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                     else:
                         cv2.putText(rgb, "Controller OFF: restart with --servo", (12, 48),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 200, 80), 1)
@@ -250,7 +269,9 @@ def main() -> None:
     parser.add_argument("--estimator-config", default=str(DEFAULT_ESTIMATOR_CONFIG_PATH), help="relative pose EKF JSON file")
     parser.add_argument("--no-noise", action="store_true", help="disable measurement noise for this run")
     parser.add_argument("--headless", action="store_true", help="run without a viewer")
-    parser.add_argument("--camera", action="store_true", help="show a wrist-camera RGB window alongside the model viewer")
+    parser.add_argument("--camera", action="store_true", help="show the selected camera RGB window alongside the model viewer")
+    parser.add_argument("--camera-name", choices=RobotModel.camera_names, default=None,
+                        help="fixed RGB-D camera for viewing/calibration")
     parser.add_argument("--plots", action="store_true", help="show live control plots in viewer mode and save PNG/CSV results")
     parser.add_argument("--plot-dir", default=None, help="save control plots and CSV to this directory (enables export)")
     parser.add_argument("--steps", type=int, default=1000, help="headless simulation steps")
@@ -265,6 +286,7 @@ def main() -> None:
         parser.error("--camera requires a viewer; omit --headless")
     if (args.plots or args.plot_dir is not None) and not args.servo:
         parser.error("--plots/--plot-dir require --servo or --pick")
+    camera_name = args.camera_name or RobotModel.camera_name
     try:
         config = SimulationConfig.load(args.config)
         controller_config = ControllerConfig.load(args.controller_config)
@@ -277,11 +299,13 @@ def main() -> None:
     except (OSError, ValueError) as error:
         parser.error(str(error))
     simulation = Simulation(config=config, controller_config=controller_config, pickup=args.pick,
-                            noise_config=noise_config, estimator_config=estimator_config)
+                            noise_config=noise_config, estimator_config=estimator_config, camera_name=camera_name)
+    print(f"Camera: {camera_name}", flush=True)
     print(f"Experiment cube position (world meters): {config.cube_position}", flush=True)
     print(f"Measurement noise: {'ON' if noise_config.enabled else 'OFF'} (seed {noise_config.seed})", flush=True)
     if args.servo:
         print(f"Controller mode: {controller_config.mode}", flush=True)
+        print(f"Tool pose source: {controller_config.tool_pose_source}; target yaw: {controller_config.tool_yaw_deg:g} degrees", flush=True)
         print(f"Relative pose EKF: {'ON' if estimator_config.enabled else 'OFF'}", flush=True)
     # Export even if the viewer is interrupted, retaining the recorded run.
     try:
@@ -304,6 +328,8 @@ def _run_simulation(simulation, args):
                 rotation = f"{result.rotation_error:.4f} rad" if math.isfinite(result.rotation_error) else "unavailable"
                 clearance = f"{result.minimum_clearance:.4f} m" if math.isfinite(result.minimum_clearance) else "not evaluated"
                 details = f"; {result.diagnostic}" if result.diagnostic else ""
+                if result.tool_pose_source:
+                    details += f"; tool pose: {result.tool_pose_source}"
                 print(f"Controller: {result.status}; position error {position}; "
                       f"rotation error {rotation}; clearance {clearance}{details}")
         else:

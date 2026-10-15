@@ -1,5 +1,25 @@
 # Cube approach controller
 
+The cube carries six ArUco `DICT_4X4_50` markers: ID 0 on top, ID 2 on
++Y, ID 3 on +X, ID 4 on -Y, ID 5 on -X, and ID 6 on the bottom. The tool
+keeps its single ID 1 marker. All markers have an 80 mm black square and
+5 mm white margins. Bottom-face visibility requires lifting or turning the cube.
+
+`TaggedCubeProcessor` in `camera_processing.py` converts each validated RGB-D
+marker measurement through its known rigid mounting transform to the cube
+center. It rejects faces inconsistent with the best measurement and combines
+the remaining positions and rotations, weighting image area and reprojection
+quality. One visible cube marker is sufficient. The camera overlay lists the
+face IDs used; `CubeObservation.marker_observations` exposes their measurements.
+
+The optional EKF receives one fused cube pose per exposure. Its measurement
+covariance stays conservative because tags share camera calibration and depth
+errors. Multiple visible faces can reduce random pose jitter without applying
+the same camera timestamp repeatedly. `camera_from_marker` retains the canonical
+top reference frame for PBVS, even when only a side marker is visible, so the
+approach target does not jump between cube faces. For hardware, calibrate the
+face mounting transforms in `TaggedCubeProcessor` to the physical labels.
+
 Robot measurements and commands go through `RobotInterface` in `interface.py`.
 The controller never reads live `RobotModel.data`. The responsibilities are:
 
@@ -70,8 +90,8 @@ mode="pure_pbvs")` to `Simulation` or `ApproachController`.
 `tool_clearance` sets the final position of the tool flange (`attachment_site`)
 relative to the detected tag: centered over the tag, along its outward normal,
 at the configured distance in meters. It is not the fingertip-to-cube gap.
-The default is 0.18 m; the minimum is 0.16 m to keep the full tag visible to
-the offset wrist camera. Both controller modes use this target, including
+The default is 0.18 m; the retained minimum is 0.16 m to provide space for the
+gripper before pickup. Both controller modes use this target, including
 hardware callers. `--tool-clearance` temporarily overrides the controller
 file's value; explicit Python `tool_clearance=` arguments do the same.
 
@@ -104,8 +124,8 @@ venv/Scripts/python.exe simulate.py --headless --servo --steps 6000
 
 The default target puts `attachment_site` directly above the detected tag,
 18 cm from the tagged face. `--tool-clearance` changes this distance; its
-minimum is 16 cm because the wrist camera's 6 cm lateral offset must keep
-the whole tag visible. There is no grasping or lifting yet.
+minimum is 16 cm to provide gripper approach space. Use `--pick` for the
+separate descent, grasp, and lift sequence after the approach.
 
 `CameraProcessor` estimates marker pose from RGB and registered depth.
 The tag plane fit uses a robust estimate of depth scatter to set its inlier
@@ -114,8 +134,16 @@ size). This accepts moderate Gaussian depth noise without discarding a visible
 tag solely because individual pixels differ by more than 3 mm. Insufficient
 depth, excessive scatter, inconsistent metric tag size, and large reprojection
 errors still reject the observation.
-`PBVS` computes a camera-frame pose error, proportional camera twist, and
-damped Jacobian inverse to obtain a joint-velocity reference in rad/s.
+The plane normal is fitted using `1/Z = a*(X/Z) + b*(Y/Z) + c` on known pixel
+rays. This accounts for depth noise moving points along their rays and avoids
+the normal bias from treating Cartesian X/Y/Z scatter as isotropic. Both cube
+and tool tags use this fit and metric residual checks.
+If the primary contour detector misses the target, adaptive thresholding with
+subpixel refinement retries detection. Both paths retain the same RGB-D pose
+validation. Simulation disables offscreen multisampling to avoid depth-edge
+artifacts in the distant fixed-camera view.
+`PBVS` computes a tool-frame pose error, proportional tool twist, and
+damped tool Jacobian inverse to obtain a joint-velocity reference in rad/s.
 `JointSpaceMPC` optimizes eight future joint-velocity commands at 50 ms
 intervals and applies only the first command before solving again.
 
@@ -176,6 +204,75 @@ a grasp. MPC includes the gripper's collision geometry against obstacles
 and nonadjacent robot links, while finger opening remains separately commanded.
 The scene cube remains fixed in approach-only runs. Pickup runs use a movable
 version of the scene so the gripper can lift it through physical contact.
+
+## Fixed-camera calibration scene
+
+```powershell
+py simulate.py --camera
+py simulate.py --camera --camera-name external_camera
+```
+
+The external RGB-D camera is fixed at world `[-0.074, 1.05, 0.95]` meters, on
+the workspace side (+Y), above and centered on the default cube's X coordinate.
+This front view keeps the two open fingers to either side of the cube tag. It looks back
+toward the gripper/cube workspace. The end-effector carries ArUco DICT_4X4_50
+ID 1, with an 80 mm black square and a 5 mm white margin. Its raised horizontal
+plate faces upward so turning the wrist does not turn the tag away from the
+camera. The cube retains ID 0, and the camera view outlines
+the end-effector marker separately. Both tags are detectable at 640x480 at home.
+
+The board and bracket are visual-only, with no added mass or collision geometry.
+`end_effector_marker_site` defines the marker face center and mounting axes.
+The camera and marker are also included in the bare robot XML.
+
+`RobotModel(camera_name="external_camera")` and
+`Simulation(camera_name="external_camera")` select this sensor programmatically.
+The wrist camera has been removed. Both CLI and programmatic defaults use
+the external camera as the only RGB-D sensor. `--servo` runs eye-to-hand PBVS
+in either controller mode; `--pick` adds the separate pickup sequence.
+The end-effector marker is raised above the flange to keep the cube tag visible on
+approach. Simulation task lights do not cast shadows onto the small tags.
+
+The fixed camera measures the cube tag (ID 0) and tool tag (ID 1) from the same
+interface RGB-D exposure. `CameraProcessor.process_marker()` estimates the
+tool tag without assuming a cube behind it. The calibrated rigid mounting
+transform `tool_from_end_effector_marker` comes from the model's marker site.
+Define `camera_from_tool = camera_from_tool_tag @ inverse(tool_from_tool_tag)`
+and `tool_from_cube_tag = inverse(camera_from_tool) @ camera_from_cube_tag`.
+This relative measurement cancels camera-to-world extrinsics when both tags
+are used. Encoders still provide the model Jacobian and collision prediction.
+
+The desired `marker_from_tool` has rotation `Rz(tool_yaw_deg) @ diag(1, -1, -1)`
+and translation `[0, 0, tool_clearance]`. PBVS drives the error
+`tool_from_cube_tag @ desired_marker_from_tool` to identity, using its translation
+and rotation logarithm to request tool-frame linear/angular velocity. The
+damped inverse of the tool-frame flange Jacobian maps that twist to joint
+velocity; MPC optionally tracks it with the existing collision constraints.
+The fixed camera Jacobian is zero and is not used to control the robot.
+The former turn-before-translation gate is removed. Translation and rotation
+are commanded together from the measured pose error. `tool_yaw_deg` is a final
+goal orientation in `controller_config.json`, not a motion phase; the default
+90 degrees aligns the fingers with the cube's X faces. Use another yaw to
+experiment, accounting for tag visibility and gripper fit around the cube.
+
+`tool_pose_source` selects `tag_with_fk_fallback` (default), `tag_only`, or `fk`.
+The default uses the tool tag when its RGB-D pose is valid and encoder FK if
+the tool tag is lost/rejected. Strict `tag_only` stops with
+`tool_lost_or_rejected`; `fk` selects the former encoder-only tool estimate.
+`ControlResult.tool_observation` exposes the measured tool tag and
+`tool_pose_source` reports `tag`, `fk_fallback`, or `fk` in the camera/console.
+Cube-tag loss or stale/invalid state still stops motion in every mode.
+
+When the optional EKF is enabled, independent trackers filter the moving cube
+and the tool-tag-derived flange pose, using the same estimator noise settings.
+Each estimates position, orientation, linear velocity, and angular velocity
+of its own body. Rejected tool-tag estimates trigger the configured fallback
+or stop; predicted-only tag estimates never command motion. With the EKF
+disabled, both tag poses are measured directly each frame.
+Two tags measure relative pose but do not make
+an obscured cube tag observable. For hardware, calibrate intrinsics, the
+tool-tag mounting, and robot kinematics. Camera-to-base extrinsics remain
+necessary for FK fallback, world-frame target estimates, and pickup.
 
 ## Relative pose EKF
 
@@ -331,10 +428,9 @@ RGB values are rounded and clipped, and all returned arrays are owned copies.
 
 `MujocoInterface` applies this model only to outgoing measurements. Physics,
 actuator commands, and timestamps stay clean. Camera images are rendered from
-true physics, while `world_from_camera` is calculated from the same noisy
-joint sample returned by `read_state()`. No independent pose noise is added
-on top of encoder noise. The pose estimated by camera processing naturally
-inherits errors from RGB/depth and these camera world coordinates.
+true physics, while `world_from_camera` remains the calibrated fixed mount
+pose. Encoder noise affects the tool FK used by PBVS, and RGB/depth noise
+affects cube perception. No independent extrinsic pose noise is added.
 An estimated cube bottom can fluctuate slightly below the floor under noise;
 this is measurement uncertainty, not a change to the simulated cube position.
 No ground-truth floor correction is applied to perception. A controller status
@@ -391,14 +487,14 @@ GUI backend. The generated files are:
 
 - `trajectory.png`: measured camera and tool flange paths in world coordinates,
   plus the estimated cube path when an observation is available.
-- `linear_velocity.png`: camera X/Y/Z linear velocity, in m/s.
-- `angular_velocity.png`: camera X/Y/Z angular velocity, in rad/s.
+- `linear_velocity.png`: tool flange X/Y/Z linear velocity, in m/s.
+- `angular_velocity.png`: tool flange X/Y/Z angular velocity, in rad/s.
 - `trajectory.csv`: all plotted values, controller status, elapsed simulation
   time, and absolute interface timestamps. Positions use meters; velocity
   columns use m/s and rad/s as above.
 
 The velocity figures compare measured motion, the PBVS joint reference, and
-the applied joint command after mapping all three through the camera Jacobian
+the applied joint command after mapping all three through the tool Jacobian
 into world axes. Measured velocity comes from `J(q) @ measured_joint_velocity`,
 not numerical differentiation of noisy positions. With MPC enabled, its applied
 command may differ from the PBVS reference. Pickup samples retain measured and

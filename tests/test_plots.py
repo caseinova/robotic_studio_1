@@ -18,7 +18,7 @@ from simulate import Simulation
 
 
 class PlotTests(unittest.TestCase):
-    def test_measured_camera_twist_matches_pose_derivative_and_preserves_sources(self):
+    def test_measured_tool_twist_matches_pose_derivative_and_preserves_sources(self):
         robot = RobotModel()
         kinematics = MujocoKinematics(robot)
         q = robot.joint_positions
@@ -32,13 +32,13 @@ class PlotTests(unittest.TestCase):
         data = recorder.data
         epsilon = 1e-5
         kinematics.set_positions(q + epsilon * dq)
-        plus = kinematics.camera_pose()
+        plus = kinematics.tool_pose()
         kinematics.set_positions(q - epsilon * dq)
-        minus = kinematics.camera_pose()
+        minus = kinematics.tool_pose()
         camera_velocity = (plus[:3, 3] - minus[:3, 3]) / (2 * epsilon)
         rotation_rate = (plus[:3, :3] - minus[:3, :3]) / (2 * epsilon)
         kinematics.set_positions(q)
-        omega_cross = rotation_rate @ kinematics.camera_pose()[:3, :3].T
+        omega_cross = rotation_rate @ kinematics.tool_pose()[:3, :3].T
         camera_omega = np.array([omega_cross[2, 1], omega_cross[0, 2], omega_cross[1, 0]])
         np.testing.assert_allclose(data["linear_velocity"][0], camera_velocity, atol=1e-8)
         np.testing.assert_allclose(data["angular_velocity"][0], camera_omega, atol=1e-8)
@@ -74,7 +74,9 @@ class PlotTests(unittest.TestCase):
         self.assertEqual(result.status, "tracking")
         data = simulation.plots.data
         self.assertEqual(len(data["time"]), 4)
-        self.assertGreater(np.linalg.norm(data["camera_position"][-1] - data["camera_position"][0]), 0.001)
+        # Rotation is logged while translation proceeds toward the cube.
+        self.assertGreater(np.linalg.norm(data["angular_velocity"][-1]), 0.05)
+        np.testing.assert_allclose(data["camera_position"], np.tile(data["camera_position"][0], (len(data["time"]), 1)))
         with tempfile.TemporaryDirectory() as directory:
             paths = simulation.plots.save(directory)
             self.assertEqual({path.name for path in paths}, {

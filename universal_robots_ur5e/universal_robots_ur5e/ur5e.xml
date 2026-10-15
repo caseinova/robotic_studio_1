@@ -3,6 +3,9 @@
 
   <option integrator="implicitfast"/>
 
+  <!-- Avoid multisampled depth-edge artifacts in RGB-D measurements. -->
+  <visual><quality offsamples="0"/></visual>
+
   <default>
     <default class="ur5e">
       <material specular="0.5" shininess="0.25"/>
@@ -42,6 +45,9 @@
     <material class="ur5e" name="jointgray" rgba="0.278 0.278 0.278 1"/>
     <material class="ur5e" name="linkgray" rgba="0.82 0.82 0.82 1"/>
     <material class="ur5e" name="urblue" rgba="0.49 0.678 0.8 1"/>
+    <texture name="end_effector_aruco_texture" type="2d" file="assets/aruco_4x4_50_id1.png"/>
+    <material name="end_effector_aruco_material" texture="end_effector_aruco_texture"
+      texuniform="false" texrepeat="1 1" specular="0" shininess="0"/>
 
     <mesh file="base_0.obj"/>
     <mesh file="base_1.obj"/>
@@ -66,7 +72,11 @@
   </asset>
 
   <worldbody>
-    <light name="spotlight" mode="targetbodycom" target="wrist_2_link" pos="0 -1 2"/>
+    <!-- Fixed eye-to-hand RGB-D camera: front-right diagonal (+X, +Y),
+         looking across the arm and tagged cube workspace. -->
+    <camera name="external_camera" mode="fixed" pos="0.75 1.20 1.05"
+      quat="0.3032606553 0.1710534610 0.4605448631 0.8164999189" fovy="35" ipd="0"/>
+    <light name="spotlight" mode="targetbodycom" target="wrist_2_link" pos="0 -1 2" castshadow="false"/>
     <body name="base" quat="0 0 0 -1" childclass="ur5e">
       <inertial mass="4.0" pos="0 0 0" diaginertia="0.00443333156 0.00443333156 0.0072"/>
       <geom mesh="base_0" material="black" class="visual"/>
@@ -118,17 +128,34 @@
                   <geom material="linkgray" mesh="wrist3" class="visual"/>
                   <geom class="eef_collision" pos="0 0.08 0" quat="1 1 0 0" size="0.04 0.02"/>
                   <site name="attachment_site" pos="0 0.1 0" quat="-1 1 0 0"/>
-                  <!-- Wrist camera looks along local +Y, parallel to the tool axis.
-                       Offset in +X keeps the lens clear of the tool flange. -->
-                  <camera name="wrist_camera" mode="fixed" pos="0.06 0.12 0"
-                    quat="1 1 0 0" fovy="60" ipd="0"/>
                   <!-- Generic parallel gripper. Tool +Z points along wrist +Y.
-                       Fingers open along tool +/-Y, clear of the offset camera.
+                       Fingers open along tool +/-Y.
                        Inner opening = q_left + q_right, maximum 120 mm. -->
                   <body name="gripper_base" pos="0 0.1005 0" quat="-1 1 0 0" childclass="gripper">
                     <geom name="gripper_palm" pos="0 0 0.015" size="0.024 0.08 0.015"
                       material="jointgray"/>
                     <site name="grasp_site" pos="0 0 0.105" size="0.005" rgba="0.2 0.8 0.2 1" group="4"/>
+                    <!-- Rigid calibration board, tilted toward the external
+                         camera at home. ID 1 distinguishes it from cube ID 0.
+                         80 mm black square, 5 mm white margin on each side.
+                         Visual-only mounting leaves gripper dynamics unchanged. -->
+                    <geom name="end_effector_tag_bracket_stem" pos="0 -0.08 -0.01"
+                      size="0.02 0.008 0.05" rgba="0.3 0.3 0.3 1"
+                      contype="0" conaffinity="0" mass="0"/>
+                    <geom name="end_effector_tag_bracket" pos="0 -0.10 -0.055"
+                      size="0.02 0.025 0.008" rgba="0.3 0.3 0.3 1"
+                      contype="0" conaffinity="0" mass="0"/>
+                    <!-- Raised mount avoids covering the cube tag on approach. -->
+                    <body name="end_effector_tag" pos="0 -0.12 -0.10"
+                      quat="0 1 0 0">
+                      <geom name="end_effector_tag_board" size="0.048 0.048 0.001"
+                        rgba="0.3 0.3 0.3 1" contype="0" conaffinity="0" mass="0"/>
+                      <geom name="end_effector_aruco" pos="0 0 0.00105"
+                        size="0.045 0.045 0.00005" material="end_effector_aruco_material"
+                        contype="0" conaffinity="0" mass="0"/>
+                      <site name="end_effector_marker_site" pos="0 0 0.0011"
+                        size="0.002" rgba="0 0.8 0 1" group="4"/>
+                    </body>
                     <body name="gripper_left_finger" pos="0 0.009 0.03">
                       <joint name="gripper_left_joint" axis="0 1 0"/>
                       <geom name="gripper_left_geom" pos="0 0 0.045" size="0.012 0.009 0.045"

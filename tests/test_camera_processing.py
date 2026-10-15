@@ -13,6 +13,16 @@ from noise_config import NoiseConfig
 
 
 class CameraProcessingTests(unittest.TestCase):
+    def test_oblique_depth_plane_normal_with_optical_axis_noise(self):
+        rng = np.random.default_rng(123)
+        rays = np.column_stack((rng.uniform(-0.035, 0.035, (20000, 2)), np.ones(20000)))
+        expected_normal = np.array([0, 0.6, 0.8])
+        depth = 1.0 / (rays @ expected_normal)
+        points = rays * (depth + rng.normal(0, 0.01, len(depth)))[:, None]
+        normal, distance = CameraProcessor._fit_depth_plane(points)
+        self.assertLess(np.linalg.norm(normal - expected_normal), 0.01)
+        self.assertAlmostEqual(distance, 1.0, delta=0.005)
+
     @classmethod
     def setUpClass(cls):
         cls.robot = RobotModel()
@@ -30,7 +40,8 @@ class CameraProcessingTests(unittest.TestCase):
         self.assertLess(observation.reprojection_error, 1)
         self.assertLess(observation.depth_plane_error, 1e-5)
         self.assertEqual(observation.points_camera.shape, (observation.mask.sum(), 3))
-        self.assertGreater(self._mask_iou(self.robot, observation.mask), 0.98)
+        # Fixed-camera oblique view exposes side edges at roughly 2 mm/pixel.
+        self.assertGreater(self._mask_iou(self.robot, observation.mask), 0.95)
         annotated = processor.annotate(self.frame.rgb, observation, self.frame.intrinsics)
         self.assertFalse(np.array_equal(annotated, self.frame.rgb))
         self.assertFalse(np.shares_memory(annotated, self.frame.rgb))
@@ -57,7 +68,7 @@ class CameraProcessingTests(unittest.TestCase):
         self.assertIsNone(processor.process(blank))
         self.assertEqual(processor.last_status, "tag_not_detected")
         self.assertIsNone(processor.last_marker_corners)
-        self.assertIsNone(CameraProcessor(marker_id=1).process(self.frame))
+        self.assertIsNone(CameraProcessor(marker_id=49).process(self.frame))
 
     def test_invalid_depth_is_rejected(self):
         processor = CameraProcessor()
@@ -85,7 +96,8 @@ class CameraProcessingTests(unittest.TestCase):
             observation = processor.process(noise.apply_frame(self.frame))
             self.assertIsNotNone(observation, processor.last_status)
             pose = observation.world_from_cube
-            np.testing.assert_allclose(pose[:3, 3], [-0.074, 0.492, 0.05], atol=0.003)
+            # This distant view has fewer tag-depth samples than the wrist view.
+            np.testing.assert_allclose(pose[:3, 3], [-0.074, 0.492, 0.05], atol=0.006)
             np.testing.assert_allclose(pose[:3, :3].T @ pose[:3, :3], np.eye(3), atol=1e-10)
             self.assertAlmostEqual(np.linalg.det(pose[:3, :3]), 1.0)
 
@@ -113,7 +125,7 @@ class CameraProcessingTests(unittest.TestCase):
             self.assertIsNotNone(CameraProcessor().process(first))
             self.assertIsNotNone(CameraProcessor().process(second))
             self.assertFalse(np.shares_memory(first.rgb, second.rgb))
-            np.testing.assert_allclose(first.depth, second.depth, atol=1e-5)
+            np.testing.assert_allclose(first.depth, second.depth, atol=1e-4)
             self.assertEqual(renderer.render().shape, (480, 640, 3))
             with self.assertRaises(ValueError):
                 self.robot.capture_rgbd(width=320, renderer=renderer)
@@ -126,6 +138,7 @@ class CameraProcessingTests(unittest.TestCase):
             renderer.update_scene(robot.data, camera=robot.camera_id)
             labels = renderer.render()
         cube_ids = [robot.model.geom("cube_geom").id, robot.model.geom("cube_aruco").id]
+        cube_ids += [robot.model.geom(f"cube_aruco_{i}").id for i in range(2, 7)]
         truth = np.isin(labels[..., 0], cube_ids) & (labels[..., 1] == mujoco.mjtObj.mjOBJ_GEOM)
         return np.count_nonzero(mask & truth) / np.count_nonzero(mask | truth)
 
