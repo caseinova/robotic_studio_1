@@ -81,7 +81,7 @@ class ControllerConfigTests(unittest.TestCase):
                 mujoco.mj_forward(simulation.robot.model, simulation.robot.data)
                 np.testing.assert_allclose(
                     simulation.robot.data.site("attachment_site").xpos,
-                    [-0.074, 0.492, 0.30015], atol=0.004,
+                    [-0.074, 0.32, 0.30015], atol=0.004,
                 )
 
     def test_pure_pbvs_bypasses_mpc_and_collision_queries(self):
@@ -94,7 +94,9 @@ class ControllerConfigTests(unittest.TestCase):
              patch.object(controller.kinematics, "distances", side_effect=AssertionError("no collision queries")):
             result = controller.update(frame)
         self.assertEqual(result.status, "tracking")
-        np.testing.assert_allclose(result.command_velocity, result.reference_velocity)
+        reference = result.reference_velocity
+        expected = reference / max(1, np.max(np.abs(reference)) / controller.limits_config.velocity_limit)
+        np.testing.assert_allclose(result.command_velocity, expected)
         self.assertTrue(np.isnan(result.minimum_clearance))
         lost = controller.update(replace(frame, rgb=np.full_like(frame.rgb, 255)))
         np.testing.assert_array_equal(lost.command_velocity, np.zeros(6))
@@ -112,7 +114,7 @@ class ControllerConfigTests(unittest.TestCase):
         # subpixel corner off the tag and depth-refined pose was rejected.
         settings = ControllerConfig(mode="pure_pbvs")
         simulation = Simulation(
-            config=SimulationConfig(cube_position=[-0.079, 0.432, 0.05]),
+            config=SimulationConfig(cube_position=[-0.079, 0.30, 0.05]),
             controller_config=settings,
         )
         controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot), controller_config=settings)

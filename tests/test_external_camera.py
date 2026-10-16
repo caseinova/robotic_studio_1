@@ -46,7 +46,7 @@ class ExternalCameraTests(unittest.TestCase):
         self.assertTrue({0, 1}.issubset(set(ids.reshape(-1))))
         self.assertGreater(np.count_nonzero(frame.valid_depth), 10000)
         self.assertEqual(robot.model.cam_bodyid[robot.camera_id], 0)
-        np.testing.assert_allclose(frame.world_from_camera[:3, 3], [0.75, 1.20, 1.05])
+        np.testing.assert_allclose(frame.world_from_camera[:3, 3], [0.5852, 0.8864, 0.85])
         # The declared 80 mm marker size must agree with its rendered geometry.
         tag = corners[list(ids.reshape(-1)).index(1)].reshape(4, 2).astype(float)
         half = robot.end_effector_marker_size / 2

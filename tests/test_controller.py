@@ -35,11 +35,11 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(result.status, "reached")
         self.assertLess(result.position_error, 0.003)
         self.assertLess(result.rotation_error, 0.025)
-        self.assertGreaterEqual(result.minimum_clearance, 0.02)
+        self.assertGreaterEqual(result.minimum_clearance, 0.015)
         mujoco.mj_forward(simulation.robot.model, simulation.robot.data)
         # Tool center aligns with cube center, 18 cm above the tagged face.
         np.testing.assert_allclose(simulation.robot.data.site("attachment_site").xpos,
-                                   [-0.074, 0.492, 0.28015], atol=0.004)
+                                   [-0.074, 0.32, 0.28015], atol=0.004)
         self.assertFalse(any(simulation.robot.data.contact[i].dist < -1e-5
                              for i in range(simulation.robot.data.ncon)))
         simulation.reset()
@@ -47,7 +47,7 @@ class ControllerTests(unittest.TestCase):
                                    [2000, 2000, 2000, 500, 500, 500])
 
     def test_obstacle_constraints_override_pbvs_reference(self):
-        robot = self._obstacle_robot()
+        robot = self._obstacle_robot(offset=0.055)
         # Start after the eye-to-hand orientation alignment, so the PBVS
         # reference descends toward this obstacle rather than turning in place.
         robot.data.qpos[robot._qpos_indices[5]] = -np.pi / 2
@@ -67,7 +67,8 @@ class ControllerTests(unittest.TestCase):
     def test_distance_gradient_matches_finite_difference(self):
         robot = self._obstacle_robot()
         kinematics = MujocoKinematics(robot)
-        pair_index = kinematics.pairs.index((29, robot.model.geom("test_obstacle_geom").id))
+        pair_index = kinematics.pairs.index((robot.model.geom("gripper_palm").id,
+                                            robot.model.geom("test_obstacle_geom").id))
         q = robot.joint_positions
         _, gradients = kinematics.distances(q, gradients=True)
         numeric = np.zeros(6)
@@ -165,7 +166,7 @@ class ControllerTests(unittest.TestCase):
         self.assertGreater(np.linalg.norm(simulation.robot.joint_positions - initial), 0.3)
         mujoco.mj_forward(simulation.robot.model, simulation.robot.data)
         np.testing.assert_allclose(simulation.robot.data.site("attachment_site").xpos,
-                                   [-0.074, 0.492, 0.28015], atol=0.004)
+                                   [-0.074, 0.32, 0.28015], atol=0.004)
         np.testing.assert_array_equal(simulation.robot.data.ctrl[simulation.robot.actuator_ids], np.zeros(6))
 
     @staticmethod

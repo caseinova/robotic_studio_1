@@ -22,8 +22,8 @@ from noise_config import NoiseConfig
 class PickupTests(unittest.TestCase):
     def test_physical_pickup_after_both_approach_modes(self):
         for mode, position in (
-            ("pure_pbvs", [-0.079, 0.432, 0.05]),
-            ("pbvs_mpc", [-0.074, 0.492, 0.05]),
+            ("pure_pbvs", [-0.079, 0.30, 0.05]),
+            ("pbvs_mpc", [-0.074, 0.32, 0.05]),
         ):
             with self.subTest(mode=mode):
                 simulation = Simulation(
@@ -164,7 +164,7 @@ class PickupTests(unittest.TestCase):
 
     def test_physical_pickup_with_noisy_measurements(self):
         simulation = Simulation(
-            pickup=True, config=SimulationConfig(cube_position=[-0.079, 0.5, 0.05]),
+            pickup=True, config=SimulationConfig(cube_position=[-0.079, 0.32, 0.05]),
             controller_config=ControllerConfig(mode="pure_pbvs"),
             noise_config=NoiseConfig(
                 enabled=True, seed=42, joint_position_std=0.003,

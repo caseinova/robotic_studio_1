@@ -33,7 +33,7 @@ class MPCConfig:
     horizon: int = 8
     velocity_limit: float = 0.35  # rad/s
     acceleration_limit: float = 1.5  # rad/s^2
-    clearance: float = 0.02  # meters
+    clearance: float = 0.015  # meters; UR3e wrist meshes have ~19 mm separation at home
     clearance_buffer: float = 0.003  # extra prediction margin
     tracking_weight: float = 1.0
     smoothing_weight: float = 0.15
@@ -370,7 +370,7 @@ class CubePickupController:
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  cube_size: float = 0.10, speed: float = 0.03,
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
-                 velocity_limit: float = 0.35, clearance: float = 0.02):
+                 velocity_limit: float = 0.35, clearance: float = 0.015):
         for name, value in (("cube_size", cube_size), ("speed", speed),
                             ("control_dt", control_dt), ("phase_timeout", phase_timeout),
                             ("velocity_limit", velocity_limit), ("clearance", clearance)):

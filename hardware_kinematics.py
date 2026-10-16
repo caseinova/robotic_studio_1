@@ -188,7 +188,7 @@ class UR3Kinematics:
     Measured q uses RobotInterface joint order and standard-DH encoder zero;
     offsets correct joint zero differences. world_from_base also accounts for
     a different installation/world convention. Joint limits and tool/grasp
-    transforms are explicit inputs, never copied from the UR5e simulation.
+    transforms are explicit inputs, never copied from the simulation.
 
     Collision geometry must be configured before MPC/pickup. Shapes should
     enclose physical links. No default radii or obstacle map are assumed.

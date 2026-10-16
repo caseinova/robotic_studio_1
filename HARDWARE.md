@@ -197,7 +197,7 @@ The constructor requires explicit joint position limits and these transforms:
 
 As elsewhere in the project, `A_from_B` maps coordinates in B into A. Camera
 frames supplied by the hardware interface must use this same world frame.
-No camera calibration, tag mounting, link radius, or UR5e gripper dimension
+No camera calibration, tag mounting, link radius, or simulated gripper dimension
 is silently substituted for hardware calibration. Missing tag calibration
 raises an explicit error if a detected tool tag is used.
 

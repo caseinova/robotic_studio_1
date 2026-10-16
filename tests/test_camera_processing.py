@@ -1,4 +1,4 @@
-"""Headless RGB-D perception checks against the rendered UR5e scene."""
+"""Headless RGB-D perception checks against the rendered UR3e scene."""
 
 from dataclasses import replace
 import unittest
@@ -33,7 +33,7 @@ class CameraProcessingTests(unittest.TestCase):
         observation = processor.process(self.frame)
         self.assertIsNotNone(observation)
         np.testing.assert_allclose(observation.world_from_cube[:3, 3],
-                                   [-0.074, 0.492, 0.05], atol=0.001)
+                                   [-0.074, 0.32, 0.05], atol=0.001)
         np.testing.assert_allclose(observation.world_from_cube[:3, 2], [0, 0, 1], atol=0.001)
         self.assertEqual(observation.marker_id, 0)
         self.assertEqual(observation.timestamp, self.frame.timestamp)
@@ -97,7 +97,7 @@ class CameraProcessingTests(unittest.TestCase):
             self.assertIsNotNone(observation, processor.last_status)
             pose = observation.world_from_cube
             # This distant view has fewer tag-depth samples than the wrist view.
-            np.testing.assert_allclose(pose[:3, 3], [-0.074, 0.492, 0.05], atol=0.006)
+            np.testing.assert_allclose(pose[:3, 3], [-0.074, 0.32, 0.05], atol=0.006)
             np.testing.assert_allclose(pose[:3, :3].T @ pose[:3, :3], np.eye(3), atol=1e-10)
             self.assertAlmostEqual(np.linalg.det(pose[:3, :3]), 1.0)
 

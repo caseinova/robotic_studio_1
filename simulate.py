@@ -1,4 +1,4 @@
-"""Run the UR5e simulation with a viewer or headlessly."""
+"""Run the UR3e simulation with a viewer or headlessly."""
 
 import argparse
 import time
@@ -175,7 +175,7 @@ class Simulation:
             viewer = stack.enter_context(
                 mujoco.viewer.launch_passive(self.robot.model, self.robot.data)
             )
-            window_name = "UR5e " + self.robot.camera_name.replace("_", " ") + " - RGB"
+            window_name = "UR3e " + self.robot.camera_name.replace("_", " ") + " - RGB"
             if camera:
                 stack.enter_context(self.interface)
                 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)

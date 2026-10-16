@@ -13,7 +13,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().with_name("simulation_config.json
 class SimulationConfig:
     """Cube center in world meters and orientation (w,x,y,z)."""
 
-    cube_position: tuple[float, float, float] = (-0.074, 0.492, 0.05)
+    cube_position: tuple[float, float, float] = (-0.074, 0.32, 0.05)
     cube_quaternion: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
 
     def __post_init__(self):

@@ -72,7 +72,7 @@ class GripperTests(unittest.TestCase):
         for finger in fingers:
             self.assertTrue(any(set(pair) == {finger, floor} for pair in kinematics.pairs))
         self.assertFalse(any(set(pair) == set(fingers) for pair in kinematics.pairs))
-        self.assertGreater(kinematics.distances(robot.joint_positions).min(), 0.02)
+        self.assertGreater(kinematics.distances(robot.joint_positions).min(), 0.015)
         bare_robot = RobotModel(include_scene=False)
         self.assertAlmostEqual(bare_robot.gripper_width, 0.12)
         self.assertEqual(bare_robot.grasp_pose.shape, (4, 4))

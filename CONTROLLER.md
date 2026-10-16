@@ -1,5 +1,11 @@
 # Cube approach controller
 
+The simulator now uses the supplied UR3e arm with the existing generic gripper
+and tagged-cube scene. See [model notes](models/ur3e/README.md) for provenance,
+actuators, frame conventions, and simulation-specific changes. The default
+cube center is `[-0.074, 0.32, 0.05]` m. Simulation planning clearance is
+15 mm plus a 3 mm buffer; hardware retains its separately configured clearance.
+
 The cube carries six ArUco `DICT_4X4_50` markers: ID 0 on top, ID 2 on
 +Y, ID 3 on +X, ID 4 on -Y, ID 5 on -X, and ID 6 on the bottom. The tool
 keeps its single ID 1 marker. All markers have an 80 mm black square and
@@ -157,7 +163,8 @@ intervals and applies only the first command before solving again.
 The kinematic prediction is `q[k+1] = q[k] + dt*u[k]`. The objective is
 `sum(w_tracking*||u[k]-u_pbvs||^2 + w_smoothing*||u[k]-u[k-1]||^2)`.
 Hard constraints impose joint-angle bounds, maximum joint velocity and
-acceleration, and at least 2 cm signed separation between collision geoms.
+acceleration, and at least 1.5 cm signed separation between collision geoms
+in the UR3e simulation (hardware uses its configured clearance).
 An extra 3 mm planning buffer helps absorb linearization/tracking errors.
 Geometry is linearized at horizon midpoints/endpoints, then checked again
 with nonlinear distances at four samples per interval. Invalid plans are
@@ -219,10 +226,9 @@ py simulate.py --camera
 py simulate.py --camera --camera-name external_camera
 ```
 
-The external RGB-D camera is fixed at world `[-0.074, 1.05, 0.95]` meters, on
-the workspace side (+Y), above and centered on the default cube's X coordinate.
-This front view keeps the two open fingers to either side of the cube tag. It looks back
-toward the gripper/cube workspace. The end-effector carries ArUco DICT_4X4_50
+The external RGB-D camera is fixed at world `[0.5852, 0.8864, 0.85]` meters,
+looking diagonally across the UR3e gripper/cube workspace from +X and +Y.
+The end-effector carries ArUco DICT_4X4_50
 ID 1, with an 80 mm black square and a 5 mm white margin. Its raised horizontal
 plate faces upward so turning the wrist does not turn the tag away from the
 camera. The cube retains ID 0, and the camera view outlines

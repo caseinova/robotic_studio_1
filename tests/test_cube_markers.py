@@ -32,7 +32,7 @@ class CubeMarkersTests(unittest.TestCase):
                 self.assertIsNotNone(observation, processor.last_status)
                 self.assertEqual([m.marker_id for m in observation.marker_observations], [marker_id])
                 np.testing.assert_allclose(observation.world_from_cube[:3, 3],
-                                           [-.074, .492, .05], atol=.002)
+                                           robot.model.body('cube').pos, atol=.002)
                 np.testing.assert_allclose(observation.world_from_cube[:3, :3], rotation, atol=.012)
                 np.testing.assert_allclose(observation.camera_from_marker,
                     observation.camera_from_cube @ processor.cube_from_markers[0], atol=1e-12)

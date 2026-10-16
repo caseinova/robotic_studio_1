@@ -1,4 +1,4 @@
-"""Load the bundled UR5e model and its MuJoCo state.
+"""Load the bundled UR3e model and its MuJoCo state.
 
 Control access lives in interface.py; simulation execution lives in simulate.py.
 """
@@ -14,13 +14,13 @@ from robot_state import RGBDFrame
 
 MODEL_DIRECTORY = (
     Path(__file__).resolve().parent
-    / "universal_robots_ur5e"
-    / "universal_robots_ur5e"
+    / "models"
+    / "ur3e"
 )
 
 
 class RobotModel:
-    """UR5e model definition and state.
+    """UR3e model definition and state.
 
     ``model`` and ``data`` are public MuJoCo objects for controllers,
     estimators, rendering, and other simulation integrations.
@@ -51,7 +51,7 @@ class RobotModel:
             raise ValueError("camera_name must be external_camera")
         self.camera_name = camera_name
         self.model_path = MODEL_DIRECTORY / (
-            "scene.xml" if include_scene else "ur5e.xml"
+            "scene.xml" if include_scene else "ur3e.xml"
         )
         self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
         self.data = mujoco.MjData(self.model)
