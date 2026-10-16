@@ -342,7 +342,7 @@ class TaggedCubeProcessor(CameraProcessor):
     camera errors must not be counted as six independent measurements.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, cube_from_markers=None, reference_marker_id=0, **kwargs):
         super().__init__(**kwargs)
         self.cube_from_markers = {}
         faces = [(0, (0, 0, 1), (0, 0, 0)),
@@ -356,6 +356,18 @@ class TaggedCubeProcessor(CameraProcessor):
             pose[:3, :3] = Rotation.from_euler('xyz', angles, degrees=True).as_matrix()
             pose[:3, 3] = np.asarray(normal) * (self.cube_size / 2 + self.label_offset)
             self.cube_from_markers[marker_id] = pose
+        if cube_from_markers is not None:
+            from hardware_kinematics import _pose
+
+            self.cube_from_markers = {}
+            for key, value in cube_from_markers.items():
+                marker_id = int(key)
+                if str(marker_id) != str(key) or not 0 <= marker_id < 50:
+                    raise ValueError("cube marker IDs must be integers in DICT_4X4_50")
+                self.cube_from_markers[marker_id] = _pose(value, f"cube_from_markers[{key}]")
+        if type(reference_marker_id) is not int or reference_marker_id not in self.cube_from_markers:
+            raise ValueError("reference_marker_id must identify a configured cube marker")
+        self.reference_marker_id = reference_marker_id
 
     def process(self, frame):
         self._validate_frame(frame)
@@ -416,7 +428,7 @@ class TaggedCubeProcessor(CameraProcessor):
         # Preserve the canonical top-marker control frame even if it is hidden.
         return CubeObservation(representative.marker_id, float(frame.timestamp),
             representative.corners, representative.corners.mean(axis=0),
-            pose @ self.cube_from_markers[0], pose, frame.world_from_camera @ pose,
+            pose @ self.cube_from_markers[self.reference_marker_id], pose, frame.world_from_camera @ pose,
             mask, (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1),
             points[mask].copy(), float(weights @ np.array([m.reprojection_error for m in measurements])),
             float(weights @ np.array([m.depth_plane_error for m in measurements])), measurements)

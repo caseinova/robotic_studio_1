@@ -7,7 +7,162 @@
 `interface.py` remains responsible for sensor acquisition, timestamps, and
 robot/gripper communication. Geometry calculations belong in the kinematics
 backend so measured robot states and hypothetical MPC states stay separate.
-No hardware transport or hardware-mode launcher is implemented by this change.
+`run.py` selects simulation or hardware from `runtime_config.json`. Hardware
+uses `HardwareInterface`, UR RTDE for the UR3, and configurable OnRobot
+RG2/RG6 Compute Box Modbus TCP. The camera is a RealSense D435i, selected
+through `hardware_realsense:create_camera`. Any component can use a custom adapter.
+
+## Configure and launch
+
+1. Keep `runtime_config.json` as the shared entry point. `backend` selects
+   `simulation` or `hardware`; `task` selects `observe`, `servo`, or `pick`.
+   Controller selection (`pure_pbvs` / `pbvs_mpc`) stays in `controller_config.json`.
+2. Fill the `null` values in `hardware_config.json`, including joint limits,
+   robot/Compute Box addresses, camera intrinsics and installation transforms.
+   Matrices named `A_from_B` map B coordinates into A. Do not substitute identity
+   matrices unless those frames really coincide.
+3. The D435i adapter is already selected in `camera.factory`. Confirm serial,
+   resolution, distortion coefficients, and `depth_scale` (meters per raw unit).
+   Obtain device intrinsics with the camera-only command below, or enter your
+   measured OpenCV calibration. Camera-to-robot extrinsics must be calibrated separately.
+4. Verify RG2 vs RG6, unit ID, gripping force and actual maximum finger opening.
+   RG2 is the template selection, not automatic hardware identification.
+5. For MPC or pickup, populate physical link/gripper envelopes and known
+   obstacles under `collision`. No guessed UR3 link radii are installed.
+
+```powershell
+# Existing simulation: no hardware dependencies or connections.
+py run.py --validate
+py run.py --headless --steps 25
+
+# Configuration-only preflight; no device constructors or commands.
+py run.py --backend hardware --validate
+
+# After configuration: read camera/encoders, without commanding movement.
+py run.py --backend hardware --task observe
+
+# Or set backend=hardware and task=servo/pick in runtime_config.json:
+py run.py
+```
+
+The hardware preflight intentionally fails on the checked-in placeholders.
+File paths in the runtime JSON are relative to that file, not the working
+directory. `--config`, `--hardware-config`, `--backend`, `--task`, `--steps`,
+and `--headless` can override selection. `simulate.py` remains available.
+
+Install `requirements-hardware.txt` for the hardware path (it does not require
+MuJoCo). No SDK dependencies or network connections are needed for `--validate`.
+UR RTDE requires compatible CB-series robot software/setup; its normal control
+script is uploaded on the first command. It does not reuse an unrelated URCap
+program. Robot power/mode, payload, and installation settings stay on the robot.
+
+## RealSense D435i setup
+
+Install the hardware dependencies, then inspect the connected camera:
+
+```powershell
+py -m pip install -r requirements-hardware.txt
+py hardware_realsense.py
+```
+
+The inspection command opens only the camera and prints its factory intrinsics,
+distortion coefficients, and depth scale. Copy these into `hardware_config.json`;
+it does not write calibration files or connect to the robot or gripper. If the
+SDK distortion model cannot be represented by the OpenCV model, the report leaves
+`distortion` null: provide an OpenCV calibration instead. Calibrate
+`world_from_camera` separately for the installed camera position.
+
+The adapter defaults to 640 by 480 RGB and aligned depth at 30 Hz. Set
+`camera.options.serial` when more than one RealSense is connected. Acquisition
+uses global capture timestamps and rejects duplicate, incomplete, or excessively
+unsynchronized frames. The D435i IMU is not used by the pose estimator.
+
+## Device adapter contracts
+
+An adapter factory is called as `factory(config=component_settings, clock=clock)`.
+`clock()` returns the session's monotonic time. Factories must clean up their
+own partially constructed resources if construction raises. Successfully
+created adapters are owned and closed by the runtime.
+
+For additional cameras, the adapter contract is:
+
+```python
+from hardware_devices import CameraSample
+
+class CameraAdapter:
+    def capture(self):
+        # Read from the selected SDK with bounded blocking and map the SDK's
+        # acquisition timestamp onto the supplied monotonic clock.
+        return CameraSample(acquisition_time, rgb_uint8, aligned_raw_depth)
+
+    def close(self):
+        # Release the SDK pipeline/device.
+        ...
+
+def create_camera(config, clock):
+    # Construct CameraAdapter using your camera SDK and config["options"].
+    ...
+```
+
+The D435i implementation already supplies this contract. Other camera factories
+must return an adapter object. RGB must be RGB order, with depth already registered
+to RGB optics and representing optical-axis Z. Both arrays must match configured
+resolution. `HardwareInterface` rectifies both using the configured OpenCV
+distortion model (linear RGB, nearest-neighbor depth), scales depth to meters,
+and attaches the calibrated `world_from_camera` and K. For an already rectified
+SDK stream, supply its rectified K and zero distortion to avoid double correction.
+`depth_scale=1` supports depth already expressed in meters.
+
+Never stamp an old buffered frame with its delivery time. Map device acquisition
+time into `clock()` once, retaining age/latency. Repeated or stale camera samples
+are rejected. Camera acquisition must have a bounded SDK timeout so exit and
+error handling can complete. Other camera adapters must meet this same contract.
+
+Custom robot adapters implement `read_joint_state()` returning
+`JointSample(timestamp, positions, velocities)`, `command_velocity(qd)`,
+`command_position(q)`, `stop()`, and `close()`. Custom grippers implement
+`read_width()` returning `WidthSample(timestamp, width_m)`,
+`command_width(width_m)`, and `close()`. All samples use the same acquisition
+clock. Custom robot adapters must enforce command expiry/stop behavior like
+the built-in worker; `close()` must not open a gripper carrying an object.
+
+## Built-in transport and timing
+
+The [UR RTDE adapter](https://sdurobotics.gitlab.io/ur_rtde/pages/reference/api.html)
+reads joint positions, velocities, device timestamps and safety mode. It checks
+packet timestamps around the reads to avoid mixing packet generations. The
+robot clock maps to host monotonic time with a fixed anchor and one conservative
+sample period; repeated packets retain their old timestamp rather than becoming
+fresh. An implausible mapping or stale stream stops the session.
+
+The UR3 CB-series worker runs at configurable frequency up to 125 Hz and owns
+all control SDK calls. Vision/MPC updates its pending command independently.
+The worker checks command/state age, operating velocity limits and joint-limit
+braking bounds, and uses the configured acceleration with `speedJ`. Position
+targets use bounded proportional velocity tracking. An on-robot SDK watchdog
+also stops control if communication stalls; it is kicked only for valid,
+unexpired commands. A transport/watchdog failure is latched until a new session.
+
+The outer loop uses `control.dt`, rejects slow cycles via `max_cycle_time`,
+and stops after `max_run_seconds` or the configured step count. Freshness checks
+apply again just before a nonzero command, so a slow optimizer cannot send an
+old image/state command. Completion, Ctrl+C, errors and timeouts close all
+devices and stop owned arm control. Gripper cleanup disconnects without opening.
+
+The [OnRobot RG2/RG6 register map](https://onrobot.com/sites/default/files/robot-comp-download/User_Manual_for_DOOSAN_v1.05_EN.pdf)
+is used over Compute Box Ethernet (default port 502, configurable unit ID).
+Force is converted to tenths of Newtons and width to tenths of millimeters.
+One FC16 transaction writes force, width and control. Width feedback comes
+from the gripper, not the requested width. Busy and safety/error flags reject
+new commands explicitly. No gripper power cycle or auto-homing is performed.
+`use_device_fingertip_offset=true` uses the offset-aware width/control registers;
+calibrate the actual fingers in the device and set `max_width_m` accordingly.
+RG2-FT/2FG7 and non-Compute-Box connections need a different custom adapter.
+
+The current grasp-center transform is fixed and the gripper collision opening
+is a symmetric translation approximation. RG2 linkage-dependent TCP depth
+compensation is not modeled. Calibrate at the intended grasp opening or extend
+the grasp/collision model for that motion before precision pickup.
 
 ## Calculations
 
@@ -46,34 +201,27 @@ No camera calibration, tag mounting, link radius, or UR5e gripper dimension
 is silently substituted for hardware calibration. Missing tag calibration
 raises an explicit error if a detected tool tag is used.
 
-The following factory accepts a calibration dictionary supplied by the
-application; it does not read a config file or connect to hardware:
+The JSON loader builds these calculation objects without opening devices:
 
 ```python
-from controller import ApproachController
+from hardware_config import HardwareConfig
 from controller_config import ControllerConfig
-from estimator import EKFConfig
-from hardware_kinematics import UR3Kinematics
 
-def make_controller(interface, calibration, link_capsules, obstacles):
-    kinematics = UR3Kinematics(
-        **calibration,
-        link_capsules=link_capsules,
-        obstacles=obstacles,
-    )
-    return ApproachController(
-        interface,
-        kinematics,
-        controller_config=ControllerConfig(mode="pbvs_mpc"),
-        estimator_config=EKFConfig.load(),
-    )
+hardware = HardwareConfig.load("hardware_config.json")
+hardware.validate_ready(ControllerConfig.load(), task="servo")
+kinematics = hardware.build_kinematics()
+processor = hardware.build_processor()
 ```
 
-`calibration` must supply the required constructor inputs above. It can also
-override `dh`, `marker_id`, and `marker_size`. The controller's existing
-`MPCConfig` supplies operating velocity/acceleration limits and clearance;
-joint position limits are supplied to `UR3Kinematics`. Robot dynamics and
-torque calculations are not part of this kinematic MPC.
+The JSON also supplies calibrated DH values, tool/cube marker IDs and sizes,
+and every `cube_from_markers` transform. The template's six cube transforms
+describe the nominal simulated 10 cm cube and must match the real labels.
+PBVS targets the configured `reference_marker_id`, including after EKF filtering.
+Tool and cube IDs must be distinct. Operating velocity/acceleration limits and
+timing live in `control`; the remaining MPC settings live in `mpc`. Joint
+position limits live in `robot`. Robot dynamics and torque calculations are
+not part of this kinematic MPC. Simulation noise config is never injected
+into real sensor samples.
 
 ## Collision geometry
 
@@ -114,7 +262,9 @@ Use `set_obstacles()` between control updates to replace the supplied map.
 Reset the MPC plan after changing it; reconstruct an active pickup controller
 if pair membership/order changes because it caches its allowed-contact indices.
 
-These calculations and tests are offline. Individual-arm calibration,
-physical collision envelopes, and the hardware transport are still needed
-before using this backend on the real UR3. Finite-difference collision
-gradients also need timing checks against the chosen control interval.
+Tests use offline fake devices and SDKs, not a connected UR3, gripper, or D435i.
+Individual-arm calibration, physical collision envelopes, and camera-to-robot
+calibration are still required. Finite-difference collision gradients also need
+timing checks against the chosen control interval. Pickup retains the
+existing latched-target sequence; this launcher does not implement moving-cube
+pickup or the proposed continuous-tracking grasp behavior.

@@ -34,6 +34,10 @@ The controller never reads live `RobotModel.data`. The responsibilities are:
 
 The UR3 backend and its calibration inputs are described in [HARDWARE.md](HARDWARE.md).
 Both the approach and pickup controllers accept either calculation backend.
+Use `py run.py` with `runtime_config.json` for backend/task selection. Fill
+`hardware_config.json` before selecting hardware; `py run.py --backend hardware
+--validate` checks it without connecting. The RealSense D435i adapter is selected; camera intrinsics and installation
+calibration must still be supplied. Existing `simulate.py` commands work.
 
 The controller reads one `RobotState` per update. The prediction workspace
 is synchronized from measured arm positions and gripper width; it does not

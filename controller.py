@@ -203,9 +203,9 @@ class ApproachController:
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  tool_clearance: float | None = None, config: MPCConfig | None = None,
                  controller_config: ControllerConfig | None = None,
-                 estimator_config: EKFConfig | None = None):
+                 estimator_config: EKFConfig | None = None, processor: TaggedCubeProcessor | None = None):
         self.interface = interface
-        self.processor = TaggedCubeProcessor()
+        self.processor = processor if processor is not None else TaggedCubeProcessor()
         self.estimator = RelativePoseEKF(estimator_config)
         # A separate tracker smooths the moving tool measured by its tag.
         # It uses the same optional noise settings, without sharing cube state.
@@ -213,7 +213,8 @@ class ApproachController:
         self.pose_estimate = None
         self.kinematics = kinematics
         self.tool_processor = CameraProcessor(marker_id=kinematics.end_effector_marker_id,
-                                             marker_size=kinematics.end_effector_marker_size)
+                                             marker_size=kinematics.end_effector_marker_size,
+                                             cube_size=max(.1, kinematics.end_effector_marker_size))
         self.tool_observation = None
         self.tool_pose_source = ""
         self.settings = controller_config or ControllerConfig()
@@ -285,8 +286,7 @@ class ApproachController:
         jacobian = self.kinematics.tool_jacobian(positions, local=True)
         camera_from_marker = observation.camera_from_marker
         if self.pose_estimate is not None:
-            cube_from_marker = np.eye(4)
-            cube_from_marker[2, 3] = self.processor.cube_size / 2 + self.processor.label_offset
+            cube_from_marker = self.processor.cube_from_markers[self.processor.reference_marker_id]
             camera_from_marker = self.pose_estimate.camera_from_cube @ cube_from_marker
         # Both tags are measured in this same exposure. Their relative pose
         # cancels camera-to-world extrinsics; the rigid tool-tag mounting
@@ -369,9 +369,11 @@ class CubePickupController:
 
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  cube_size: float = 0.10, speed: float = 0.03,
-                 control_dt: float = 0.05, phase_timeout: float = 20.0):
+                 control_dt: float = 0.05, phase_timeout: float = 20.0,
+                 velocity_limit: float = 0.35, clearance: float = 0.02):
         for name, value in (("cube_size", cube_size), ("speed", speed),
-                            ("control_dt", control_dt), ("phase_timeout", phase_timeout)):
+                            ("control_dt", control_dt), ("phase_timeout", phase_timeout),
+                            ("velocity_limit", velocity_limit), ("clearance", clearance)):
             if not np.isfinite(value) or value <= 0:
                 raise ValueError(f"{name} must be finite and positive")
         self.interface = interface
@@ -380,6 +382,7 @@ class CubePickupController:
         self.speed = speed
         self.control_dt = control_dt
         self.phase_timeout = phase_timeout
+        self.velocity_limit, self.clearance = velocity_limit, clearance
         self.phase = "idle"
         self.diagnostic = ""
         self._phase_started = 0.0
@@ -519,14 +522,14 @@ class CubePickupController:
         linear_velocity[2] = np.clip(linear_velocity[2], -self.speed, self.speed)
         twist[3:] *= min(1.0, 0.3 / max(np.linalg.norm(twist[3:]), 1e-12))
         command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + 0.01 ** 2 * np.eye(6), twist)
-        command /= max(1.0, np.max(np.abs(command)) / 0.35)
+        command /= max(1.0, np.max(np.abs(command)) / self.velocity_limit)
         lower, upper = self.kinematics.limits
         prediction = state.joint_positions + self.control_dt * command
         if np.any(prediction < lower) or np.any(prediction > upper):
             self._fail("joint_limit_violation")
             return self._result()
         minimum = min(self._clearance(state.joint_positions), self._clearance(prediction))
-        if minimum < 0.02:
+        if minimum < self.clearance:
             self._fail("pickup_path_blocked")
             return self._result(minimum_clearance=minimum)
         self.interface.set_joint_velocities(command)
