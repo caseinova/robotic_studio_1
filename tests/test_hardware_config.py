@@ -13,8 +13,9 @@ from hardware_fakes import configured
 
 
 class HardwareConfigTests(unittest.TestCase):
-    def test_checked_in_template_reports_placeholders_without_connecting(self):
+    def test_missing_intrinsics_reported_without_connecting(self):
         config = HardwareConfig.load()
+        config = replace(config, camera={**config.camera, "intrinsics": None})
         with self.assertRaisesRegex(ValueError, 'camera.intrinsics'):
             config.validate_ready(ControllerConfig(mode='pure_pbvs'))
 

@@ -46,7 +46,7 @@
     "driver": "custom",
     "factory": "hardware_realsense:create_camera",
     "options": {
-      "serial": null,
+      "serial": "215322079497",
       "fps": 30,
       "timeout_ms": 1000,
       "warmup_frames": 30,
@@ -55,7 +55,11 @@
     },
     "width": 640,
     "height": 480,
-    "intrinsics": null,
+    "intrinsics": [
+      [609.744689941406, 0, 320.930786132812],
+      [0, 608.500854492188, 239.868408203125],
+      [0, 0, 1]
+    ],
     "distortion": [
       0,
       0,
