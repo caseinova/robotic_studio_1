@@ -88,7 +88,12 @@
     "use_device_fingertip_offset": true
   },
   "calibration": {
-    "world_from_base": null,
+    "world_from_base": [
+      [1, 0, 0, 0],
+      [0, 1, 0, 0],
+      [0, 0, 1, 0],
+      [0, 0, 0, 1]
+    ],
     "world_from_camera": null,
     "flange_from_tool": null,
     "tool_from_grasp": null,
