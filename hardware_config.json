@@ -47,7 +47,7 @@
     "driver": "custom",
     "factory": "hardware_realsense:create_camera",
     "options": {
-      "serial": "215322079497",
+      "serial": "215522070468",
       "fps": 30,
       "timeout_ms": 1000,
       "warmup_frames": 30,
@@ -57,8 +57,8 @@
     "width": 640,
     "height": 480,
     "intrinsics": [
-      [609.744689941406, 0, 320.930786132812],
-      [0, 608.500854492188, 239.868408203125],
+      [607.7181396484375, 0, 324.0491943359375],
+      [0, 606.1759033203125, 241.94970703125],
       [0, 0, 1]
     ],
     "distortion": [
@@ -68,7 +68,7 @@
       0,
       0
     ],
-    "depth_scale": 0.001,
+    "depth_scale": 0.0010000000474974513,
     "depth_range": [
       0.1,
       3.0
@@ -95,10 +95,10 @@
     "tool_from_marker": null
   },
   "perception": {
-    "cube_size": 0.1,
-    "marker_size": 0.08,
+    "cube_size": 0.064,
+    "marker_size": 0.04,
     "tool_marker_id": 1,
-    "tool_marker_size": 0.08,
+    "tool_marker_size": 0.04,
     "reference_marker_id": 0,
     "cube_from_markers": {
       "0": [
