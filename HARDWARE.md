@@ -1,4 +1,37 @@
-# UR3 calculation backend
+# UR arm hardware backend
+
+## Supplied UR3e API
+
+The checked-in configuration selects `robot.driver = "ur3_rg2_rosbridge"`.
+`hardware_rosbridge.RosbridgeArm` uses `RealUR3e` from the sibling
+`UR3_RG2_rosbridge` repository. `robot.api_path` resolves relative to the
+hardware configuration file; the default is `../UR3_RG2_rosbridge`.
+Keep both repositories together, including the integration changes to the
+supplied backend (relative package import and cleanup on connection failure).
+Validation checks the path without importing the RTDE SDK or opening devices.
+
+The 20 Hz controller queues velocity commands to a 100 Hz worker. The worker
+uses the API's paced `set_joint_velocity()` and accounts for time already
+spent in that call, so it does not add a second full control period.
+Position holds are converted to bounded proportional joint velocities.
+The same configured velocity and acceleration limits are passed to both
+layers, avoiding an unexpected second velocity cap from API defaults.
+
+A read-only API instance supplies feedback. A separate command instance is
+created inside the worker on the first queued command and closed by that
+worker. Timestamp/safety checks and SDK watchdog operations use the API's
+`rtde_r`/`rtde_c` handles because its public interface does not expose them.
+Coherent snapshots, command expiry, braking bounds, and cleanup remain active.
+`observe` never enables arm control. Camera and gripper remain independent
+RealSense and OnRobot adapters; the supplied API controls only the arm.
+
+The checked-in DH values now describe nominal UR3e geometry matching the
+supplied model. `UR3DH()` still defaults to CB-series UR3 for explicit legacy
+callers, and `robot.driver = "ur_rtde"` retains the original direct transport.
+Robot controller `base` and model `base_link` differ by a pi rotation about Z.
+The supplied model's `tool0` matches nominal DH frame 6; the physical active
+TCP, gripper, camera, and tag mounting still require installation calibration.
+No identity calibration or joint operating limits are inferred automatically.
 
 `hardware_kinematics.py` provides `UR3Kinematics`, implementing the same
 `Kinematics` contract as `MujocoKinematics`. It needs NumPy, not MuJoCo,
@@ -8,7 +41,7 @@
 robot/gripper communication. Geometry calculations belong in the kinematics
 backend so measured robot states and hypothetical MPC states stay separate.
 `run.py` selects simulation or hardware from `runtime_config.json`. Hardware
-uses `HardwareInterface`, UR RTDE for the UR3, and configurable OnRobot
+uses `HardwareInterface`, the supplied UR3e API (or direct UR RTDE), and configurable OnRobot
 RG2/RG6 Compute Box Modbus TCP. The camera is a RealSense D435i, selected
 through `hardware_realsense:create_camera`. Any component can use a custom adapter.
 

@@ -103,6 +103,7 @@ class RealSenseTests(unittest.TestCase):
 
     def test_device_serial_selection_is_explicit_with_multiple_cameras(self):
         self.sdk.devices *= 2
+        self.config.camera['options']['serial'] = None
         with self.assertRaisesRegex(RuntimeError, 'multiple'):
             self.camera()
         self.config.camera['options']['serial'] = 'SERIAL'

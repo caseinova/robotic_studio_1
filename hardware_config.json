@@ -1,26 +1,27 @@
 {
   "robot": {
-    "driver": "ur_rtde",
+    "driver": "ur3_rg2_rosbridge",
+    "api_path": "../UR3_RG2_rosbridge",
     "factory": null,
     "options": {},
     "host": null,
-    "frequency_hz": 125,
+    "frequency_hz": 100,
     "dh": {
       "a": [
         0.0,
-        -0.24365,
-        -0.21325,
+        -0.24355,
+        -0.2132,
         0.0,
         0.0,
         0.0
       ],
       "d": [
-        0.1519,
+        0.15185,
         0.0,
         0.0,
-        0.11235,
+        0.13105,
         0.08535,
-        0.0819
+        0.0921
       ],
       "alpha": [
         1.5707963267948966,

@@ -6,6 +6,7 @@ import time
 
 from controller import ApproachController, CubePickupController
 from hardware_devices import URRTDE, OnRobotRG, custom_device
+from hardware_rosbridge import RosbridgeArm
 from interface import HardwareInterface
 
 
@@ -26,7 +27,8 @@ def open_hardware(config, *, clock=time.monotonic):
         camera = managed(custom_device(config.camera, clock), ("capture", "close"))
         gripper = managed(OnRobotRG(config.gripper, clock) if config.gripper["driver"] == "onrobot_rg"
                           else custom_device(config.gripper, clock), ("read_width", "command_width", "close"))
-        robot = managed(URRTDE(config.robot, config.control, clock) if config.robot["driver"] == "ur_rtde"
+        arm_type = {"ur_rtde": URRTDE, "ur3_rg2_rosbridge": RosbridgeArm}.get(config.robot["driver"])
+        robot = managed(arm_type(config.robot, config.control, clock) if arm_type is not None
                         else custom_device(config.robot, clock),
                         ("read_joint_state", "command_velocity", "command_position", "stop", "close"))
         stack.callback(robot.stop)

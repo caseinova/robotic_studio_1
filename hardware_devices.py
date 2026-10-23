@@ -60,14 +60,8 @@ class URRTDE:
     """
 
     def __init__(self, settings, control, clock=time.monotonic):
-        try:
-            import rtde_receive
-            import rtde_control
-        except ImportError as error:
-            raise RuntimeError("UR3 hardware requires ur-rtde; see requirements-hardware.txt") from error
         self.clock, self.control, self.settings = clock, control, settings
-        self._control_type = rtde_control.RTDEControlInterface
-        self._receive = rtde_receive.RTDEReceiveInterface(settings["host"], settings["frequency_hz"])
+        self._connect_receive()
         self._read_lock, self._command_lock = threading.Lock(), threading.Lock()
         self._stop_event = threading.Event()
         self._thread = None
@@ -75,6 +69,38 @@ class URRTDE:
         self._command = None
         self._anchor = None
         self._closed = False
+
+    def _connect_receive(self):
+        try:
+            import rtde_receive
+            import rtde_control
+        except ImportError as error:
+            raise RuntimeError("UR3 hardware requires ur-rtde; see requirements-hardware.txt") from error
+        self._control_type = rtde_control.RTDEControlInterface
+        self._receive = rtde_receive.RTDEReceiveInterface(self.settings["host"], self.settings["frequency_hz"])
+
+    def _joint_values(self):
+        return self._receive.getActualQ(), self._receive.getActualQd()
+
+    def _connect_command(self):
+        return self._control_type(self.settings["host"], self.settings["frequency_hz"])
+
+    def _watchdog_transport(self, sender):
+        return sender
+
+    def _send_velocity(self, sender, velocity, period):
+        return sender.speedJ(velocity.tolist(), self.control["acceleration_limit"], period)
+
+    def _close_command(self, sender):
+        for action in (lambda: sender.speedStop(self.control["acceleration_limit"]),
+                       sender.stopScript, sender.disconnect):
+            try:
+                action()
+            except Exception:
+                pass  # Preserve the original worker failure.
+
+    def _close_receive(self):
+        self._receive.disconnect()
 
     def read_joint_state(self):
         if self._closed or self._error is not None:
@@ -87,8 +113,9 @@ class URRTDE:
             # Detect a packet changing while its individual fields are read.
             for _ in range(5):
                 before = self._receive.getTimestamp()
-                q = np.asarray(self._receive.getActualQ(), dtype=float)
-                dq = np.asarray(self._receive.getActualQd(), dtype=float)
+                positions, velocities = self._joint_values()
+                q = np.asarray(positions, dtype=float)
+                dq = np.asarray(velocities, dtype=float)
                 after = self._receive.getTimestamp()
                 if before == after:
                     break
@@ -122,8 +149,9 @@ class URRTDE:
     def _run(self):
         rtde = None
         try:
-            rtde = self._control_type(self.settings["host"], self.settings["frequency_hz"])
-            if not rtde.setWatchdog(1 / self.control["command_timeout"]):
+            rtde = self._connect_command()
+            watchdog = self._watchdog_transport(rtde)
+            if not watchdog.setWatchdog(1 / self.control["command_timeout"]):
                 raise RuntimeError("UR command watchdog could not be enabled")
             period = 1 / self.settings["frequency_hz"]
             while not self._stop_event.is_set():
@@ -147,8 +175,7 @@ class URRTDE:
                 braking_upper = np.sqrt(2 * acceleration * np.maximum(upper - measured.positions, 0))
                 velocity = np.clip(velocity, np.maximum(braking_lower, -self.control["velocity_limit"]),
                                    np.minimum(braking_upper, self.control["velocity_limit"]))
-                if not rtde.kickWatchdog() or not rtde.speedJ(
-                        velocity.tolist(), self.control["acceleration_limit"], period):
+                if not watchdog.kickWatchdog() or not self._send_velocity(rtde, velocity, period):
                     raise RuntimeError("UR rejected the velocity command")
                 self._stop_event.wait(max(0., period - (self.clock() - started)))
         except Exception as error:
@@ -156,12 +183,7 @@ class URRTDE:
         finally:
             self._stop_event.set()
             if rtde is not None:
-                for action in (lambda: rtde.speedStop(self.control["acceleration_limit"]),
-                               rtde.stopScript, rtde.disconnect):
-                    try:
-                        action()
-                    except Exception:
-                        pass  # Preserve the transport error; robot watchdog is independent.
+                self._close_command(rtde)
 
     def stop(self):
         self._stop_event.set()
@@ -178,7 +200,7 @@ class URRTDE:
                 self.stop()
             finally:
                 self._closed = True
-                self._receive.disconnect()
+                self._close_receive()
 
 
 class ModbusTCP:

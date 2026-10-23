@@ -23,5 +23,7 @@ the existing 3 mm planning buffer: the supplied wrist 1/wrist 3 collision
 meshes have about 19 mm separation at home. Hardware configuration retains
 its own explicit clearance and calibration.
 
-This switch does not change the hardware backend's CB-series UR3 DH defaults.
-Those must be configured separately for the physical installation.
+The hardware JSON now selects the supplied UR3e API and matching nominal UR3e
+DH values. Installation transforms and calibrated geometry must still be
+configured for the physical arm; the generic `UR3DH()` class retains its
+legacy CB-series defaults.

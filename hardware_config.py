@@ -49,12 +49,17 @@ class HardwareConfig:
         if missing:
             raise ValueError("missing hardware sections: " + ", ".join(sorted(missing)))
         result = cls(**copy.deepcopy(values))
+        if result.robot.get("api_path") is not None:
+            if not isinstance(result.robot["api_path"], str) or not result.robot["api_path"].strip():
+                raise ValueError("robot.api_path must be a repository path")
+            api_path = Path(result.robot["api_path"])
+            result.robot["api_path"] = str((Path(path).resolve().parent / api_path).resolve())
         result.validate_schema()
         return result
 
     def validate_schema(self):
         sections = {
-            "robot": "driver factory options host frequency_hz dh joint_lower joint_upper",
+            "robot": "driver factory options host frequency_hz dh joint_lower joint_upper api_path",
             "camera": "driver factory options width height intrinsics distortion depth_scale depth_range",
             "gripper": "driver factory options model host port unit_id force_n max_width_m timeout_s use_device_fingertip_offset",
             "calibration": "world_from_base world_from_camera flange_from_tool tool_from_grasp tool_from_marker",
@@ -72,7 +77,7 @@ class HardwareConfig:
         for name in ("robot", "camera", "gripper"):
             settings = getattr(self, name)
             driver = settings.get("driver")
-            supported = {"robot": ("ur_rtde", "custom"), "camera": ("unconfigured", "custom"),
+            supported = {"robot": ("ur_rtde", "ur3_rg2_rosbridge", "custom"), "camera": ("unconfigured", "custom"),
                          "gripper": ("onrobot_rg", "custom")}[name]
             if driver not in supported:
                 raise ValueError(f"unsupported {name}.driver: {driver!r}")
@@ -89,12 +94,22 @@ class HardwareConfig:
         # The existing controller also enforces freshness within two intervals.
         if max(self.control["state_max_age"], self.control["frame_max_age"]) > 2 * self.control["dt"]:
             raise ValueError("state/frame max age must not exceed twice control.dt")
-        if self.robot["driver"] == "ur_rtde":
+        if self.robot["driver"] in ("ur_rtde", "ur3_rg2_rosbridge"):
             frequency = positive(self.robot.get("frequency_hz"), "robot.frequency_hz")
             if frequency > 125:
-                raise ValueError("UR3 CB-series frequency must not exceed 125 Hz")
+                raise ValueError("configured UR worker frequency must not exceed 125 Hz")
             if frequency < 1 / self.control["dt"]:
                 raise ValueError("robot worker frequency must be at least the controller update rate")
+        if self.robot["driver"] == "ur3_rg2_rosbridge":
+            from hardware_rosbridge import DEFAULT_API_PATH
+
+            if not isinstance(self.robot.get("dh"), dict) or set(self.robot["dh"]) != {"a", "d", "alpha", "offsets"}:
+                raise ValueError("UR3e API requires explicit robot.dh arrays; CB-series defaults are not substituted")
+            path = self.robot.get("api_path", str(DEFAULT_API_PATH))
+            if not isinstance(path, str) or not path.strip():
+                raise ValueError("robot.api_path must be a repository path")
+            if not (Path(path) / "robot" / "real_ur_backend.py").is_file():
+                raise ValueError("robot.api_path must contain robot/real_ur_backend.py")
 
     def validate_ready(self, controller_config, *, task="servo"):
         """Reject placeholders and inconsistent calibration before connecting."""

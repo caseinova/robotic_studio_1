@@ -1,11 +1,13 @@
 """Offline device fixtures. Nothing here opens a socket or SDK."""
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
 
 from hardware_config import HardwareConfig
+from hardware_kinematics import UR3DH
 from hardware_devices import CameraSample, JointSample, WidthSample
 
 
@@ -22,7 +24,9 @@ class Clock:
 
 def configured():
     values = json.loads((Path(__file__).resolve().parents[1] / 'hardware_config.json').read_text())
-    values['robot'].update(host='127.0.0.1', joint_lower=[-6.] * 6, joint_upper=[6.] * 6)
+    # Retain the legacy CB-series fixture independently of the installed arm selection.
+    values['robot'].update(driver='ur_rtde', frequency_hz=125, dh=asdict(UR3DH()),
+                           host='127.0.0.1', joint_lower=[-6.] * 6, joint_upper=[6.] * 6)
     values['gripper']['host'] = '127.0.0.1'
     values['camera'].update(driver='custom', factory='hardware_fakes:camera_factory', width=64, height=48,
                             intrinsics=[[50., 0, 31.5], [0, 50., 23.5], [0, 0, 1]])
