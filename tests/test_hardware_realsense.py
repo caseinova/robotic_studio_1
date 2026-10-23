@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 from hardware_fakes import Clock, Robot, Gripper, configured
-from hardware_realsense import RealSenseD435i
+from hardware_realsense import RealSenseD435i, RepeatedFrameError, validate_settings
 from interface import HardwareInterface
 
 
@@ -34,6 +34,16 @@ class FakeSDK:
         self.format = SimpleNamespace(rgb8='rgb8', z16='z16')
         self.camera_info = SimpleNamespace(name='name', serial_number='serial')
         self.option = SimpleNamespace(global_time_enabled='global_time', frames_queue_size='queue')
+        self.rgb_writes = []
+        self.rgb_ranges = {'enable_auto_exposure': (0, 1, 1), 'exposure': (1, 10000, 1),
+                           'gain': (0, 128, 1), 'brightness': (-64, 64, 1)}
+        for name in self.rgb_ranges:
+            setattr(self.option, name, name)
+        self.rgb_sensor = SimpleNamespace(
+            supports=lambda option: option in self.rgb_ranges,
+            is_option_read_only=lambda option: False,
+            get_option_range=lambda option: SimpleNamespace(**dict(zip(('min', 'max', 'step'), self.rgb_ranges[option]))),
+            set_option=lambda option, value: self.rgb_writes.append((option, value)))
         self.timestamp_domain = SimpleNamespace(global_time='global')
         self.distortion = SimpleNamespace(none='none', brown_conrady='brown')
         self.intr = SimpleNamespace(width=settings['width'], height=settings['height'], fx=50., fy=51.,
@@ -43,6 +53,7 @@ class FakeSDK:
         self.device = SimpleNamespace(get_info=lambda key: self.name if key == 'name' else 'SERIAL',
             query_sensors=lambda: [sensor], first_depth_sensor=lambda: SimpleNamespace(get_depth_scale=lambda: self.scale))
         self.devices = [self.device]
+        self.device.first_color_sensor = lambda: self.rgb_sensor
         self.profile = SimpleNamespace(get_device=lambda: self.device,
             get_stream=lambda stream: SimpleNamespace(as_video_stream_profile=lambda:
                 SimpleNamespace(get_intrinsics=lambda: self.intr)))
@@ -85,6 +96,52 @@ class RealSenseTests(unittest.TestCase):
 
     def camera(self):
         return RealSenseD435i(self.config.camera, self.clock, sdk=self.sdk, wall_clock=self.sdk.wall_clock)
+
+    def test_rgb_manual_controls_apply_only_to_color_in_order(self):
+        self.config.camera['options'].update(rgb_exposure=100, rgb_gain=16, rgb_brightness=-5)
+        camera = self.camera()
+        self.assertEqual(self.sdk.rgb_writes, [('enable_auto_exposure', 0), ('exposure', 100),
+                                              ('gain', 16), ('brightness', -5)])
+        self.assertFalse(any(name in self.sdk.rgb_ranges for name, _ in self.sdk.sensor_options))
+        camera.close()
+
+    def test_null_rgb_options_leave_camera_unchanged(self):
+        self.config.camera['options'].update(rgb_auto_exposure=None, rgb_exposure=None,
+                                            rgb_gain=None, rgb_brightness=None)
+        camera = self.camera()
+        self.assertEqual(self.sdk.rgb_writes, [])
+        camera.close()
+
+    def test_rgb_auto_with_brightness_is_supported(self):
+        self.config.camera['options'].update(rgb_auto_exposure=True, rgb_brightness=-10)
+        camera = self.camera()
+        self.assertEqual(self.sdk.rgb_writes, [('enable_auto_exposure', 1), ('brightness', -10)])
+        camera.close()
+
+    def test_invalid_rgb_configuration_rejected_before_opening(self):
+        for updates in ({'rgb_auto_exposure': 1}, {'rgb_gain': True}, {'rgb_exposure': float('nan')},
+                        {'rgb_brightness': '10'}, {'rgb_auto_exposure': True, 'rgb_exposure': 100}):
+            with self.subTest(updates=updates):
+                settings = {**self.config.camera, 'options': {**self.config.camera['options'], **updates}}
+                with self.assertRaises(ValueError):
+                    validate_settings(settings)
+        self.assertEqual(self.sdk.started, 0)
+
+    def test_rgb_range_and_step_errors_close_camera_without_option_writes(self):
+        for value in (-1, 10001, 2.5):
+            with self.subTest(value=value):
+                self.config.camera['options']['rgb_exposure'] = value
+                with self.assertRaisesRegex(ValueError, 'SDK units'):
+                    self.camera()
+                self.assertEqual(self.sdk.rgb_writes, [])
+        self.assertEqual(self.sdk.stopped, 3)
+
+    def test_unsupported_rgb_control_closes_camera(self):
+        self.config.camera['options']['rgb_brightness'] = 0
+        del self.sdk.rgb_ranges['brightness']
+        with self.assertRaisesRegex(ValueError, 'unsupported'):
+            self.camera()
+        self.assertEqual(self.sdk.stopped, 1)
 
     def test_streams_rgb_and_depth_alignment_owned_arrays_and_metric_interface(self):
         camera = self.camera()
@@ -140,6 +197,21 @@ class RealSenseTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'stale'):
             interface.capture_rgbd()
         interface.close()
+
+    def test_repeated_one_stream_is_distinct_from_counter_restart(self):
+        camera = self.camera()
+        camera.capture()
+        frames = self.sdk.last_frames
+        frames.get_depth_frame().number += 1
+        self.sdk.override_frame = frames
+        with self.assertRaises(RepeatedFrameError):
+            camera.capture()
+        self.assertEqual(camera._last_numbers, (1, 1))
+        frames.get_color_frame().number = 0
+        with self.assertRaisesRegex(RuntimeError, 'restarted') as failure:
+            camera.capture()
+        self.assertNotIsInstance(failure.exception, RepeatedFrameError)
+        camera.close()
 
     def test_clock_jump_future_stamp_and_missing_depth_are_rejected(self):
         camera = self.camera()

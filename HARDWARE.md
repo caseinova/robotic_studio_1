@@ -105,6 +105,67 @@ SDK distortion model cannot be represented by the OpenCV model, the report leave
 `distortion` null: provide an OpenCV calibration instead. Calibrate
 `world_from_camera` separately for the installed camera position.
 
+### Fixed-camera and tool-tag calibration
+
+RGB exposure controls are optional entries in `camera.options`:
+
+```json
+"rgb_auto_exposure": null,
+"rgb_exposure": null,
+"rgb_gain": null,
+"rgb_brightness": null
+```
+
+Null or omitted values leave that control unchanged. Set `rgb_auto_exposure`
+to `true` for automatic exposure, or `false` for manual operation. Providing
+`rgb_exposure` or `rgb_gain` also disables auto-exposure; combining either with
+explicit `rgb_auto_exposure: true` is rejected. Brightness may be adjusted with
+either mode. Values use the RGB sensor's native SDK units, not normalized
+percentages; the adapter checks the connected device's range and step and
+reports them for invalid values. Do not assume RGB exposure units match depth
+exposure units. Controls apply only to the color sensor, before warmup, whenever
+the camera is opened. Restart collection after changing configuration.
+
+For washed-out marker edges, lower manual exposure first, then gain as needed.
+No manual exposure value is preselected because suitable values depend on
+lighting. These settings do not alter intrinsics or calibration transforms.
+
+From the workspace root, close RealSense Viewer and run:
+
+```bash
+venv/bin/python robotic_studio_1/calibrate_camera.py collect --robot-ip ROBOT_IP
+venv/bin/python robotic_studio_1/calibrate_camera.py solve
+venv/bin/python robotic_studio_1/calibrate_camera.py solve --write-config
+```
+
+The collector only reads the robot; it never sends motion or gripper commands.
+Keep the camera stationary and the configured tool tag rigidly mounted. Verify
+the printed black square matches `perception.tool_marker_size` (currently 40 mm).
+Position the arm manually using the robot's normal controls, stop, and press
+Space in the camera window. Collect 15-25 distinct visible poses, varying both
+position and tilt around at least two axes, then press Q. At least 12 poses are
+required. Moving, stale, unstable, or near-duplicate captures are rejected.
+Each accepted capture is saved immediately. Existing sample files are never
+overwritten: use `collect --samples another_session.json` for a new session,
+and pass the same `--samples` option to `solve`.
+
+The solver estimates `world_from_camera` and `tool_from_marker` jointly using
+the configured DH kinematics. With identity `world_from_base`, world is the
+controller base. If `flange_from_tool` is unset, this workflow explicitly defines
+the tool frame as the nominal DH flange and saves identity for that transform.
+An existing tool transform is preserved. This is a frame definition, not a
+measurement of the gripper TCP; `tool_from_grasp` still needs separate setup.
+
+Solving is offline and writes `camera_calibration_result.json`; it changes no
+configuration unless `--write-config` is supplied. Every fourth pose is held
+out for validation before fitting all poses. Both fits must satisfy position
+RMS <= 8 mm, position maximum <= 15 mm, rotation RMS <= 3 degrees, and rotation
+maximum <= 5 degrees. Applying also checks that camera, tag, and kinematics
+settings have not changed since collection, and backs up the original config.
+These are fit-quality checks, not a hardware safety certification. Check the
+result against independently measured positions before enabling motion; nominal
+DH parameters and camera intrinsic errors can introduce systematic errors.
+
 The adapter defaults to 640 by 480 RGB and aligned depth at 30 Hz. Set
 `camera.options.serial` when more than one RealSense is connected. Acquisition
 uses global capture timestamps and rejects duplicate, incomplete, or excessively

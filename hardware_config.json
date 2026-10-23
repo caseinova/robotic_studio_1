@@ -52,7 +52,11 @@
       "timeout_ms": 1000,
       "warmup_frames": 30,
       "max_rgb_depth_skew_ms": 35.0,
-      "timestamp_margin_s": 0.005
+      "timestamp_margin_s": 0.005,
+      "rgb_auto_exposure": false,
+      "rgb_exposure": 200,
+      "rgb_gain": 40,
+      "rgb_brightness": -40
     },
     "width": 640,
     "height": 480,

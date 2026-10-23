@@ -18,9 +18,20 @@ from hardware_devices import CameraSample
 
 def validate_settings(config):
     options = config.get("options", {})
-    allowed = {"serial", "fps", "timeout_ms", "warmup_frames", "max_rgb_depth_skew_ms", "timestamp_margin_s"}
+    allowed = {"serial", "fps", "timeout_ms", "warmup_frames", "max_rgb_depth_skew_ms", "timestamp_margin_s",
+               "rgb_auto_exposure", "rgb_exposure", "rgb_gain", "rgb_brightness"}
     if not isinstance(options, dict) or set(options) - allowed:
         raise ValueError("unknown D435i camera options")
+    auto = options.get("rgb_auto_exposure")
+    if auto is not None and type(auto) is not bool:
+        raise ValueError("camera.options.rgb_auto_exposure must be boolean or null")
+    for name in ("rgb_exposure", "rgb_gain", "rgb_brightness"):
+        value = options.get(name)
+        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
+                                  or not np.isfinite(value)):
+            raise ValueError(f"camera.options.{name} must be finite numeric or null")
+    if auto is True and any(options.get(name) is not None for name in ("rgb_exposure", "rgb_gain")):
+        raise ValueError("manual rgb_exposure/rgb_gain requires rgb_auto_exposure=false or null")
     for name, minimum in (("fps", 1), ("timeout_ms", 1), ("warmup_frames", 0)):
         if type(options.get(name)) is not int or options[name] < minimum:
             raise ValueError(f"camera.options.{name} must be an integer >= {minimum}")
@@ -34,6 +45,10 @@ def validate_settings(config):
     for name in ("width", "height"):
         if type(config.get(name)) is not int or config[name] <= 0:
             raise ValueError(f"camera.{name} must be a positive integer")
+
+
+class RepeatedFrameError(RuntimeError):
+    """A frameset reused an already delivered color or depth frame."""
 
 
 class RealSenseD435i:
@@ -82,6 +97,7 @@ class RealSenseD435i:
             if (self.intrinsics.width, self.intrinsics.height) != (config["width"], config["height"]):
                 raise RuntimeError("D435i returned a different color resolution than configured")
             self.align = sdk.align(sdk.stream.color)
+            self._configure_rgb(profile.get_device())
             for _ in range(self.options["warmup_frames"]):
                 self.pipeline.wait_for_frames(self.options["timeout_ms"])
         except BaseException:
@@ -90,6 +106,33 @@ class RealSenseD435i:
             except Exception:
                 pass  # Preserve the initialization failure after attempting cleanup.
             raise
+
+    def _configure_rgb(self, device):
+        values = {name: self.options.get("rgb_" + name)
+                  for name in ("exposure", "gain", "brightness")}
+        auto = self.options.get("rgb_auto_exposure")
+        if values["exposure"] is not None or values["gain"] is not None:
+            auto = False
+        requested = [("enable_auto_exposure", auto), *values.items()]
+        requested = [(name, float(value)) for name, value in requested if value is not None]
+        if not requested:
+            return
+        sensor = device.first_color_sensor()
+        checked = []
+        for name, value in requested:
+            option = getattr(self.sdk.option, name)
+            if not sensor.supports(option) or sensor.is_option_read_only(option):
+                raise ValueError(f"D435i RGB option {name} is unsupported or read-only")
+            limits = sensor.get_option_range(option)
+            if (not limits.min <= value <= limits.max or
+                    (limits.step > 0 and not np.isclose((value - limits.min) / limits.step,
+                     round((value - limits.min) / limits.step), rtol=0, atol=1e-5))):
+                raise ValueError(f"D435i RGB {name}={value:g} must be in "
+                                 f"[{limits.min:g}, {limits.max:g}] with step {limits.step:g} (SDK units)")
+            checked.append((option, value))
+        # Disable auto exposure before manual values; never change the depth sensor.
+        for option, value in checked:
+            sensor.set_option(option, value)
 
     def capture(self):
         if self._closed:
@@ -108,8 +151,11 @@ class RealSenseD435i:
         if abs(times[0] - times[1]) * 1000 > self.options["max_rgb_depth_skew_ms"]:
             raise RuntimeError("D435i color/depth acquisition skew exceeds configured limit")
         numbers = (color.get_frame_number(), depth.get_frame_number())
-        if self._last_numbers is not None and any(a <= b for a, b in zip(numbers, self._last_numbers)):
-            raise RuntimeError("D435i repeated or restarted an RGB/depth frame stream")
+        if self._last_numbers is not None:
+            if any(a < b for a, b in zip(numbers, self._last_numbers)):
+                raise RuntimeError("D435i restarted an RGB/depth frame stream; restart collection")
+            if any(a == b for a, b in zip(numbers, self._last_numbers)):
+                raise RepeatedFrameError("D435i repeated an RGB/depth frame stream")
         if abs((self.clock() - self.wall_clock()) - self._wall_offset) > .02:
             raise RuntimeError("host wall clock changed; restart the D435i session to remap acquisition time")
         timestamp = min(times) + self._wall_offset - self.options["timestamp_margin_s"]
