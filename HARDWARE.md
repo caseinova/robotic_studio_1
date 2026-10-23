@@ -159,8 +159,11 @@ measurement of the gripper TCP; `tool_from_grasp` still needs separate setup.
 Solving is offline and writes `camera_calibration_result.json`; it changes no
 configuration unless `--write-config` is supplied. Every fourth pose is held
 out for validation before fitting all poses. Both fits must satisfy position
-RMS <= 8 mm, position maximum <= 15 mm, rotation RMS <= 3 degrees, and rotation
-maximum <= 5 degrees. Applying also checks that camera, tag, and kinematics
+RMS <= 8 mm and rotation RMS <= 4 degrees. Validation additionally requires
+position maximum <= 11 mm and rotation maximum <= 6 degrees; the overall fit
+requires position maximum <= 10 mm and rotation maximum <= 10 degrees.
+These are the agreed project criteria, not manufacturer safety limits. Each
+new result records the acceptance limits used. Applying also checks that camera, tag, and kinematics
 settings have not changed since collection, and backs up the original config.
 These are fit-quality checks, not a hardware safety certification. Check the
 result against independently measured positions before enabling motion; nominal

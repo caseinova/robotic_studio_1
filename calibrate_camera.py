@@ -278,9 +278,16 @@ def errors(a, b, x, z):
             "rotation_max_deg": float(np.rad2deg(residuals[:, 1].max()))}
 
 
-def acceptable(metrics):
-    return (metrics["position_rms_mm"] <= 8 and metrics["position_max_mm"] <= 15
-            and metrics["rotation_rms_deg"] <= 3 and metrics["rotation_max_deg"] <= 5)
+ACCEPTANCE_LIMITS = {
+    "validation": {"position_rms_mm": 8, "position_max_mm": 11,
+                   "rotation_rms_deg": 4, "rotation_max_deg": 6},
+    "fit": {"position_rms_mm": 8, "position_max_mm": 10,
+            "rotation_rms_deg": 4, "rotation_max_deg": 10},
+}
+
+
+def acceptable(metrics, stage):
+    return all(0 <= metrics[name] <= limit for name, limit in ACCEPTANCE_LIMITS[stage].items())
 
 
 def solve(data):
@@ -299,7 +306,9 @@ def solve(data):
     return {"version": 1, "metadata": data["metadata"], "pose_count": len(a),
             "device_serial": data.get("device_serial"), "robot_host": data.get("robot_host"),
             "validation_indices": validation, "validation_errors": held_out,
-            "fit_errors": all_poses, "passed": acceptable(held_out) and acceptable(all_poses),
+            "fit_errors": all_poses,
+            "acceptance_limits": {stage: dict(limits) for stage, limits in ACCEPTANCE_LIMITS.items()},
+            "passed": acceptable(held_out, "validation") and acceptable(all_poses, "fit"),
             "calibration": {"world_from_camera": z.tolist(), "tool_from_marker": x.tolist(),
                             "flange_from_tool": data["metadata"]["flange_from_tool"]}}
 

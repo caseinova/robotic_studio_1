@@ -7,6 +7,26 @@ import pytest
 from scipy.spatial.transform import Rotation
 
 import calibrate_camera as calibration
+
+
+@pytest.mark.parametrize('stage,limits', [
+    ('validation', dict(position_rms_mm=8, position_max_mm=11, rotation_rms_deg=4, rotation_max_deg=6)),
+    ('fit', dict(position_rms_mm=8, position_max_mm=10, rotation_rms_deg=4, rotation_max_deg=10)),
+])
+def test_acceptance_boundaries(stage, limits):
+    assert calibration.acceptable(limits, stage)
+    for metric in limits:
+        for value in (limits[metric] + .001, float('nan'), float('inf'), -1):
+            assert not calibration.acceptable(dict(limits, **{metric: value}), stage)
+
+
+def test_acceptance_uses_distinct_stage_limits():
+    metrics = dict(position_rms_mm=7, position_max_mm=10.5, rotation_rms_deg=3, rotation_max_deg=5)
+    assert calibration.acceptable(metrics, 'validation')
+    assert not calibration.acceptable(metrics, 'fit')
+    metrics.update(position_max_mm=9, rotation_max_deg=8)
+    assert not calibration.acceptable(metrics, 'validation')
+    assert calibration.acceptable(metrics, 'fit')
 from unittest.mock import Mock
 
 
