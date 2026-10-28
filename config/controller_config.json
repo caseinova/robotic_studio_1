@@ -1,5 +1,6 @@
 {
   "mode": "pure_pbvs",
+  "grasp_height_offset_m": 0.01,
   "tool_clearance": 0.22,
   "tool_yaw_deg": 0.0,
   "tool_pose_source": "tag_with_fk_fallback",

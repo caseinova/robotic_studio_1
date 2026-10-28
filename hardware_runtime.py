@@ -98,7 +98,8 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
             pickup = (CubePickupController(interface, kinematics, cube_size=processor.cube_size,
                                            control_dt=settings.dt, velocity_limit=settings.velocity_limit,
                                            clearance=settings.clearance,
-                                           frame_max_age_intervals=controller_config.frame_max_age_intervals)
+                                           frame_max_age_intervals=controller_config.frame_max_age_intervals,
+                                           grasp_height_offset_m=controller_config.grasp_height_offset_m)
                       if task == "pick" else None)
             started = deadline = clock()
             last_status = None

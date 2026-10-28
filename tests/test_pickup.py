@@ -20,6 +20,27 @@ from noise_config import NoiseConfig
 
 
 class PickupTests(unittest.TestCase):
+    def test_grasp_height_offset_changes_only_world_z_target(self):
+        for offset in (0., .005, -.005):
+            controller, interface, observation, state = self._recorded_pickup()
+            controller = CubePickupController(interface, controller.kinematics,
+                                              grasp_height_offset_m=offset)
+            grasp = controller.kinematics.grasp_pose().copy()
+            entry = controller.kinematics.tool_pose().copy()
+            controller.start(observation)
+            expected = entry.copy()
+            expected[2, 3] += observation.world_from_cube[2, 3] + offset - grasp[2, 3]
+            np.testing.assert_allclose(controller._descent_pose, expected)
+            np.testing.assert_allclose(controller._entry_pose, entry)
+            self.assertEqual(controller.phase, 'opening')
+
+    def test_offset_above_entry_rejected_before_opening(self):
+        controller, interface, observation, state = self._recorded_pickup()
+        controller = CubePickupController(interface, controller.kinematics, grasp_height_offset_m=.2)
+        controller.start(observation)
+        self.assertEqual(controller.phase, 'failed')
+        interface.open_gripper.assert_not_called()
+
     def test_configured_frame_budget_keeps_state_budget_unchanged(self):
         for ratio, frame_age, state_age, accepted in (
                 (2., .15, 0., False), (4., .15, 0., True),

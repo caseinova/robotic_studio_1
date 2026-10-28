@@ -22,8 +22,14 @@ class ControllerConfig:
     tool_pose_source: str = "tag_with_fk_fallback"
     # Vision freshness budget in control intervals; hardware checks also apply.
     frame_max_age_intervals: float = 2.0
+    # Pickup grasp-center height relative to cube center, along world Z (meters).
+    grasp_height_offset_m: float = 0.0
 
     def __post_init__(self):
+        if (isinstance(self.grasp_height_offset_m, bool)
+                or not isinstance(self.grasp_height_offset_m, (int, float))
+                or not math.isfinite(self.grasp_height_offset_m)):
+            raise ValueError("grasp_height_offset_m must be a finite number")
         if (isinstance(self.frame_max_age_intervals, bool)
                 or not isinstance(self.frame_max_age_intervals, (int, float))
                 or not math.isfinite(self.frame_max_age_intervals) or self.frame_max_age_intervals <= 0):
@@ -47,7 +53,7 @@ class ControllerConfig:
             values = json.load(source)
         if not isinstance(values, dict):
             raise ValueError("controller config must be a JSON object")
-        unknown = set(values) - {"mode", "tool_clearance", "tool_yaw_deg", "tool_pose_source", "frame_max_age_intervals"}
+        unknown = set(values) - {"mode", "tool_clearance", "tool_yaw_deg", "tool_pose_source", "frame_max_age_intervals", "grasp_height_offset_m"}
         if unknown:
             raise ValueError("unknown controller config settings: " + ", ".join(sorted(unknown)))
         return cls(**values)

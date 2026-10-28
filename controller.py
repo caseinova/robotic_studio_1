@@ -372,7 +372,12 @@ class CubePickupController:
                  cube_size: float = 0.10, speed: float = 0.03,
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
                  velocity_limit: float = 0.35, clearance: float = 0.015,
-                 frame_max_age_intervals: float = 2.0):
+                 frame_max_age_intervals: float = 2.0, grasp_height_offset_m: float = 0.0):
+        if (isinstance(grasp_height_offset_m, bool)
+                or not isinstance(grasp_height_offset_m, (int, float))
+                or not np.isfinite(grasp_height_offset_m)):
+            raise ValueError("grasp_height_offset_m must be a finite number")
+        self.grasp_height_offset_m = grasp_height_offset_m
         if (isinstance(frame_max_age_intervals, bool)
                 or not isinstance(frame_max_age_intervals, (int, float))
                 or not np.isfinite(frame_max_age_intervals) or frame_max_age_intervals <= 0):
@@ -428,10 +433,10 @@ class CubePickupController:
         self._entry_pose = self.kinematics.tool_pose().copy()
         self._descent_pose = self._entry_pose.copy()
         grasp_position = self.kinematics.grasp_pose()[:3, 3]
-        # Align the grasp site's height with the cube center. Keep flange X/Y
+        # Align the grasp site's height with the cube center plus world-Z offset. Keep flange X/Y
         # and orientation fixed, giving a vertical path in the world frame.
         cube_center = observation.world_from_cube[:3, 3]
-        self._descent_pose[2, 3] += cube_center[2] - grasp_position[2]
+        self._descent_pose[2, 3] += cube_center[2] + self.grasp_height_offset_m - grasp_position[2]
         horizontal_error = grasp_position[:2] - cube_center[:2]
         horizontal_distance = np.linalg.norm(horizontal_error)
         if horizontal_distance > 0.01:

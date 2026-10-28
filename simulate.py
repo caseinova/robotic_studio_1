@@ -111,7 +111,8 @@ class Simulation:
                                         estimator_config=self.estimator_config)
         self.plots.reset()
         pickup_controller = (CubePickupController(self.interface, controller.kinematics,
-                             frame_max_age_intervals=controller.settings.frame_max_age_intervals)
+                             frame_max_age_intervals=controller.settings.frame_max_age_intervals,
+                             grasp_height_offset_m=controller.settings.grasp_height_offset_m)
                              if self.pickup else None)
         next_update, result = 0.0, None
         try:
@@ -158,7 +159,8 @@ class Simulation:
                                             estimator_config=self.estimator_config)
             if self.pickup:
                 pickup_controller = CubePickupController(self.interface, controller.kinematics,
-                    frame_max_age_intervals=controller.settings.frame_max_age_intervals)
+                    frame_max_age_intervals=controller.settings.frame_max_age_intervals,
+                    grasp_height_offset_m=controller.settings.grasp_height_offset_m)
             camera = True
         label = "PBVS+MPC" if self.controller_config.mode == "pbvs_mpc" else "PBVS"
         print("Cube approach controller: " + (label if servo else "OFF (enable with --servo)"), flush=True)
