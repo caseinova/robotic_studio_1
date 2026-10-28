@@ -371,3 +371,8 @@ class UR3Kinematics:
         return [index for index, (kind, i, j) in enumerate(self._pairs)
                 if not (kind == "environment" and self.links[i].contact_group == "finger"
                         and self.obstacles[j].contact_group == "grasp_target")]
+
+    def collision_pair_name(self, index):
+        kind, i, j = self._pairs[index]
+        other = self.links[j] if kind == "self" else self.obstacles[j]
+        return f"{kind}: {self.links[i].name} / {other.name}"

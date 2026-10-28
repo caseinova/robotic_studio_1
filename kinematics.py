@@ -36,6 +36,7 @@ class Kinematics(Protocol):
     def tool_jacobian(self, positions, *, local=False) -> np.ndarray: ...
     def distances(self, positions, *, gradients=False): ...
     def pickup_collision_indices(self) -> list[int]: ...
+    def collision_pair_name(self, index: int) -> str: ...
 
 
 class MujocoKinematics:
@@ -144,6 +145,10 @@ class MujocoKinematics:
         return [i for i, (a, b) in enumerate(self.pairs)
                 if not ((a in fingers and b in cube_geoms)
                         or (b in fingers and a in cube_geoms))]
+
+    def collision_pair_name(self, index):
+        a, b = self.pairs[index]
+        return f"{self.model.geom(a).name or a} / {self.model.geom(b).name or b}"
 
     def tool_jacobian(self, positions, *, local=False):
         """Flange linear/angular velocity Jacobian in world or tool axes.

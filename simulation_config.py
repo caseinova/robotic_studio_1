@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().with_name("simulation_config.json")
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "simulation_config.json"
 
 
 @dataclass(frozen=True)

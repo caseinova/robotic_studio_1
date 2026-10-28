@@ -121,6 +121,40 @@ class HardwareDeviceTests(unittest.TestCase):
                 device.command_width(.04)
             bus.write_registers.assert_not_called()
 
+    def stop_test_device(self, phase, alive):
+        device = URRTDE.__new__(URRTDE)
+        device.control = {'command_timeout': .25}
+        device._stop_event = threading.Event()
+        device._thread = Mock()
+        device._thread.is_alive.side_effect = alive
+        device._worker_phase = phase
+        device._error = None
+        return device
+
+    def test_stop_waits_for_thread_unwinding_after_cleanup(self):
+        device = self.stop_test_device('stopped', [True, False])
+        device.stop()
+        self.assertTrue(device._stop_event.is_set())
+        self.assertEqual(device._thread.join.call_count, 2)
+        device._thread.join.assert_called_with(timeout=.1)
+
+    def test_stopped_phase_does_not_hide_live_worker(self):
+        device = self.stop_test_device('stopped', [True, True])
+        with self.assertRaisesRegex(RuntimeError, 'stop completion unconfirmed'):
+            device.stop()
+
+    def test_blocked_control_cleanup_still_fails(self):
+        device = self.stop_test_device('closing_control', [True, True])
+        with self.assertRaisesRegex(RuntimeError, 'phase=closing_control'):
+            device.stop()
+        device._thread.join.assert_called_once_with(timeout=1.25)
+
+    def test_cleanup_error_survives_thread_termination(self):
+        device = self.stop_test_device('stopped', [True, False])
+        device._error = RuntimeError('control close failed')
+        with self.assertRaisesRegex(RuntimeError, 'control close failed'):
+            device.stop()
+
     def test_rtde_worker_expires_command_enables_robot_watchdog_and_stops(self):
         clock = Clock()
         config = configured()

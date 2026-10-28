@@ -6,7 +6,7 @@ import json
 
 from hardware_config import object_settings
 
-DEFAULT_RUNTIME_CONFIG_PATH = Path(__file__).with_name("runtime_config.json")
+DEFAULT_RUNTIME_CONFIG_PATH = Path(__file__).parent / "config" / "runtime_config.json"
 
 
 @dataclass(frozen=True)

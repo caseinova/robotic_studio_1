@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-DEFAULT_ESTIMATOR_CONFIG_PATH = Path(__file__).resolve().with_name("estimator_config.json")
+DEFAULT_ESTIMATOR_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "estimator_config.json"
 
 
 @dataclass(frozen=True)

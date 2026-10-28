@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 
-DEFAULT_CONTROLLER_CONFIG_PATH = Path(__file__).resolve().with_name("controller_config.json")
+DEFAULT_CONTROLLER_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "controller_config.json"
 CONTROLLER_MODES = ("pure_pbvs", "pbvs_mpc")
 
 

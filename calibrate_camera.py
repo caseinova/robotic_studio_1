@@ -331,7 +331,11 @@ def apply_result(config_path, result):
     original = Path(config_path).read_text(encoding="utf-8")
     values = json.loads(original)
     values["calibration"].update(result["calibration"])
-    backup = Path(str(config_path) + ".before-calibration-" + str(time.time_ns()) + ".bak")
+    config_path = Path(config_path)
+    archive = (config_path.parent.parent if config_path.parent.name == "config"
+               else config_path.parent) / "old_version"
+    archive.mkdir(parents=True, exist_ok=True)
+    backup = archive / (config_path.name + ".before-calibration-" + str(time.time_ns()) + ".bak")
     with backup.open("x", encoding="utf-8") as output:
         output.write(original)
     atomic_json(config_path, values)
@@ -441,7 +445,7 @@ def main(argv=None):
     reference = commands.add_parser("reference", help="camera-only calibration from a measured fixed reference tag")
     reference.add_argument("--config", type=Path, default=DEFAULT_HARDWARE_CONFIG_PATH)
     reference.add_argument("--reference-config", type=Path,
-                           default=Path(__file__).with_name("reference_calibration_config.json"))
+                           default=Path(__file__).parent / "config" / "reference_calibration_config.json")
     reference.add_argument("--output", type=Path, default=Path(__file__).with_name("reference_calibration_result.json"))
     reference.add_argument("--frames", type=int, default=30)
     reference.add_argument("--timeout", type=float, default=30.)

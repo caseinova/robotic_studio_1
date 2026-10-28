@@ -98,9 +98,9 @@ class OnRobotXMLRPC:
         if isinstance(width, bool) or not isinstance(width, (float, int)) or not math.isfinite(width) or not 0 <= width <= self.max_width:
             raise ValueError('gripper command outside configured opening in meters')
         result = self._request('rg_grip', float(width * 1000), float(self.force))
-        # Servers may acknowledge with nil, boolean true, or integer 1.
+        # The wrist URCap returns integer 0; retain the other supported replies.
         # Acknowledgment is not proof of completed physical movement.
-        if result is not None and not (result is True or type(result) is int and result == 1):
+        if result is not None and not (result is True or type(result) is int and result in (0, 1)):
             self._closed = True
             raise RuntimeError(f'OnRobot rg_grip returned unexpected acknowledgment: {result!r}; not retried')
 

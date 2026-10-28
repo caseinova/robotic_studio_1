@@ -23,7 +23,7 @@ class Clock:
 
 
 def configured():
-    values = json.loads((Path(__file__).resolve().parents[1] / 'hardware_config.json').read_text())
+    values = json.loads((Path(__file__).resolve().parents[1] / 'config' / 'hardware_config.json').read_text())
     # Retain the legacy CB-series fixture independently of the installed arm selection.
     values['robot'].update(driver='ur_rtde', frequency_hz=125, dh=asdict(UR3DH()),
                            host='127.0.0.1', joint_lower=[-6.] * 6, joint_upper=[6.] * 6)

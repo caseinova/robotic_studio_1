@@ -235,6 +235,10 @@ class URRTDE:
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join(timeout=self.control["command_timeout"] + 1)
+            # Cleanup can finish at the join deadline, before thread unwinding.
+            # Never infer termination from the phase alone.
+            if self._thread.is_alive() and self._worker_phase == "stopped":
+                self._thread.join(timeout=0.1)
             if self._thread.is_alive():
                 raise RuntimeError(f"UR command worker did not stop (phase={self._worker_phase}); "
                                    "stop completion unconfirmed; verify robot stopped on pendant")

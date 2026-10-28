@@ -35,7 +35,7 @@ def test_read_units_timestamp_and_bounded_wire_request():
     handle.close.assert_called_once()
 
 
-@pytest.mark.parametrize('ack', [None, True, 1])
+@pytest.mark.parametrize('ack', [None, True, 0, 1])
 def test_command_conversion_and_close_has_no_actuation(ack):
     handle, options = transport(ack)
     with patch.object(pycurl, 'Curl', return_value=handle) as factory:
@@ -68,12 +68,16 @@ def test_timeout_does_not_retry_command():
         handle.close.assert_called_once()
 
 
-@pytest.mark.parametrize('ack', [False, 0, 'ok'])
+@pytest.mark.parametrize('ack', [False, -1, -2, 2, 0.0, 1.0, 'ok'])
 def test_negative_or_unknown_ack_rejected(ack):
     handle, _ = transport(ack)
-    with patch.object(pycurl, 'Curl', return_value=handle):
+    with patch.object(pycurl, 'Curl', return_value=handle) as factory:
+        gripper = OnRobotXMLRPC(SETTINGS)
         with pytest.raises(RuntimeError, match='acknowledgment'):
-            OnRobotXMLRPC(SETTINGS).command_width(.05)
+            gripper.command_width(.05)
+        with pytest.raises(RuntimeError, match='closed'):
+            gripper.command_width(.05)
+        factory.assert_called_once()
 
 
 @pytest.mark.parametrize('key,value', [('force_n', 41), ('max_width_m', .12),

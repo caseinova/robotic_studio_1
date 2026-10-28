@@ -11,7 +11,7 @@ from hardware_kinematics import (
     UR3DH, UR3Kinematics, LinkCapsule, SphereObstacle, BoxObstacle, PlaneObstacle, _pose, _vector,
 )
 
-DEFAULT_HARDWARE_CONFIG_PATH = Path(__file__).with_name("hardware_config.json")
+DEFAULT_HARDWARE_CONFIG_PATH = Path(__file__).parent / "config" / "hardware_config.json"
 
 
 def object_settings(value, allowed, name):

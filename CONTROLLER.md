@@ -42,8 +42,8 @@ The UR3 backend and its calibration inputs are described in [HARDWARE.md](HARDWA
 Both the approach and pickup controllers accept either calculation backend.
 The hardware configuration selects the supplied `RealUR3e` API through
 `hardware_rosbridge.RosbridgeArm`, with a separate paced command worker.
-Use `py run.py` with `runtime_config.json` for backend/task selection. Fill
-`hardware_config.json` before selecting hardware; `py run.py --backend hardware
+Use `py run.py` with `config/runtime_config.json` for backend/task selection. Fill
+`config/hardware_config.json` before selecting hardware; `py run.py --backend hardware
 --validate` checks it without connecting. The RealSense D435i adapter is selected; camera intrinsics and installation
 calibration must still be supplied. Existing `simulate.py` commands work.
 
@@ -85,7 +85,7 @@ perception code can remain unchanged. Unknown obstacles are still not mapped
 automatically from perception. Automatic gripper closure is not part of the
 current approach controller.
 
-Select the controller in `controller_config.json`:
+Select the controller in `config/controller_config.json`:
 
 ```json
 {"mode": "pbvs_mpc", "tool_clearance": 0.18}
@@ -110,7 +110,7 @@ gripper before pickup. Both controller modes use this target, including
 hardware callers. `--tool-clearance` temporarily overrides the controller
 file's value; explicit Python `tool_clearance=` arguments do the same.
 
-Edit `simulation_config.json` for each simulation experiment. Its first
+Edit `config/simulation_config.json` for each simulation experiment. Its first
 setting, `cube_position`, sets the cube center `[x, y, z]` in world meters.
 For the upright 10 cm cube, `z = 0.05` places its bottom on the floor.
 `cube_quaternion` sets world orientation in `[w, x, y, z]` order; the loader
@@ -266,7 +266,7 @@ velocity; MPC optionally tracks it with the existing collision constraints.
 The fixed camera Jacobian is zero and is not used to control the robot.
 The former turn-before-translation gate is removed. Translation and rotation
 are commanded together from the measured pose error. `tool_yaw_deg` is a final
-goal orientation in `controller_config.json`, not a motion phase; the default
+goal orientation in `config/controller_config.json`, not a motion phase; the default
 90 degrees aligns the fingers with the cube's X faces. Use another yaw to
 experiment, accounting for tag visibility and gripper fit around the cube.
 
@@ -293,7 +293,7 @@ necessary for FK fallback, world-frame target estimates, and pickup.
 
 `estimator.py` provides `RelativePoseEKF`, an error-state extended Kalman
 filter for a translating and rotating cube. The CLI loads
-`estimator_config.json` (`--estimator-config path.json` selects another file).
+`config/estimator_config.json` (`--estimator-config path.json` selects another file).
 `enabled` controls whether the approach controller uses the EKF; set it to
 false to use the raw camera pose. Python callers can pass `EKFConfig` to
 `Simulation` or `ApproachController` through `estimator_config`.
@@ -409,7 +409,7 @@ tests check that friction/contact physically lifts it and keeps it raised.
 
 ## Measurement noise
 
-The CLI loads `noise_config.json` independently of the working directory.
+The CLI loads `config/noise_config.json` independently of the working directory.
 Its default profile enables mild measurement noise with seed 42:
 
 ```powershell

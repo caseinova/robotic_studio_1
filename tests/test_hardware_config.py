@@ -15,6 +15,7 @@ from hardware_fakes import configured
 class HardwareConfigTests(unittest.TestCase):
     def test_frame_budget_uses_servo_multiplier_not_state_multiplier(self):
         config = configured()
+        config.collision['links'] = []
         config.control['frame_max_age'] = .2
         controller = ControllerConfig(mode='pure_pbvs', frame_max_age_intervals=4)
         config.validate_ready(controller, task='servo')
@@ -57,6 +58,7 @@ class HardwareConfigTests(unittest.TestCase):
 
     def test_mpc_and_pickup_require_explicit_collision_geometry(self):
         config = configured()
+        config.collision['links'] = []
         for mode, task in [('pbvs_mpc', 'servo'), ('pure_pbvs', 'pick')]:
             with self.subTest(mode=mode, task=task), self.assertRaisesRegex(ValueError, 'link_capsules'):
                 config.validate_ready(ControllerConfig(mode=mode), task=task)

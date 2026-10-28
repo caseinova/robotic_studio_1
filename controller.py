@@ -432,8 +432,17 @@ class CubePickupController:
         # and orientation fixed, giving a vertical path in the world frame.
         cube_center = observation.world_from_cube[:3, 3]
         self._descent_pose[2, 3] += cube_center[2] - grasp_position[2]
-        if np.linalg.norm(grasp_position[:2] - cube_center[:2]) > 0.01:
-            self._fail("tool_not_centered_over_cube")
+        horizontal_error = grasp_position[:2] - cube_center[:2]
+        horizontal_distance = np.linalg.norm(horizontal_error)
+        if horizontal_distance > 0.01:
+            self._fail(
+                "tool_not_centered_over_cube: "
+                f"dx={horizontal_error[0] * 1000:.1f} mm, "
+                f"dy={horizontal_error[1] * 1000:.1f} mm, "
+                f"distance={horizontal_distance * 1000:.1f} mm, limit=10.0 mm; "
+                f"grasp_xy_mm={np.round(grasp_position[:2] * 1000, 1).tolist()}, "
+                f"cube_xy_mm={np.round(cube_center[:2] * 1000, 1).tolist()}"
+            )
             return
         if self._descent_pose[2, 3] >= self._entry_pose[2, 3]:
             self._fail("cube_not_below_gripper")
@@ -464,12 +473,19 @@ class CubePickupController:
             self._fail("stale_or_invalid_robot_state")
             return self._result()
         if now - self._phase_started > self.phase_timeout:
-            self._fail("phase_timeout: " + self.phase)
+            detail = ""
+            if self.phase == "opening":
+                detail = "; " + self._opening_diagnostic(state.gripper_width)
+            elif self.phase == "closing":
+                width, settled = self._gripper_settling(now, state.gripper_width)
+                detail = "; " + self._closing_diagnostic(state.gripper_width, width, settled)
+            self._fail("phase_timeout: " + self.phase + detail)
             return self._result()
         self.kinematics.synchronize(state)
 
         if self.phase == "opening":
             self.interface.set_joint_velocities(np.zeros(6))
+            self.diagnostic = self._opening_diagnostic(state.gripper_width)
             if state.gripper_width >= self.interface.gripper_max_width - 0.001:
                 self._change_phase("descending", now)
             return self._result()
@@ -477,6 +493,7 @@ class CubePickupController:
         if self.phase == "closing":
             self.interface.set_joint_velocities(np.zeros(6))
             width, settled = self._gripper_settling(now, state.gripper_width)
+            self.diagnostic = self._closing_diagnostic(state.gripper_width, width, settled)
             elapsed = now - self._phase_started
             if elapsed >= 0.5:
                 if width < self.cube_size * 0.5:
@@ -535,16 +552,30 @@ class CubePickupController:
         if np.any(prediction < lower) or np.any(prediction > upper):
             self._fail("joint_limit_violation")
             return self._result()
-        minimum = min(self._clearance(state.joint_positions), self._clearance(prediction))
+        current_clearance, current_pair = self._clearance(state.joint_positions)
+        predicted_clearance, predicted_pair = self._clearance(prediction)
+        minimum = min(current_clearance, predicted_clearance)
         if minimum < self.clearance:
-            self._fail("pickup_path_blocked")
+            at_current = current_clearance <= predicted_clearance
+            pair = current_pair if at_current else predicted_pair
+            self._fail(
+                f"pickup_path_blocked: {self.kinematics.collision_pair_name(pair)}; "
+                f"at={'current' if at_current else 'predicted'}, "
+                f"clearance={minimum * 1000:.1f} mm, required={self.clearance * 1000:.1f} mm; "
+                f"current={current_clearance * 1000:.1f} mm, "
+                f"predicted={predicted_clearance * 1000:.1f} mm; "
+                f"joint_positions_rad={state.joint_positions.tolist()}"
+            )
             return self._result(minimum_clearance=minimum)
         self.interface.set_joint_velocities(command)
         return self._result(command, np.linalg.norm(error), minimum)
 
-    def _clearance(self, positions) -> float:
+    def _clearance(self, positions) -> tuple[float, int | None]:
         distances = self.kinematics.distances(positions)
-        return float(np.min(distances[self._collision_indices], initial=np.inf))
+        if not self._collision_indices:
+            return float('inf'), None
+        index = self._collision_indices[int(np.argmin(distances[self._collision_indices]))]
+        return float(distances[index]), index
 
     def _gripper_settling(self, now, width) -> tuple[float, bool]:
         """Estimate finger motion over 0.5 s instead of comparing noisy pairs.
@@ -555,19 +586,33 @@ class CubePickupController:
         """
         if not self._width_history or now > self._width_history[-1][0]:
             self._width_history.append((now, width))
-        self._width_history = [(t, w) for t, w in self._width_history
-                               if t >= now - 0.5 - 1e-9]
+        # Keep the sample bracketing the start of the window. Otherwise an
+        # irregular sample cadence can never span the required full 0.5 s.
+        while len(self._width_history) > 1 and self._width_history[1][0] <= now - 0.5:
+            self._width_history.pop(0)
         times, widths = np.asarray(self._width_history).T
         measured_width = float(np.median(widths))
-        if len(times) < 5 or times[-1] - times[0] < 0.5 - 1e-9:
+        if (len(times) < 5 or times[-1] - times[0] < 0.5 - 1e-9
+                or np.max(np.diff(times)) > max(.1, 2*self.control_dt) + 1e-9):
             return measured_width, False
         centered_times = times - times.mean()
         width_speed = float(centered_times @ (widths - widths.mean())
                             / (centered_times @ centered_times))
         return measured_width, abs(width_speed) <= 0.002
 
+    def _closing_diagnostic(self, raw_width, width, settled) -> str:
+        return (f"gripper_width={raw_width * 1000:.1f} mm, median={width * 1000:.1f} mm, "
+                f"expected={self.cube_size * 500:.1f}..{self.cube_size * 1150:.1f} mm, "
+                f"settled={settled}")
+
+    def _opening_diagnostic(self, width) -> str:
+        return (f"gripper_width={width * 1000:.1f} mm, "
+                f"requested={self.interface.gripper_max_width * 1000:.1f} mm, "
+                f"required>={(self.interface.gripper_max_width - .001) * 1000:.1f} mm")
+
     def _change_phase(self, phase, now) -> None:
         self.phase = phase
+        self.diagnostic = ""
         self._phase_started = now
         self._pose_integral[:] = 0
         self._width_history.clear()

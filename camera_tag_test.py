@@ -45,7 +45,7 @@ def annotate(sample, detector, depth_scale):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("hardware_config.json"))
+    parser.add_argument("--config", type=Path, default=Path(__file__).parent / "config" / "hardware_config.json")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--frames", type=int, default=0, help="stop after N frames; 0 runs until Q/Esc")
     args = parser.parse_args(argv)

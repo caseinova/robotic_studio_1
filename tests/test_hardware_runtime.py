@@ -107,6 +107,37 @@ class HardwareRuntimeTests(unittest.TestCase):
         factory.assert_not_called()
         close.assert_called_once()
 
+    def test_pickup_refreshes_display_without_reprocessing_latched_target(self):
+        import cv2
+        pickup = Mock(phase='opening', finished=False)
+        pickup.update.return_value = ControlResult(
+            None, np.zeros(6), np.zeros(6), 'pickup_opening', 0, 0, np.nan,
+            'gripper_width=80.0 mm')
+        with patch.object(type(self.config), 'validate_ready'), \
+             patch('hardware_runtime.CubePickupController', return_value=pickup), \
+             patch.object(ApproachController, 'update') as approach, \
+             patch.object(self.interface, 'capture_rgbd', wraps=self.interface.capture_rgbd) as capture, \
+             patch.object(cv2, 'namedWindow'), patch.object(cv2, 'imshow') as show, \
+             patch.object(cv2, 'waitKey', return_value=-1), \
+             patch.object(cv2, 'getWindowProperty', return_value=1), \
+             patch.object(cv2, 'destroyAllWindows'):
+            self.run_loop(task='pick', steps=3, camera_view=True)
+        self.assertEqual(pickup.update.call_count, 3)
+        self.assertEqual(capture.call_count, 3)
+        self.assertEqual(show.call_count, 4)  # Initial paint plus each pickup frame.
+        approach.assert_not_called()
+        self.assertFalse(self.interface.require_camera_for_motion)
+
+    def test_headless_pickup_does_not_capture_display_frames(self):
+        pickup = Mock(phase='opening', finished=False)
+        pickup.update.return_value = ControlResult(
+            None, np.zeros(6), np.zeros(6), 'pickup_opening', 0, 0, np.nan)
+        with patch.object(type(self.config), 'validate_ready'), \
+             patch('hardware_runtime.CubePickupController', return_value=pickup), \
+             patch.object(self.interface, 'capture_rgbd') as capture:
+            self.run_loop(task='pick', steps=3)
+        capture.assert_not_called()
+
     def test_servo_passes_configured_limits_and_stops_on_reached(self):
         self.robot.prepare_motion = Mock(side_effect=lambda: self.clock.sleep(2.))
         calls = []

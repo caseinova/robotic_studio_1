@@ -103,6 +103,7 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
             started = deadline = clock()
             last_status = None
             last_stale_report = float('-inf')
+            last_pickup_report = float('-inf')
             for _ in range(steps):
                 if clock() - started >= config.control["max_run_seconds"]:
                     raise TimeoutError("hardware run exceeded max_run_seconds")
@@ -112,6 +113,14 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                     interface.require_camera_for_motion = False
                     result = pickup.update()
                     timings["pickup"] = clock() - cycle_start
+                    if cv2 is not None:
+                        # Pickup uses a latched target; fresh images are display-only.
+                        capture_start = clock()
+                        frame = interface.capture_rgbd()
+                        timings["camera"] = clock() - capture_start
+                        display_start = clock()
+                        cv2.imshow("Hardware RGB-D", cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2BGR))
+                        timings["display"] = clock() - display_start
                 else:
                     interface.require_camera_for_motion = True
                     frame = interface.capture_rgbd()
@@ -156,6 +165,10 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                     if result.status != last_status:
                         print(f"Hardware: {result.status} | {result.diagnostic}", flush=True)
                         last_status = result.status
+                        last_pickup_report = clock()
+                    elif result.status in ("pickup_opening", "pickup_closing") and clock() - last_pickup_report >= 1.:
+                        print(f"Hardware: {result.status} | {result.diagnostic}", flush=True)
+                        last_pickup_report = clock()
                     if pickup is not None and pickup.finished:
                         if pickup.phase == "failed":
                             raise RuntimeError("pickup failed: " + result.diagnostic)

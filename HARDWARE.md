@@ -40,17 +40,17 @@ No identity calibration or joint operating limits are inferred automatically.
 `interface.py` remains responsible for sensor acquisition, timestamps, and
 robot/gripper communication. Geometry calculations belong in the kinematics
 backend so measured robot states and hypothetical MPC states stay separate.
-`run.py` selects simulation or hardware from `runtime_config.json`. Hardware
+`run.py` selects simulation or hardware from `config/runtime_config.json`. Hardware
 uses `HardwareInterface`, the supplied UR3e API (or direct UR RTDE), and configurable OnRobot
 RG2/RG6 Compute Box Modbus TCP. The camera is a RealSense D435i, selected
 through `hardware_realsense:create_camera`. Any component can use a custom adapter.
 
 ## Configure and launch
 
-1. Keep `runtime_config.json` as the shared entry point. `backend` selects
+1. Keep `config/runtime_config.json` as the shared entry point. `backend` selects
    `simulation` or `hardware`; `task` selects `observe`, `servo`, or `pick`.
-   Controller selection (`pure_pbvs` / `pbvs_mpc`) stays in `controller_config.json`.
-2. Fill the `null` values in `hardware_config.json`, including joint limits,
+   Controller selection (`pure_pbvs` / `pbvs_mpc`) stays in `config/controller_config.json`.
+2. Fill the `null` values in `config/hardware_config.json`, including joint limits,
    robot/Compute Box addresses, camera intrinsics and installation transforms.
    Matrices named `A_from_B` map B coordinates into A. Do not substitute identity
    matrices unless those frames really coincide.
@@ -74,7 +74,7 @@ py run.py --backend hardware --validate
 # After configuration: read camera/encoders, without commanding movement.
 py run.py --backend hardware --task observe
 
-# Or set backend=hardware and task=servo/pick in runtime_config.json:
+# Or set backend=hardware and task=servo/pick in config/runtime_config.json:
 py run.py
 ```
 
@@ -99,7 +99,7 @@ py hardware_realsense.py
 ```
 
 The inspection command opens only the camera and prints its factory intrinsics,
-distortion coefficients, and depth scale. Copy these into `hardware_config.json`;
+distortion coefficients, and depth scale. Copy these into `config/hardware_config.json`;
 it does not write calibration files or connect to the robot or gripper. If the
 SDK distortion model cannot be represented by the OpenCV model, the report leaves
 `distortion` null: provide an OpenCV calibration instead. Calibrate
@@ -125,8 +125,10 @@ does not move the fingers. A grip acknowledgment is not completion feedback;
 the pickup controller must continue checking measured width. The example does
 not provide safety/busy registers equivalent to the Modbus adapter, and this
 adapter does not invent them. Actual server acknowledgment conventions and
-response latency still require hardware verification. Only nil, true, or integer
-1 are accepted as grip acknowledgments; unexpected replies fail explicitly.
+response latency still require hardware verification. Nil, true, and integer
+0 or 1 are accepted as grip acknowledgments (integer 0 was observed on the
+wrist-connected URCap). Boolean false, negative codes, and unexpected replies
+fail explicitly. Acceptance does not confirm that a grasp succeeded.
 
 The configured adapter makes subsequent hardware runs read the gripper, even
 in servo/observe mode. For arm-only operation, restore `driver: "disabled"`
@@ -134,7 +136,7 @@ and `options: {}`. Pickup still requires collision geometry and valid tool
 calibration. Installing this adapter does not by itself establish pickup readiness.
 
 The approach controller's frame-age multiplier is configured separately in
-`controller_config.json` as `frame_max_age_intervals` (default 2.0). Its vision
+`config/controller_config.json` as `frame_max_age_intervals` (default 2.0). Its vision
 freshness limit is this value times `control.dt`. This does not override the
 hardware interface's `control.frame_max_age`,
 joint-state freshness or command watchdog. Pickup uses the same configured
@@ -150,7 +152,7 @@ not guarantees of servo accuracy or reliable worker shutdown.
 
 #### Fixed table-reference settings
 
-`reference_calibration_config.json` holds the separate table-reference marker
+`config/reference_calibration_config.json` holds the separate table-reference marker
 settings: `DICT_4X4_50`, ID 7, and an 80 mm black square (`marker_size: 0.08`).
 `base_from_reference_tag` is intentionally null until measured. It maps tag
 coordinates into robot-base coordinates; translation is in meters and its
@@ -414,7 +416,7 @@ The JSON loader builds these calculation objects without opening devices:
 from hardware_config import HardwareConfig
 from controller_config import ControllerConfig
 
-hardware = HardwareConfig.load("hardware_config.json")
+hardware = HardwareConfig.load("config/hardware_config.json")
 hardware.validate_ready(ControllerConfig.load(), task="servo")
 kinematics = hardware.build_kinematics()
 processor = hardware.build_processor()
@@ -459,6 +461,32 @@ MPC/pickup raises an error if no link capsules are configured, rather than
 treating missing geometry as an obstacle-free robot. Supplied shapes define
 the checked coverage; the backend cannot verify that they enclose the actual
 robot. No obstacles are automatically extracted from RGB-D segmentation.
+
+The current `ur3e_*` arm capsules were generated by
+`tools/derive_arm_capsules.py` from the bundled UR3e URDF collision STLs.
+`arm_capsule_report.json` records mesh provenance, capsule coordinates and
+triangle containment. Triangles crossing partition boundaries are split without
+discarding their surfaces. Every resulting face is enclosed by a capsule with
+3 mm padding; convexity guarantees face coverage too.
+This is a mesh-fitting margin, not a certified safety clearance.
+URDF collision origins are transformed into configured DH frames, with constant
+frame mappings and flange/tool0 agreement checked at 30 joint configurations.
+The fitter refines the coarse capsules along all principal axes. Each new capsule
+is constrained to lie inside its original capsule, preventing new overhangs.
+Deterministic sampled union volume ranks fits; exact containment is checked
+separately. The refined model has 32 capsules across the seven links. False
+collision alarms remain possible; do not
+suppress pairs merely to eliminate them. Pickup failures include measured joint
+angles for offline reproduction; the original failing pose was not recorded.
+
+These generated entries cover the bare arm only. They do NOT model the RG2,
+adapter, fingers, cables, table or target cube. Those still require measured
+geometry. A successful `--validate` means the structural checks passed, not
+that physical collision coverage is complete. Timestamped backups use
+`old_version/hardware_config.json.before-arm-capsules-*.bak`. To replace generated arm
+families, run `python tools/derive_arm_capsules.py --write-config --replace-generated`.
+Other entries are preserved; existing exclusions referring to replaced entries
+cause an error rather than being silently discarded.
 
 The pickup controller allows a link marked `contact_group="finger"` to
 touch an obstacle marked `contact_group="grasp_target"`. Palm and arm

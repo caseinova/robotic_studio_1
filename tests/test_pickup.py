@@ -134,7 +134,14 @@ class PickupTests(unittest.TestCase):
                 interface.gripper_max_width = 0.085
             controller.start(observation)
             self.assertEqual(controller.phase, "failed")
-            self.assertEqual(controller.diagnostic, expected)
+            if problem == "offset":
+                self.assertTrue(controller.diagnostic.startswith(expected + ":"))
+                self.assertIn("dx=-50.0 mm", controller.diagnostic)
+                self.assertIn("distance=50.0 mm, limit=10.0 mm", controller.diagnostic)
+                self.assertIn("grasp_xy_mm=", controller.diagnostic)
+                self.assertIn("cube_xy_mm=", controller.diagnostic)
+            else:
+                self.assertEqual(controller.diagnostic, expected)
             interface.open_gripper.assert_not_called()
             interface.close_gripper.assert_not_called()
             np.testing.assert_array_equal(interface.set_joint_velocities.call_args.args[0], np.zeros(6))
@@ -151,6 +158,35 @@ class PickupTests(unittest.TestCase):
         self.assertEqual(result.status, "pickup_failed")
         self.assertEqual(result.diagnostic, "empty_grasp")
         np.testing.assert_array_equal(interface.set_joint_velocities.call_args.args[0], np.zeros(6))
+
+    def test_opening_reports_width_and_timeout_without_retry_or_descent(self):
+        controller, interface, observation, state = self._recorded_pickup()
+        interface.read_state.return_value = replace(state, gripper_width=.08)
+        controller.start(observation)
+        result = controller.update()
+        self.assertEqual(result.status, "pickup_opening")
+        self.assertIn("gripper_width=80.0 mm", result.diagnostic)
+        self.assertIn("requested=120.0 mm", result.diagnostic)
+        interface.timestamp = 31.
+        interface.read_state.return_value = replace(state, timestamp=31., gripper_width=.08)
+        result = controller.update()
+        self.assertEqual(result.status, "pickup_failed")
+        self.assertIn("phase_timeout: opening", result.diagnostic)
+        self.assertIn("required>=119.0 mm", result.diagnostic)
+        interface.open_gripper.assert_called_once()
+        interface.close_gripper.assert_not_called()
+        for call in interface.set_joint_velocities.call_args_list:
+            np.testing.assert_array_equal(call.args[0], np.zeros(6))
+
+    def test_opening_progress_clears_on_descent(self):
+        controller, interface, observation, state = self._recorded_pickup()
+        controller.start(observation)
+        interface.read_state.return_value = replace(state, gripper_width=.08)
+        self.assertTrue(controller.update().diagnostic)
+        interface.read_state.return_value = state
+        result = controller.update()
+        self.assertEqual(result.status, "pickup_descending")
+        self.assertEqual(result.diagnostic, "")
 
     def test_closing_accepts_noisy_settled_width_but_not_moving_fingers(self):
         for moving in (False, True):
@@ -183,6 +219,41 @@ class PickupTests(unittest.TestCase):
             controller.update()
         self.assertEqual(controller.phase, "closing")
 
+    def test_irregular_samples_allow_settled_grasp_but_not_moving_fingers(self):
+        for moving in (False, True):
+            controller, interface, observation, state = self._recorded_pickup()
+            controller.start(observation)
+            controller._change_phase('closing', 10.)
+            for i in range(18):
+                now = 10. + i*.063
+                width = .105 - .005*(now-10.) if moving else .1
+                interface.timestamp = now
+                interface.read_state.return_value = replace(state, timestamp=now, gripper_width=width)
+                result = controller.update()
+                if controller.phase == 'lifting':
+                    break
+            self.assertEqual(controller.phase, 'closing' if moving else 'lifting')
+            if moving:
+                self.assertIn('settled=False', result.diagnostic)
+
+    def test_settling_rejects_gap_in_feedback(self):
+        controller, _, _, _ = self._recorded_pickup()
+        for t in (10., 10.06, 10.12, 10.18, 10.24, 10.6):
+            _, settled = controller._gripper_settling(t, .1)
+        self.assertFalse(settled)
+
+    def test_closing_timeout_reports_measured_width(self):
+        controller, interface, observation, state = self._recorded_pickup()
+        controller.start(observation)
+        controller._change_phase('closing', 10.)
+        interface.timestamp = 31.
+        interface.read_state.return_value = replace(state, timestamp=31., gripper_width=.12)
+        result = controller.update()
+        self.assertEqual(result.status, 'pickup_failed')
+        self.assertIn('phase_timeout: closing', result.diagnostic)
+        self.assertIn('gripper_width=120.0 mm', result.diagnostic)
+        self.assertIn('settled=False', result.diagnostic)
+
     def test_physical_pickup_with_noisy_measurements(self):
         simulation = Simulation(
             pickup=True, config=SimulationConfig(cube_position=[-0.079, 0.32, 0.05]),
@@ -214,7 +285,10 @@ class PickupTests(unittest.TestCase):
         controller.update()  # Confirm full opening before descending.
         result = controller.update()
         self.assertEqual(result.status, "pickup_failed")
-        self.assertEqual(result.diagnostic, "pickup_path_blocked")
+        self.assertTrue(result.diagnostic.startswith("pickup_path_blocked:"))
+        self.assertIn("clearance=", result.diagnostic)
+        self.assertIn("required=15.0 mm", result.diagnostic)
+        self.assertIn("at=", result.diagnostic)
         np.testing.assert_array_equal(interface.set_joint_velocities.call_args.args[0], np.zeros(6))
 
     def test_viewer_hands_off_to_pickup_once(self):

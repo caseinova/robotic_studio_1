@@ -197,7 +197,7 @@ def create_camera(config, clock):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Print D435i factory calibration without connecting to the robot")
-    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("hardware_config.json"))
+    parser.add_argument("--config", type=Path, default=Path(__file__).parent / "config" / "hardware_config.json")
     args = parser.parse_args(argv)
     camera = None
     try:

@@ -45,6 +45,7 @@ def test_reference_apply_preserves_tool_calibration(dataset, tmp_path):
     path = tmp_path / 'hardware.json'
     path.write_text(json.dumps(values))
     backup = calibration.apply_result(path, result)
+    assert backup.parent == tmp_path / 'old_version'
     assert json.loads(backup.read_text()) == original
     updated = json.loads(path.read_text())
     for key in ('tool_from_marker', 'tool_from_grasp', 'flange_from_tool', 'world_from_base'):
