@@ -1,7 +1,8 @@
 {
-  "enabled": false,
-  "position_measurement_std": 0.004,
-  "orientation_measurement_std": 0.03,
+  "cube_enabled": true,
+  "tool_enabled": false,
+  "position_measurement_std": 0.04,
+  "orientation_measurement_std": 0.08,
   "linear_acceleration_noise": 0.05,
   "angular_acceleration_noise": 0.2,
   "initial_linear_velocity_std": 0.1,

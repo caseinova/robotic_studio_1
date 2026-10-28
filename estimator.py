@@ -5,7 +5,7 @@ Error order: [dp, dtheta, dv, dw], with R_true = Exp(dtheta) @ R. Tracking in
 world coordinates separates measured camera ego-motion from cube motion.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 
@@ -18,6 +18,9 @@ DEFAULT_ESTIMATOR_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "es
 @dataclass(frozen=True)
 class EKFConfig:
     enabled: bool = True
+    # Per-tracker overrides; None preserves the legacy shared enabled switch.
+    cube_enabled: bool | None = None
+    tool_enabled: bool | None = None
     position_measurement_std: float = 0.004  # m, including camera extrinsic uncertainty
     orientation_measurement_std: float = 0.03  # rad
     linear_acceleration_noise: float = 0.05  # continuous density, m/s^(3/2)
@@ -30,13 +33,23 @@ class EKFConfig:
     def __post_init__(self):
         if not isinstance(self.enabled, bool):
             raise ValueError("EKF enabled must be boolean")
+        for name in ("cube_enabled", "tool_enabled"):
+            if getattr(self, name) is not None and not isinstance(getattr(self, name), bool):
+                raise ValueError(f"EKF {name} must be boolean or null")
         for name in self.__dataclass_fields__:
-            if name == "enabled":
+            if name in ("enabled", "cube_enabled", "tool_enabled"):
                 continue
             value = getattr(self, name)
             if (isinstance(value, bool) or not isinstance(value, (int, float))
                     or not np.isfinite(value) or value <= 0):
                 raise ValueError(f"{name} must be a finite positive number")
+
+    def for_target(self, target):
+        if target not in ("cube", "tool"):
+            raise ValueError("EKF target must be cube or tool")
+        override = getattr(self, target + "_enabled")
+        return replace(self, enabled=self.enabled if override is None else override,
+                       cube_enabled=None, tool_enabled=None)
 
     @classmethod
     def load(cls, path=DEFAULT_ESTIMATOR_CONFIG_PATH):

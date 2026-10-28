@@ -8,6 +8,13 @@ Paths inside `runtime_config.json` are relative to this directory.
 `hardware_config.json` resolves `robot.api_path` relative to this directory too.
 Python configuration/schema modules remain in the application root.
 
+`estimator_config.json` has independent `cube_enabled` and `tool_enabled`
+booleans. For cube-only filtering, set `cube_enabled: true` and
+`tool_enabled: false`. A disabled tool EKF leaves raw tool-tag feedback available;
+it does not force FK. Noise/tuning settings remain shared, but tracker states
+are separate. Older configs using `enabled` still control both trackers; an
+explicit per-target boolean overrides that legacy fallback. Restart after edits.
+
 `controller_config.json` supports `grasp_height_offset_m` (default `0.0`).
 This shifts the pickup grasp-center target along world Z relative to the cube
 center: `0.005` grips 5 mm higher, `-0.005` grips 5 mm lower. It does not change

@@ -206,10 +206,11 @@ class ApproachController:
                  estimator_config: EKFConfig | None = None, processor: TaggedCubeProcessor | None = None):
         self.interface = interface
         self.processor = processor if processor is not None else TaggedCubeProcessor()
-        self.estimator = RelativePoseEKF(estimator_config)
+        estimator_config = estimator_config if estimator_config is not None else EKFConfig()
+        self.estimator = RelativePoseEKF(estimator_config.for_target("cube"))
         # A separate tracker smooths the moving tool measured by its tag.
         # It uses the same optional noise settings, without sharing cube state.
-        self.tool_estimator = RelativePoseEKF(estimator_config)
+        self.tool_estimator = RelativePoseEKF(estimator_config.for_target("tool"))
         self.pose_estimate = None
         self.kinematics = kinematics
         self.tool_processor = CameraProcessor(marker_id=kinematics.end_effector_marker_id,

@@ -21,6 +21,34 @@ from hardware_fakes import Clock, Robot, Camera, Gripper, configured
 
 
 class HardwareRuntimeTests(unittest.TestCase):
+    def test_independent_ekfs_preserve_visual_tool_feedback(self):
+        for cube_enabled, tool_enabled in ((False, False), (True, False), (False, True), (True, True)):
+            with self.subTest(cube=cube_enabled, tool=tool_enabled):
+                self.clock.sleep(.05)
+                model = self.config.build_kinematics()
+                processor = self.config.build_processor()
+                controller = ApproachController(self.interface, model,
+                    controller_config=ControllerConfig(mode='pure_pbvs', tool_pose_source='tag_only'),
+                    estimator_config=EKFConfig(cube_enabled=cube_enabled, tool_enabled=tool_enabled),
+                    processor=processor)
+                frame = self.interface.capture_rgbd()
+                tool_pose = model.tool_pose()
+                marker_pose = tool_pose @ controller.pbvs.desired
+                cube_pose = marker_pose @ np.linalg.inv(processor.cube_from_markers[processor.reference_marker_id])
+                observation = SimpleNamespace(timestamp=frame.timestamp, camera_from_cube=cube_pose,
+                                              camera_from_marker=marker_pose)
+                tool = SimpleNamespace(camera_from_marker=tool_pose @ model.tool_from_end_effector_marker)
+                with patch.object(processor, 'process', return_value=observation), \
+                     patch.object(controller.tool_processor, 'process_marker', return_value=tool), \
+                     patch.object(controller.estimator, 'update', wraps=controller.estimator.update) as cube_update, \
+                     patch.object(controller.tool_estimator, 'update', wraps=controller.tool_estimator.update) as tool_update:
+                    result = controller.update(frame)
+                self.assertEqual(result.status, 'reached')
+                self.assertEqual(result.tool_pose_source, 'tag')
+                self.assertEqual(cube_update.call_count, int(cube_enabled))
+                self.assertEqual(tool_update.call_count, int(tool_enabled))
+                self.assertIsNot(controller.estimator, controller.tool_estimator)
+
     def test_joint_state_is_acquired_after_both_tag_detectors(self):
         self.config.control['frame_max_age'] = .2
         model = self.config.build_kinematics()
