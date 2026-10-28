@@ -21,7 +21,7 @@ class HardwareConfigTests(unittest.TestCase):
         config.validate_ready(ControllerConfig(mode='pure_pbvs'), task='observe')
         with self.assertRaisesRegex(ValueError, 'controller frame budget'):
             config.validate_ready(ControllerConfig(mode='pure_pbvs'), task='servo')
-        with self.assertRaisesRegex(ValueError, 'controller frame budget'):
+        with self.assertRaisesRegex(ValueError, 'link_capsules'):
             config.validate_ready(controller, task='pick')
         config.control['state_max_age'] = .101
         with self.assertRaisesRegex(ValueError, 'state_max_age'):

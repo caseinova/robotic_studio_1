@@ -20,6 +20,27 @@ from noise_config import NoiseConfig
 
 
 class PickupTests(unittest.TestCase):
+    def test_configured_frame_budget_keeps_state_budget_unchanged(self):
+        for ratio, frame_age, state_age, accepted in (
+                (2., .15, 0., False), (4., .15, 0., True),
+                (4., .20, 0., True), (4., .201, 0., False), (4., .15, .11, False)):
+            with self.subTest(ratio=ratio, frame_age=frame_age, state_age=state_age):
+                interface = Mock(timestamp=1., gripper_max_width=.11)
+                interface.read_state.return_value = RobotState(1.-state_age, np.zeros(6), np.zeros(6), .08)
+                model = Mock()
+                model.pickup_collision_indices.return_value = []
+                pose = np.eye(4)
+                pose[2, 3] = .3
+                model.tool_pose.return_value = pose
+                model.grasp_pose.return_value = pose
+                controller = CubePickupController(interface, model, cube_size=.064,
+                    frame_max_age_intervals=ratio)
+                controller.start(SimpleNamespace(timestamp=1.-frame_age, world_from_cube=np.eye(4)))
+                self.assertEqual(controller.phase, 'opening' if accepted else 'failed')
+                if not accepted:
+                    interface.open_gripper.assert_not_called()
+                    self.assertEqual(controller.diagnostic, 'stale_pickup_target_or_state')
+
     def test_physical_pickup_after_both_approach_modes(self):
         for mode, position in (
             ("pure_pbvs", [-0.079, 0.30, 0.05]),

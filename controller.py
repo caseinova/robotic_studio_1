@@ -371,7 +371,13 @@ class CubePickupController:
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  cube_size: float = 0.10, speed: float = 0.03,
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
-                 velocity_limit: float = 0.35, clearance: float = 0.015):
+                 velocity_limit: float = 0.35, clearance: float = 0.015,
+                 frame_max_age_intervals: float = 2.0):
+        if (isinstance(frame_max_age_intervals, bool)
+                or not isinstance(frame_max_age_intervals, (int, float))
+                or not np.isfinite(frame_max_age_intervals) or frame_max_age_intervals <= 0):
+            raise ValueError("frame_max_age_intervals must be finite and positive")
+        self.frame_max_age_intervals = frame_max_age_intervals
         for name, value in (("cube_size", cube_size), ("speed", speed),
                             ("control_dt", control_dt), ("phase_timeout", phase_timeout),
                             ("velocity_limit", velocity_limit), ("clearance", clearance)):
@@ -409,7 +415,7 @@ class CubePickupController:
         now = self.interface.timestamp
         if (observation is None or not np.isfinite(now)
                 or not np.isfinite(observation.timestamp) or not np.isfinite(state.timestamp)
-                or abs(now - observation.timestamp) > 2 * self.control_dt
+                or abs(now - observation.timestamp) > self.frame_max_age_intervals * self.control_dt
                 or abs(now - state.timestamp) > 2 * self.control_dt):
             self._fail("stale_pickup_target_or_state")
             return

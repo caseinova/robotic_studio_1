@@ -107,16 +107,43 @@ SDK distortion model cannot be represented by the OpenCV model, the report leave
 
 ### Fixed-camera and tool-tag calibration
 
+#### Wrist-connected OnRobot XML-RPC adapter
+
+The supplied `15_real_gripper_control.py` uses HTTP XML-RPC on the robot host,
+port 41414, gripper ID 0. Select `gripper.driver: "custom"` and
+`gripper.factory: "hardware_onrobot_xmlrpc:create_gripper"`, with
+`gripper.options: {"gripper_id": 0}`. This adapter uses the same `rg_get_width`
+and `rg_grip` wire methods, but supplies bounded PycURL requests and parsed
+XML-RPC responses rather than wrapping the example library's unbounded calls.
+Application widths are meters; RPC widths are millimeters and force is newtons.
+`unit_id` is a legacy Modbus field and is not used by this adapter.
+
+No connection or motion occurs at construction. Reads are timestamped before
+network I/O; `timeout_s` bounds each request. Requests are never automatically
+retried, and transport/protocol failures invalidate the adapter. Closing it
+does not move the fingers. A grip acknowledgment is not completion feedback;
+the pickup controller must continue checking measured width. The example does
+not provide safety/busy registers equivalent to the Modbus adapter, and this
+adapter does not invent them. Actual server acknowledgment conventions and
+response latency still require hardware verification. Only nil, true, or integer
+1 are accepted as grip acknowledgments; unexpected replies fail explicitly.
+
+The configured adapter makes subsequent hardware runs read the gripper, even
+in servo/observe mode. For arm-only operation, restore `driver: "disabled"`
+and `options: {}`. Pickup still requires collision geometry and valid tool
+calibration. Installing this adapter does not by itself establish pickup readiness.
+
 The approach controller's frame-age multiplier is configured separately in
 `controller_config.json` as `frame_max_age_intervals` (default 2.0). Its vision
 freshness limit is this value times `control.dt`. This does not override the
 hardware interface's `control.frame_max_age`,
-joint-state freshness, pickup freshness checks, or command watchdog. The default
+joint-state freshness or command watchdog. Pickup uses the same configured
+ratio for the observed target's age at handoff. The default
 retains the existing 100 ms controller limit for a 50 ms interval.
 
-Servo readiness checks `frame_max_age <= frame_max_age_intervals * control.dt`.
-Joint-state age remains bounded by two intervals, and pickup retains its
-two-interval frame bound. Frame age must also not exceed `command_timeout`.
+Servo and pickup readiness check `frame_max_age <= frame_max_age_intervals * control.dt`.
+Joint-state age remains bounded by two intervals, including during pickup.
+Frame age must also not exceed `command_timeout`.
 Observation/device startup validates the interface budget without applying an
 unrelated default controller multiplier. These budgets are freshness checks,
 not guarantees of servo accuracy or reliable worker shutdown.

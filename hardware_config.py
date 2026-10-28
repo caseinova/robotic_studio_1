@@ -74,6 +74,9 @@ class HardwareConfig:
             from hardware_realsense import validate_settings
 
             validate_settings(self.camera)
+        if self.gripper.get("driver") == "custom" and self.gripper.get("factory") == "hardware_onrobot_xmlrpc:create_gripper":
+            from hardware_onrobot_xmlrpc import validate_settings as validate_gripper
+            validate_gripper(self.gripper)
         for name in ("robot", "camera", "gripper"):
             settings = getattr(self, name)
             driver = settings.get("driver")
@@ -121,8 +124,6 @@ class HardwareConfig:
         # checked with the actual controller config before opening devices.
         if task != "observe":
             intervals = controller_config.frame_max_age_intervals
-            if task == "pick":
-                intervals = min(intervals, 2.0)
             if self.control["frame_max_age"] > intervals * self.control["dt"]:
                 raise ValueError("frame_max_age exceeds the controller frame budget "
                                  f"({intervals:g} * control.dt for task {task})")

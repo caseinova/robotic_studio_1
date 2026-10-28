@@ -27,7 +27,7 @@ def configured():
     # Retain the legacy CB-series fixture independently of the installed arm selection.
     values['robot'].update(driver='ur_rtde', frequency_hz=125, dh=asdict(UR3DH()),
                            host='127.0.0.1', joint_lower=[-6.] * 6, joint_upper=[6.] * 6)
-    values['gripper'].update(driver='onrobot_rg', host='127.0.0.1')
+    values['gripper'].update(driver='onrobot_rg', factory=None, options={}, host='127.0.0.1', port=502)
     values['control'].update(dt=.05, state_max_age=.1, frame_max_age=.1)
     values['camera'].update(driver='custom', factory='hardware_fakes:camera_factory', width=64, height=48,
                             intrinsics=[[50., 0, 31.5], [0, 50., 23.5], [0, 0, 1]])
