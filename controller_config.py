@@ -20,8 +20,14 @@ class ControllerConfig:
     tool_yaw_deg: float = 90.0
     # Use both tags when visible; encoders provide a fallback for tool-tag loss.
     tool_pose_source: str = "tag_with_fk_fallback"
+    # Vision freshness budget in control intervals; hardware checks also apply.
+    frame_max_age_intervals: float = 2.0
 
     def __post_init__(self):
+        if (isinstance(self.frame_max_age_intervals, bool)
+                or not isinstance(self.frame_max_age_intervals, (int, float))
+                or not math.isfinite(self.frame_max_age_intervals) or self.frame_max_age_intervals <= 0):
+            raise ValueError("frame_max_age_intervals must be finite and positive")
         if self.mode not in CONTROLLER_MODES:
             raise ValueError("controller mode must be pure_pbvs or pbvs_mpc")
         if (isinstance(self.tool_clearance, bool)
@@ -41,7 +47,7 @@ class ControllerConfig:
             values = json.load(source)
         if not isinstance(values, dict):
             raise ValueError("controller config must be a JSON object")
-        unknown = set(values) - {"mode", "tool_clearance", "tool_yaw_deg", "tool_pose_source"}
+        unknown = set(values) - {"mode", "tool_clearance", "tool_yaw_deg", "tool_pose_source", "frame_max_age_intervals"}
         if unknown:
             raise ValueError("unknown controller config settings: " + ", ".join(sorted(unknown)))
         return cls(**values)

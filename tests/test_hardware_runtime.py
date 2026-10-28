@@ -21,6 +21,40 @@ from hardware_fakes import Clock, Robot, Camera, Gripper, configured
 
 
 class HardwareRuntimeTests(unittest.TestCase):
+    def test_joint_state_is_acquired_after_both_tag_detectors(self):
+        self.config.control['frame_max_age'] = .2
+        model = self.config.build_kinematics()
+        controller = ApproachController(self.interface, model, config=self.config.build_mpc_config(),
+            controller_config=ControllerConfig(mode='pure_pbvs', frame_max_age_intervals=4),
+            estimator_config=EKFConfig(enabled=False), processor=self.config.build_processor())
+        frame = self.interface.capture_rgbd()
+        order = []
+
+        def detect_cube(frame):
+            order.append('cube')
+            self.clock.sleep(.06)
+            return SimpleNamespace(camera_from_marker=np.eye(4))
+
+        def detect_tool(frame):
+            order.append('tool')
+            self.clock.sleep(.06)
+            return None
+
+        read = self.robot.read_joint_state
+        def read_joints():
+            order.append('joints')
+            return read()
+
+        with patch.object(controller.processor, 'process', side_effect=detect_cube), \
+             patch.object(controller.tool_processor, 'process_marker', side_effect=detect_tool), \
+             patch.object(self.robot, 'read_joint_state', side_effect=read_joints):
+            result = controller.update(frame)
+        self.assertEqual(order, ['cube', 'tool', 'joints'])
+        self.assertEqual(result.status, 'tracking')
+        self.assertEqual(result.tool_pose_source, 'fk_fallback')
+        self.assertAlmostEqual(self.interface._last_state.timestamp, self.clock())
+        self.assertTrue(self.robot.calls)
+
     def setUp(self):
         self.config, self.clock = configured(), Clock()
         self.robot, self.camera = Robot(self.clock), Camera(self.config.camera, self.clock)

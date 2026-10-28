@@ -147,7 +147,7 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                 if result is not None:
                     if result.diagnostic == "stale_rgbd_frame" and clock() - last_stale_report >= 1.:
                         print(f"Hardware frame timing: age_after_processing={frame_age_after_processing * 1000:.1f} ms, "
-                              f"limit={2 * config.control['dt'] * 1000:.1f} ms, "
+                              f"limit={controller_config.frame_max_age_intervals * config.control['dt'] * 1000:.1f} ms, "
                               f"capture={timings.get('camera', 0) * 1000:.1f} ms, "
                               f"processing={timings.get('controller', 0) * 1000:.1f} ms", flush=True)
                         last_stale_report = clock()

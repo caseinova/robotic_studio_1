@@ -67,6 +67,7 @@ class URRTDE:
         self._ready_event = threading.Event()
         self._thread = None
         self._error = None
+        self._worker_phase = "not_started"
         self._command = None
         self._anchor = None
         self._closed = False
@@ -165,14 +166,17 @@ class URRTDE:
         connection_started = self.clock()
         sent_commands = 0
         try:
+            self._worker_phase = "connecting_control"
             rtde = self._connect_command()
             connection_elapsed = self.clock() - connection_started
             watchdog = self._watchdog_transport(rtde)
+            self._worker_phase = "enabling_watchdog"
             if not watchdog.setWatchdog(1 / self.control["command_timeout"]):
                 raise RuntimeError("UR command watchdog could not be enabled")
             self._ready_event.set()
             period = 1 / self.settings["frequency_hz"]
             while not self._stop_event.is_set():
+                self._worker_phase = "checking_command"
                 started = self.clock()
                 with self._command_lock:
                     command = self._command
@@ -189,6 +193,7 @@ class URRTDE:
                         f"command_age_ms={(started - timestamp) * 1000:.1f}, "
                         f"timeout_ms={self.control['command_timeout'] * 1000:.1f}, "
                         f"connect_ms={connection_elapsed * 1000:.1f}, sent_commands={sent_commands}")
+                self._worker_phase = "reading_joint_state"
                 measured = self.read_joint_state()
                 if not 0 <= self.clock() - measured.timestamp <= self.control["state_max_age"]:
                     raise RuntimeError("UR joint stream is stale")
@@ -204,7 +209,11 @@ class URRTDE:
                 braking_upper = np.sqrt(2 * acceleration * np.maximum(upper - measured.positions, 0))
                 velocity = np.clip(velocity, np.maximum(braking_lower, -self.control["velocity_limit"]),
                                    np.minimum(braking_upper, self.control["velocity_limit"]))
-                if not watchdog.kickWatchdog() or not self._send_velocity(rtde, velocity, period):
+                self._worker_phase = "kicking_watchdog"
+                if not watchdog.kickWatchdog():
+                    raise RuntimeError("UR rejected the watchdog kick")
+                self._worker_phase = "sending_velocity"
+                if not self._send_velocity(rtde, velocity, period):
                     raise RuntimeError("UR rejected the velocity command")
                 sent_commands += 1
                 self._stop_event.wait(max(0., period - (self.clock() - started)))
@@ -214,14 +223,21 @@ class URRTDE:
             self._stop_event.set()
             self._ready_event.set()
             if rtde is not None:
-                self._close_command(rtde)
+                self._worker_phase = "closing_control"
+                try:
+                    self._close_command(rtde)
+                except Exception as error:
+                    if self._error is None:
+                        self._error = error
+            self._worker_phase = "stopped"
 
     def stop(self):
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join(timeout=self.control["command_timeout"] + 1)
             if self._thread.is_alive():
-                raise RuntimeError("UR command worker did not stop; its robot watchdog remains active")
+                raise RuntimeError(f"UR command worker did not stop (phase={self._worker_phase}); "
+                                   "stop completion unconfirmed; verify robot stopped on pendant")
         if self._error is not None:
             raise RuntimeError(f"UR command worker failed: {self._error}") from self._error
 

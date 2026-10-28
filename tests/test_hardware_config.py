@@ -13,8 +13,26 @@ from hardware_fakes import configured
 
 
 class HardwareConfigTests(unittest.TestCase):
+    def test_frame_budget_uses_servo_multiplier_not_state_multiplier(self):
+        config = configured()
+        config.control['frame_max_age'] = .2
+        controller = ControllerConfig(mode='pure_pbvs', frame_max_age_intervals=4)
+        config.validate_ready(controller, task='servo')
+        config.validate_ready(ControllerConfig(mode='pure_pbvs'), task='observe')
+        with self.assertRaisesRegex(ValueError, 'controller frame budget'):
+            config.validate_ready(ControllerConfig(mode='pure_pbvs'), task='servo')
+        with self.assertRaisesRegex(ValueError, 'controller frame budget'):
+            config.validate_ready(controller, task='pick')
+        config.control['state_max_age'] = .101
+        with self.assertRaisesRegex(ValueError, 'state_max_age'):
+            config.validate_ready(controller)
+        config.control['state_max_age'] = .1
+        config.control['frame_max_age'] = .251
+        with self.assertRaisesRegex(ValueError, 'command_timeout'):
+            config.validate_schema()
+
     def test_missing_intrinsics_reported_without_connecting(self):
-        config = HardwareConfig.load()
+        config = configured()
         config = replace(config, camera={**config.camera, "intrinsics": None})
         with self.assertRaisesRegex(ValueError, 'camera.intrinsics'):
             config.validate_ready(ControllerConfig(mode='pure_pbvs'))

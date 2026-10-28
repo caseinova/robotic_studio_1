@@ -236,15 +236,18 @@ class ApproachController:
         """Acquire through the interface and command one control interval.
 
         A caller displaying the camera can pass an already acquired interface
-        frame to avoid capturing twice. State is read once for this update.
+        frame to avoid capturing twice. Joint state is read after image detection
+        so kinematics and command limits use the same recent encoder snapshot.
         """
         if frame is None:
             frame = self.interface.capture_rgbd()
-        state = self.interface.read_state()
-        self.kinematics.synchronize(state)
         observation = self.processor.process(frame)
         self.tool_observation = None
         self.tool_pose_source = ""
+        if observation is not None and self.settings.tool_pose_source != "fk":
+            self.tool_observation = self.tool_processor.process_marker(frame)
+        state = self.interface.read_state()
+        self.kinematics.synchronize(state)
         now = self.interface.timestamp
         if self.estimator.timestamp is not None and now < self.estimator.timestamp:
             self.estimator.reset()  # Simulation/interface clock was restarted.
@@ -252,7 +255,7 @@ class ApproachController:
             self.tool_estimator.reset()
         out_of_order = (self.estimator.config.enabled and self.estimator.timestamp is not None
                         and frame.timestamp < self.estimator.timestamp)
-        stale_frame = abs(now - frame.timestamp) > 2 * self.control_dt or out_of_order
+        stale_frame = abs(now - frame.timestamp) > self.settings.frame_max_age_intervals * self.control_dt or out_of_order
         stale_state = abs(now - state.timestamp) > 2 * self.control_dt
         self.pose_estimate = None
         if self.estimator.config.enabled and not stale_frame and not stale_state:
@@ -291,8 +294,6 @@ class ApproachController:
         # Both tags are measured in this same exposure. Their relative pose
         # cancels camera-to-world extrinsics; the rigid tool-tag mounting
         # calibration converts the tool tag frame into the flange frame.
-        if self.settings.tool_pose_source != "fk":
-            self.tool_observation = self.tool_processor.process_marker(frame)
         tool_diagnostic = self.tool_processor.last_status
         if self.tool_observation is not None and self.settings.tool_pose_source != "fk":
             camera_from_tool = (self.tool_observation.camera_from_marker

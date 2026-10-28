@@ -91,9 +91,10 @@ class HardwareConfig:
             raise ValueError("command_timeout must exceed the control interval")
         if self.control["max_cycle_time"] > self.control["command_timeout"]:
             raise ValueError("max_cycle_time must not exceed command_timeout")
-        # The existing controller also enforces freshness within two intervals.
-        if max(self.control["state_max_age"], self.control["frame_max_age"]) > 2 * self.control["dt"]:
-            raise ValueError("state/frame max age must not exceed twice control.dt")
+        if self.control["state_max_age"] > 2 * self.control["dt"]:
+            raise ValueError("state_max_age must not exceed twice control.dt")
+        if self.control["frame_max_age"] > self.control["command_timeout"]:
+            raise ValueError("frame_max_age must not exceed command_timeout")
         if self.robot["driver"] in ("ur_rtde", "ur3_rg2_rosbridge"):
             frequency = positive(self.robot.get("frequency_hz"), "robot.frequency_hz")
             if frequency > 125:
@@ -114,6 +115,17 @@ class HardwareConfig:
     def validate_ready(self, controller_config, *, task="servo"):
         """Reject placeholders and inconsistent calibration before connecting."""
         self.validate_schema()
+        if task not in ("servo", "observe", "pick"):
+            raise ValueError("hardware task must be observe, servo, or pick")
+        # Observe/device setup has no approach controller. Motion readiness is
+        # checked with the actual controller config before opening devices.
+        if task != "observe":
+            intervals = controller_config.frame_max_age_intervals
+            if task == "pick":
+                intervals = min(intervals, 2.0)
+            if self.control["frame_max_age"] > intervals * self.control["dt"]:
+                raise ValueError("frame_max_age exceeds the controller frame budget "
+                                 f"({intervals:g} * control.dt for task {task})")
         missing = []
         if self.gripper["driver"] == "disabled":
             if task not in ("servo", "observe"):

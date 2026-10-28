@@ -1,0 +1,11 @@
+{
+  "marker_dictionary": "DICT_4X4_50",
+  "marker_id": 7,
+  "marker_size": 0.08,
+  "base_from_reference_tag": [
+  [1, 0, 0, 0.170],
+  [0, 1, 0, 0],
+  [0, 0, 1, 0],
+  [0, 0, 0, 1]
+]
+}

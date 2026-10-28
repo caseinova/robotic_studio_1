@@ -9,6 +9,48 @@ from scipy.spatial.transform import Rotation
 import calibrate_camera as calibration
 
 
+def test_reference_recovers_camera_with_nonidentity_base(dataset):
+    data, _, camera = dataset
+    meta = copy.deepcopy(data['metadata'])
+    meta['world_from_base'] = transform([.1, .2, -.1], [.3, .1, .2]).tolist()
+    mount = transform([0, 0, .5], [.17, 0, 0])
+    reference = dict(marker_dictionary='DICT_4X4_50', marker_id=7, marker_size=.08,
+                     base_from_reference_tag=mount.tolist())
+    observed = np.linalg.inv(camera) @ np.array(meta['world_from_base']) @ mount
+    result = calibration.solve_reference(meta, reference, [observed] * 30)
+    assert result['passed']
+    assert set(result['calibration']) == {'world_from_camera'}
+    np.testing.assert_allclose(result['calibration']['world_from_camera'], camera, atol=1e-10)
+    noisy = [observed.copy() for _ in range(30)]
+    noisy[0][0, 3] += .1
+    assert not calibration.solve_reference(meta, reference, noisy)['passed']
+
+
+def test_reference_rejects_unmeasured_mount(tmp_path):
+    path = tmp_path / 'reference.json'
+    path.write_text(json.dumps(dict(marker_dictionary='DICT_4X4_50', marker_id=7,
+                                   marker_size=.08, base_from_reference_tag=None)))
+    with pytest.raises(ValueError, match='measure and set'):
+        calibration.load_reference(path)
+
+
+def test_reference_apply_preserves_tool_calibration(dataset, tmp_path):
+    data, _, camera = dataset
+    reference = dict(base_from_reference_tag=np.eye(4).tolist())
+    observed = np.linalg.inv(camera) @ np.array(data['metadata']['world_from_base'])
+    result = calibration.solve_reference(data['metadata'], reference, [observed] * 12)
+    values = json.loads(calibration.DEFAULT_HARDWARE_CONFIG_PATH.read_text())
+    values['robot']['api_path'] = calibration.HardwareConfig.load().robot['api_path']
+    original = copy.deepcopy(values)
+    path = tmp_path / 'hardware.json'
+    path.write_text(json.dumps(values))
+    backup = calibration.apply_result(path, result)
+    assert json.loads(backup.read_text()) == original
+    updated = json.loads(path.read_text())
+    for key in ('tool_from_marker', 'tool_from_grasp', 'flange_from_tool', 'world_from_base'):
+        assert updated['calibration'][key] == original['calibration'][key]
+
+
 @pytest.mark.parametrize('stage,limits', [
     ('validation', dict(position_rms_mm=8, position_max_mm=11, rotation_rms_deg=4, rotation_max_deg=6)),
     ('fit', dict(position_rms_mm=8, position_max_mm=10, rotation_rms_deg=4, rotation_max_deg=10)),

@@ -18,6 +18,16 @@ from simulation_config import SimulationConfig
 
 
 class ControllerConfigTests(unittest.TestCase):
+    def test_frame_age_intervals_validation_and_loading(self):
+        self.assertEqual(ControllerConfig().frame_max_age_intervals, 2.0)
+        for value in (0, -1, True, None, '2', float('nan'), float('inf')):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                ControllerConfig(frame_max_age_intervals=value)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'controller.json'
+            path.write_text(json.dumps({'frame_max_age_intervals': 1.5}))
+            self.assertEqual(ControllerConfig.load(path).frame_max_age_intervals, 1.5)
+
     def test_load_modes_and_reject_unknown_settings(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "controller.json"
