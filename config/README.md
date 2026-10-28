@@ -15,6 +15,16 @@ the approach target, camera calibration, or measured tool-to-grasp transform.
 Simulation and hardware share this setting. Collision, freshness and timeout
 checks remain active; an offset is not a substitute for table/gripper geometry.
 
+`pickup_dwell_seconds` and `pickup_dwell_radius_m` add a wait after confirmed
+gripper opening and before descent. The measured grasp center must stay inside
+the XY radius around the latched cube center for the full duration; motion within
+the radius is allowed. Leaving the radius or losing the required opening resets
+the timer. The arm receives zero velocity during the wait; it does not chase the
+cube. Pickup does not re-detect cube motion after handoff. The grasp must remain
+above the target height. Zero seconds disables the dwell (legacy behavior).
+The dwell phase has a timeout equal to the ordinary phase timeout plus the dwell
+duration; hardware's overall run-time limit still applies.
+
 Current calibration results and samples remain in the application root.
 Historical calibration copies and configuration backups live in `../old_version/`.
 New calibration and capsule-generation backups are also written there.

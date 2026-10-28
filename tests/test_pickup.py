@@ -20,6 +20,35 @@ from noise_config import NoiseConfig
 
 
 class PickupTests(unittest.TestCase):
+    def test_dwell_allows_xy_motion_inside_radius_and_resets_outside(self):
+        original, interface, observation, state = self._recorded_pickup()
+        controller = CubePickupController(interface, original.kinematics,
+            pickup_dwell_seconds=1., pickup_dwell_radius_m=.01)
+        controller.start(observation)
+        self.assertEqual(controller.update().status, 'pickup_dwelling')
+        grasp = original.kinematics.grasp_pose().copy()
+        with patch.object(original.kinematics, 'grasp_pose', return_value=grasp):
+            for t, dx, expected in ((10., .002, 'dwelling'), (10.6, -.004, 'dwelling'),
+                                     (10.7, .011, 'dwelling'), (10.8, .003, 'dwelling'),
+                                     (11.5, -.003, 'dwelling'), (11.81, .005, 'descending')):
+                interface.timestamp = t
+                interface.read_state.return_value = replace(state, timestamp=t)
+                grasp[0, 3] = observation.world_from_cube[0, 3] + dx
+                controller.update()
+                self.assertEqual(controller.phase, expected)
+        for call in interface.set_joint_velocities.call_args_list:
+            np.testing.assert_array_equal(call.args[0], np.zeros(6))
+        interface.open_gripper.assert_called_once()
+        interface.close_gripper.assert_not_called()
+
+    def test_dwell_stale_state_fails_instead_of_descending(self):
+        original, interface, observation, state = self._recorded_pickup()
+        controller = CubePickupController(interface, original.kinematics, pickup_dwell_seconds=1.)
+        controller.start(observation)
+        controller.update()
+        interface.timestamp = 12.
+        self.assertEqual(controller.update().diagnostic, 'stale_or_invalid_robot_state')
+
     def test_grasp_height_offset_changes_only_world_z_target(self):
         for offset in (0., .005, -.005):
             controller, interface, observation, state = self._recorded_pickup()

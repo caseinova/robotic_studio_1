@@ -24,8 +24,15 @@ class ControllerConfig:
     frame_max_age_intervals: float = 2.0
     # Pickup grasp-center height relative to cube center, along world Z (meters).
     grasp_height_offset_m: float = 0.0
+    pickup_dwell_seconds: float = 0.0
+    pickup_dwell_radius_m: float = 0.01
 
     def __post_init__(self):
+        for name, value, positive in (("pickup_dwell_seconds", self.pickup_dwell_seconds, False),
+                                      ("pickup_dwell_radius_m", self.pickup_dwell_radius_m, True)):
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0 or (positive and value == 0)):
+                raise ValueError(f"{name} must be finite and {'positive' if positive else 'nonnegative'}")
         if (isinstance(self.grasp_height_offset_m, bool)
                 or not isinstance(self.grasp_height_offset_m, (int, float))
                 or not math.isfinite(self.grasp_height_offset_m)):
@@ -53,7 +60,7 @@ class ControllerConfig:
             values = json.load(source)
         if not isinstance(values, dict):
             raise ValueError("controller config must be a JSON object")
-        unknown = set(values) - {"mode", "tool_clearance", "tool_yaw_deg", "tool_pose_source", "frame_max_age_intervals", "grasp_height_offset_m"}
+        unknown = set(values) - set(cls.__dataclass_fields__)
         if unknown:
             raise ValueError("unknown controller config settings: " + ", ".join(sorted(unknown)))
         return cls(**values)

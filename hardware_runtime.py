@@ -99,7 +99,9 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                                            control_dt=settings.dt, velocity_limit=settings.velocity_limit,
                                            clearance=settings.clearance,
                                            frame_max_age_intervals=controller_config.frame_max_age_intervals,
-                                           grasp_height_offset_m=controller_config.grasp_height_offset_m)
+                                           grasp_height_offset_m=controller_config.grasp_height_offset_m,
+                                           pickup_dwell_seconds=controller_config.pickup_dwell_seconds,
+                                           pickup_dwell_radius_m=controller_config.pickup_dwell_radius_m)
                       if task == "pick" else None)
             started = deadline = clock()
             last_status = None
@@ -167,7 +169,7 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                         print(f"Hardware: {result.status} | {result.diagnostic}", flush=True)
                         last_status = result.status
                         last_pickup_report = clock()
-                    elif result.status in ("pickup_opening", "pickup_closing") and clock() - last_pickup_report >= 1.:
+                    elif result.status in ("pickup_opening", "pickup_closing", "pickup_dwelling") and clock() - last_pickup_report >= 1.:
                         print(f"Hardware: {result.status} | {result.diagnostic}", flush=True)
                         last_pickup_report = clock()
                     if pickup is not None and pickup.finished:

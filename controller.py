@@ -372,7 +372,17 @@ class CubePickupController:
                  cube_size: float = 0.10, speed: float = 0.03,
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
                  velocity_limit: float = 0.35, clearance: float = 0.015,
-                 frame_max_age_intervals: float = 2.0, grasp_height_offset_m: float = 0.0):
+                 frame_max_age_intervals: float = 2.0, grasp_height_offset_m: float = 0.0,
+                 pickup_dwell_seconds: float = 0.0, pickup_dwell_radius_m: float = 0.01):
+        for name, value, positive in (("pickup_dwell_seconds", pickup_dwell_seconds, False),
+                                      ("pickup_dwell_radius_m", pickup_dwell_radius_m, True)):
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not np.isfinite(value) or value < 0 or (positive and value == 0)):
+                raise ValueError(f"{name} must be finite and {'positive' if positive else 'nonnegative'}")
+        self.pickup_dwell_seconds = pickup_dwell_seconds
+        self.pickup_dwell_radius_m = pickup_dwell_radius_m
+        self._dwell_since = None
+        self._cube_center = None
         if (isinstance(grasp_height_offset_m, bool)
                 or not isinstance(grasp_height_offset_m, (int, float))
                 or not np.isfinite(grasp_height_offset_m)):
@@ -436,15 +446,17 @@ class CubePickupController:
         # Align the grasp site's height with the cube center plus world-Z offset. Keep flange X/Y
         # and orientation fixed, giving a vertical path in the world frame.
         cube_center = observation.world_from_cube[:3, 3]
+        self._cube_center = cube_center.copy()
         self._descent_pose[2, 3] += cube_center[2] + self.grasp_height_offset_m - grasp_position[2]
         horizontal_error = grasp_position[:2] - cube_center[:2]
         horizontal_distance = np.linalg.norm(horizontal_error)
-        if horizontal_distance > 0.01:
+        centering_limit = self.pickup_dwell_radius_m if self.pickup_dwell_seconds > 0 else .01
+        if horizontal_distance > centering_limit:
             self._fail(
                 "tool_not_centered_over_cube: "
                 f"dx={horizontal_error[0] * 1000:.1f} mm, "
                 f"dy={horizontal_error[1] * 1000:.1f} mm, "
-                f"distance={horizontal_distance * 1000:.1f} mm, limit=10.0 mm; "
+                f"distance={horizontal_distance * 1000:.1f} mm, limit={centering_limit * 1000:.1f} mm; "
                 f"grasp_xy_mm={np.round(grasp_position[:2] * 1000, 1).tolist()}, "
                 f"cube_xy_mm={np.round(cube_center[:2] * 1000, 1).tolist()}"
             )
@@ -477,7 +489,8 @@ class CubePickupController:
                 or not np.isfinite(state.gripper_width)):
             self._fail("stale_or_invalid_robot_state")
             return self._result()
-        if now - self._phase_started > self.phase_timeout:
+        phase_budget = self.phase_timeout + (self.pickup_dwell_seconds if self.phase == "dwelling" else 0.)
+        if now - self._phase_started > phase_budget:
             detail = ""
             if self.phase == "opening":
                 detail = "; " + self._opening_diagnostic(state.gripper_width)
@@ -492,6 +505,26 @@ class CubePickupController:
             self.interface.set_joint_velocities(np.zeros(6))
             self.diagnostic = self._opening_diagnostic(state.gripper_width)
             if state.gripper_width >= self.interface.gripper_max_width - 0.001:
+                self._change_phase("dwelling" if self.pickup_dwell_seconds > 0 else "descending", now)
+            return self._result()
+
+        if self.phase == "dwelling":
+            self.interface.set_joint_velocities(np.zeros(6))
+            grasp = self.kinematics.grasp_pose()[:3, 3]
+            distance = np.linalg.norm(grasp[:2] - self._cube_center[:2])
+            if grasp[2] <= self._cube_center[2] + self.grasp_height_offset_m:
+                self._fail("dwell_grasp_not_above_target")
+                return self._result()
+            ready = (distance <= self.pickup_dwell_radius_m
+                     and state.gripper_width >= self.interface.gripper_max_width - .001)
+            if not ready:
+                self._dwell_since = None
+            elif self._dwell_since is None:
+                self._dwell_since = now
+            elapsed = 0. if self._dwell_since is None else now-self._dwell_since
+            self.diagnostic = (f"xy_distance={distance*1000:.1f} mm, radius={self.pickup_dwell_radius_m*1000:.1f} mm, "
+                               f"dwell={elapsed:.2f}/{self.pickup_dwell_seconds:.2f} s")
+            if ready and elapsed >= self.pickup_dwell_seconds:
                 self._change_phase("descending", now)
             return self._result()
 
