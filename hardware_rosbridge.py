@@ -35,7 +35,8 @@ class RosbridgeArm(URRTDE):
     """Keep vision-rate commands separate from the API's paced speedJ calls.
 
     The read-only instance never uploads a control script. A second instance
-    is constructed and exclusively owned by the command worker on first use.
+    is constructed and exclusively owned by the command worker during explicit
+    motion preparation (or on the first command for direct adapter callers).
     The API's RTDE handles supply packet timestamps, safety state, and watchdog
     operations missing from its public contract; measurements and motion use
     get_joint_positions/get_joint_velocities/set_joint_velocity.

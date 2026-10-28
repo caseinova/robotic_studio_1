@@ -107,6 +107,34 @@ SDK distortion model cannot be represented by the OpenCV model, the report leave
 
 ### Fixed-camera and tool-tag calibration
 
+Calibration collection optionally accepts `--skip-tag-stability-check`. This
+disables only the across-frame tool-tag scatter rejection (5 mm / 3 degrees).
+The default remains enabled. All 10 frames are still averaged; arm-motion,
+freshness, per-frame depth/pose, duplicate-pose, and final fit checks are
+unchanged. Every new sample records whether this check was enabled and its
+maximum translation/rotation deviation. Use this option cautiously: accepting
+unstable tag measurements can reduce calibration accuracy. It does not change
+live servo perception checks.
+
+For arm-only servo or observation with no compatible network gripper adapter,
+set `gripper.driver` to `"disabled"` and leave `gripper.host` null. The runtime
+does not connect to a gripper, reports width as unavailable (`None`), and rejects
+all gripper commands. Pickup is rejected before devices are opened. Collision
+capsules with a nonzero `opening_axis` also require a measured gripper width and
+are rejected in this mode. Static geometry must enclose the physical tool over
+its actual opening range; disabling communication does not remove the gripper
+from the robot or provide table protection.
+
+Validate without opening devices:
+
+```bash
+venv/bin/python robotic_studio_1/run.py --backend hardware --task servo --validate
+```
+
+After checking physical alignment and workspace clearances, the corresponding
+motion command is the same command without `--validate`. Re-enable a compatible
+gripper adapter before using `--task pick`.
+
 RGB exposure controls are optional entries in `camera.options`:
 
 ```json

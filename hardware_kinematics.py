@@ -257,10 +257,13 @@ class UR3Kinematics:
         self.positions = q
 
     def synchronize(self, state):
-        if not np.isfinite(state.gripper_width) or state.gripper_width < 0:
+        if state.gripper_width is None:
+            if any(np.any(link.opening_axis) for link in self.links):
+                raise ValueError("width-dependent collision geometry requires measured gripper width")
+        elif not np.isfinite(state.gripper_width) or state.gripper_width < 0:
             raise ValueError("gripper width must be finite and non-negative")
         self.set_positions(state.joint_positions)
-        self.gripper_width = float(state.gripper_width)
+        self.gripper_width = None if state.gripper_width is None else float(state.gripper_width)
 
     def forward_kinematics(self, positions):
         """World-from-tool, without changing the synchronized state."""
@@ -312,7 +315,7 @@ class UR3Kinematics:
         result = []
         for link in self.links:
             frame = tool if link.frame == "tool" else frames[link.frame]
-            shift = link.opening_axis * self.gripper_width
+            shift = link.opening_axis * self.gripper_width if np.any(link.opening_axis) else np.zeros(3)
             start = frame[:3, :3] @ (link.start + shift) + frame[:3, 3]
             end = frame[:3, :3] @ (link.end + shift) + frame[:3, 3]
             result.append((start, end, link.radius))

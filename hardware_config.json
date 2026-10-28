@@ -54,7 +54,7 @@
       "max_rgb_depth_skew_ms": 35.0,
       "timestamp_margin_s": 0.005,
       "rgb_auto_exposure": false,
-      "rgb_exposure": 100,
+      "rgb_exposure": 150,
       "rgb_gain": 64,
       "rgb_brightness": -20
     },
@@ -91,7 +91,7 @@
     ]
   },
   "gripper": {
-    "driver": "onrobot_rg",
+    "driver": "disabled",
     "factory": null,
     "options": {},
     "model": "RG2",

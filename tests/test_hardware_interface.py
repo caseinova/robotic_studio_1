@@ -25,6 +25,24 @@ class HardwareInterfaceTests(unittest.TestCase):
         second = self.interface.capture_rgbd()
         self.assertFalse(np.shares_memory(frame.depth, second.depth))
 
+    def test_cleanup_keeps_primary_error_and_deduplicates_worker_error(self):
+        self.robot.stop = Mock(side_effect=RuntimeError('worker expired'))
+        self.robot.close = Mock(side_effect=RuntimeError('worker expired'))
+        original = TimeoutError('cycle took 300 ms')
+        with self.assertRaises(RuntimeError) as failure:
+            with self.interface:
+                raise original
+        self.assertIn('TimeoutError: cycle took 300 ms', str(failure.exception))
+        self.assertEqual(str(failure.exception).count('worker expired'), 1)
+        self.assertIs(failure.exception.__cause__, original)
+        self.assertTrue(self.camera.closed and self.gripper.closed)
+
+    def test_cleanup_failure_without_primary_error_is_reported(self):
+        self.robot.stop = Mock(side_effect=RuntimeError('worker expired'))
+        with self.assertRaisesRegex(RuntimeError, 'hardware cleanup failed'):
+            with self.interface:
+                pass
+
     def test_encoder_states_and_commands_go_through_adapters(self):
         state = self.interface.read_state()
         state.joint_positions[:] = 5  # Caller cannot change command-validation state.

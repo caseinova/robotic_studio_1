@@ -99,6 +99,15 @@ class HardwareInterface(RobotInterface):
     images using installation calibration. No synthetic noise is injected.
     """
 
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            self.close()
+        except Exception as cleanup_error:
+            if exc_value is None:
+                raise
+            raise RuntimeError(f"{exc_type.__name__}: {exc_value}; additionally: {cleanup_error}") from exc_value
+        return False
+
     def __init__(self, config, robot, camera, gripper, *, clock=time.monotonic):
         self.config, self.robot, self.camera, self.gripper = config, robot, camera, gripper
         self.clock = clock
@@ -129,16 +138,17 @@ class HardwareInterface(RobotInterface):
     def read_state(self):
         self._open()
         joints = self.robot.read_joint_state()
-        width = self.gripper.read_width()
+        width = self.gripper.read_width() if self.gripper is not None else None
         self._fresh(joints.timestamp, self.config.control["state_max_age"], "robot state")
-        self._fresh(width.timestamp, self.config.control["gripper_max_age"], "gripper state")
+        if width is not None:
+            self._fresh(width.timestamp, self.config.control["gripper_max_age"], "gripper state")
         q, dq = np.array(joints.positions, dtype=float, copy=True), np.array(joints.velocities, dtype=float, copy=True)
         if q.shape != (6,) or dq.shape != (6,) or not np.all(np.isfinite([q, dq])):
             raise RuntimeError("joint state must contain six finite positions and velocities")
-        if not np.isfinite(width.width) or not -.0002 <= width.width <= self.gripper_max_width + .0002:
+        if width is not None and (not np.isfinite(width.width) or not -.0002 <= width.width <= self.gripper_max_width + .0002):
             raise RuntimeError("measured gripper width is outside the configured physical opening")
         self._last_state = RobotState(float(joints.timestamp), q, dq,
-                                      float(np.clip(width.width, 0, self.gripper_max_width)))
+                                      None if width is None else float(np.clip(width.width, 0, self.gripper_max_width)))
         return replace(self._last_state, joint_positions=q.copy(), joint_velocities=dq.copy())
 
     def capture_rgbd(self):
@@ -174,6 +184,13 @@ class HardwareInterface(RobotInterface):
                 raise RuntimeError("acquire RGB-D before visual control")
             self._fresh(self._last_frame.timestamp, self.config.control["frame_max_age"], "command frame")
 
+    def prepare_motion(self):
+        self._open()
+        prepare = getattr(self.robot, "prepare_motion", None)
+        if callable(prepare):
+            prepare()
+        self._last_state = self._last_frame = None
+
     def set_joint_velocities(self, velocities):
         self._open()
         target = np.asarray(velocities, dtype=float)
@@ -199,6 +216,8 @@ class HardwareInterface(RobotInterface):
         self.robot.command_position(target.copy())
 
     def set_gripper_width(self, width):
+        if self.gripper is None:
+            raise RuntimeError("gripper is disabled; gripper commands are unavailable")
         self._motion_inputs()
         if isinstance(width, bool) or not np.isfinite(width) or not 0 <= width <= self.gripper_max_width:
             raise ValueError("gripper command is outside configured physical opening")
@@ -209,7 +228,11 @@ class HardwareInterface(RobotInterface):
             return
         errors = []
         try:
-            for action in (self.robot.stop, self.robot.close, self.gripper.close, self.camera.close):
+            actions = [self.robot.stop, self.robot.close]
+            if self.gripper is not None:
+                actions.append(self.gripper.close)
+            actions.append(self.camera.close)
+            for action in actions:
                 try:
                     action()
                 except Exception as error:
@@ -217,7 +240,7 @@ class HardwareInterface(RobotInterface):
         finally:
             self._closed = True
         if errors:
-            raise RuntimeError("hardware cleanup failed: " + "; ".join(map(str, errors))) from errors[0]
+            raise RuntimeError("hardware cleanup failed: " + "; ".join(dict.fromkeys(map(str, errors)))) from errors[0]
 
 
 class MujocoInterface(RobotInterface):

@@ -17,7 +17,7 @@ class RobotState:
     timestamp: float
     joint_positions: np.ndarray
     joint_velocities: np.ndarray
-    gripper_width: float
+    gripper_width: float | None  # None when no gripper measurement is available.
 
 
 @dataclass(frozen=True)

@@ -109,7 +109,8 @@ def capture_fresh(camera):
                                    "check the camera stream/USB connection and restart collection")
 
 
-def capture_pose(arm, camera, convert, processor, kinematics, samples, *, clock=time.monotonic):
+def capture_pose(arm, camera, convert, processor, kinematics, samples, *, clock=time.monotonic,
+                 check_tag_stability=True):
     joint_samples, poses, times = [], [], []
     for _ in range(10):
         before = arm.read_joint_state()
@@ -135,7 +136,8 @@ def capture_pose(arm, camera, convert, processor, kinematics, samples, *, clock=
     if np.max(np.ptp(joint_samples, axis=0)) > .002:
         raise ValueError("joint position changed during capture")
     tag = mean_pose(poses)
-    if any(pose_distance(tag, p)[0] > .005 or pose_distance(tag, p)[1] > np.deg2rad(3) for p in poses):
+    deviations = [pose_distance(tag, p) for p in poses]
+    if check_tag_stability and any(distance > .005 or angle > np.deg2rad(3) for distance, angle in deviations):
         raise ValueError("tool-tag pose is unstable; improve visibility or move camera closer")
     q = np.mean(joint_samples, axis=0)
     tool = kinematics.forward_kinematics(q)
@@ -144,7 +146,10 @@ def capture_pose(arm, camera, convert, processor, kinematics, samples, *, clock=
         if distance < .015 and angle < np.deg2rad(8):
             raise ValueError("pose too similar to an existing capture; vary position and orientation")
     return {"joint_positions": q.tolist(), "camera_from_marker": tag.tolist(),
-            "timestamps": times, "frames_averaged": len(poses)}
+            "timestamps": times, "frames_averaged": len(poses),
+            "tag_stability_checked": check_tag_stability,
+            "tag_position_max_deviation_mm": max(d[0] for d in deviations) * 1000,
+            "tag_rotation_max_deviation_deg": float(np.rad2deg(max(d[1] for d in deviations)))}
 
 
 def collection_data(path, meta, host, append=False):
@@ -192,6 +197,9 @@ def collect(args):
         print("Calibration tool frame is the nominal DH flange (flange_from_tool = identity).")
     print("Move the arm manually, stop, then press Space. Q/Esc exits. Aim for 15-25 varied poses.")
     print("Tilt around at least two axes; vary position and distance. Keep the camera and tag mount fixed.")
+    if args.skip_tag_stability_check:
+        print("WARNING: tool-tag pose stability check disabled; noisy captures may reduce calibration accuracy. "
+              "Arm-motion, freshness, per-frame pose, and final fit checks remain enabled.")
     with ExitStack() as stack:
         camera = RealSenseD435i(config.camera)
         stack.callback(camera.close)
@@ -221,7 +229,8 @@ def collect(args):
                 break
             if key == 32:
                 try:
-                    sample = capture_pose(arm, camera, convert, processor, kinematics, data["samples"])
+                    sample = capture_pose(arm, camera, convert, processor, kinematics, data["samples"],
+                                          check_tag_stability=not args.skip_tag_stability_check)
                 except ValueError as error:
                     print(f"Not saved: {error}", flush=True)
                     continue
@@ -337,6 +346,8 @@ def main(argv=None):
         command.add_argument("--config", type=Path, default=DEFAULT_HARDWARE_CONFIG_PATH)
         command.add_argument("--samples", type=Path, default=DEFAULT_SAMPLES)
         if mode == "collect":
+            command.add_argument("--skip-tag-stability-check", action="store_true",
+                                 help="skip only the across-frame tool-tag pose stability check; record deviations")
             command.add_argument("--append", action="store_true", help="resume an existing compatible samples file")
             command.add_argument("--robot-ip", help="read-only connection address override")
         else:

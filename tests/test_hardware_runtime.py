@@ -1,4 +1,7 @@
 import builtins
+import json
+import tempfile
+from dataclasses import asdict
 from pathlib import Path
 import subprocess
 import sys
@@ -29,13 +32,49 @@ class HardwareRuntimeTests(unittest.TestCase):
             clock=self.clock, sleep=self.clock.sleep, interface_factory=lambda *a, **k: self.interface, **kwargs)
 
     def test_observe_mode_reads_devices_without_actuator_commands(self):
+        self.robot.prepare_motion = Mock()
         self.run_loop(task='observe', steps=2)
+        self.robot.prepare_motion.assert_not_called()
         self.assertEqual(self.robot.calls, [])
         self.assertEqual(self.gripper.calls, [])
         self.assertTrue(self.robot.stopped and self.robot.closed and self.camera.closed and self.gripper.closed)
         self.assertAlmostEqual(self.clock.now, 100.1)
 
+    def test_slow_window_initialization_precedes_devices_and_cycle_budget(self):
+        import cv2
+        events = []
+
+        def show(*args):
+            events.append('show')
+            if len(events) == 1:
+                self.clock.sleep(.3)
+
+        def factory(*args, **kwargs):
+            self.assertEqual(events, ['show'])
+            return self.interface
+
+        with patch.object(cv2, 'namedWindow'), patch.object(cv2, 'imshow', side_effect=show), \
+             patch.object(cv2, 'waitKey', return_value=-1), \
+             patch.object(cv2, 'getWindowProperty', return_value=1), patch.object(cv2, 'destroyAllWindows'):
+            run_hardware(self.config, ControllerConfig(), EKFConfig(enabled=False), task='observe',
+                         steps=1, camera_view=True, clock=self.clock, sleep=self.clock.sleep,
+                         interface_factory=factory)
+        self.assertEqual(len(events), 2)
+        self.assertEqual(self.robot.calls, [])
+        self.assertTrue(self.robot.closed)
+
+    def test_window_quit_during_initialization_opens_no_devices(self):
+        import cv2
+        factory = Mock()
+        with patch.object(cv2, 'namedWindow'), patch.object(cv2, 'imshow'), \
+             patch.object(cv2, 'waitKey', return_value=ord('q')), patch.object(cv2, 'destroyAllWindows') as close:
+            run_hardware(self.config, ControllerConfig(mode='pure_pbvs'), EKFConfig(), steps=1,
+                         camera_view=True, interface_factory=factory)
+        factory.assert_not_called()
+        close.assert_called_once()
+
     def test_servo_passes_configured_limits_and_stops_on_reached(self):
+        self.robot.prepare_motion = Mock(side_effect=lambda: self.clock.sleep(2.))
         calls = []
 
         def update(controller, frame):
@@ -51,6 +90,7 @@ class HardwareRuntimeTests(unittest.TestCase):
         self.assertEqual(result.status, 'reached')
         self.assertEqual(calls, [.15, .15])
         self.assertTrue(self.robot.stopped)
+        self.robot.prepare_motion.assert_called_once()
 
     def test_exception_and_cycle_overrun_stop_every_device(self):
         with patch.object(ApproachController, 'update', side_effect=RuntimeError('camera failed')):
@@ -60,8 +100,11 @@ class HardwareRuntimeTests(unittest.TestCase):
         self.setUp()
         # Observe path deliberately makes processing exceed the configured budget.
         with patch('camera_processing.TaggedCubeProcessor.process', side_effect=lambda frame: self.clock.sleep(.21)):
-            with self.assertRaisesRegex(TimeoutError, 'max_cycle_time'):
+            with self.assertRaisesRegex(TimeoutError, 'max_cycle_time') as failure:
                 self.run_loop(task='observe', steps=1)
+        self.assertIn('observe=210.0 ms', str(failure.exception))
+        self.assertIn('limit=200.0 ms', str(failure.exception))
+        self.assertIn('task=observe, cycle=1', str(failure.exception))
         self.assertTrue(self.robot.stopped and self.robot.closed)
 
     def test_filtered_pbvs_retains_configured_reference_marker_frame(self):
@@ -118,11 +161,46 @@ class HardwareRuntimeTests(unittest.TestCase):
         execute.assert_called_once()
 
     def test_cli_validation_has_no_hardware_sdk_dependency(self):
-        result = subprocess.run([sys.executable, 'run.py', '--backend', 'hardware', '--validate'],
-            cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=30)
+        self.config.robot['host'] = None
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'hardware.json'
+            path.write_text(json.dumps(asdict(self.config), default=lambda value: value.tolist()))
+            result = subprocess.run([sys.executable, 'run.py', '--backend', 'hardware', '--validate',
+                                     '--hardware-config', str(path)],
+                cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=30)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('configuration is incomplete', result.stderr)
         self.assertNotIn('Traceback', result.stderr)
+
+    def test_disabled_gripper_does_not_connect_and_servo_can_read_state(self):
+        self.config.gripper.update(driver='disabled', host=None)
+        with patch('hardware_runtime.custom_device', return_value=self.camera) as custom, \
+             patch('hardware_runtime.OnRobotRG') as gripper, \
+             patch('hardware_runtime.URRTDE', return_value=self.robot):
+            with open_hardware(self.config, clock=self.clock) as interface:
+                state = interface.read_state()
+                self.assertIsNone(state.gripper_width)
+                self.config.build_kinematics().synchronize(state)
+                interface.capture_rgbd()
+                interface.set_joint_velocities(np.zeros(6))
+                with self.assertRaisesRegex(RuntimeError, 'disabled'):
+                    interface.close_gripper()
+            gripper.assert_not_called()
+            custom.assert_called_once()
+        self.assertTrue(self.robot.closed and self.robot.stopped and self.camera.closed)
+
+    def test_disabled_gripper_rejects_pick_before_opening_devices(self):
+        self.config.gripper['driver'] = 'disabled'
+        factory = Mock()
+        with self.assertRaisesRegex(ValueError, 'pickup'):
+            run_hardware(self.config, ControllerConfig(), EKFConfig(), task='pick', interface_factory=factory)
+        factory.assert_not_called()
+
+    def test_disabled_gripper_rejects_width_dependent_geometry(self):
+        self.config.gripper['driver'] = 'disabled'
+        self.config.collision['links'] = [dict(opening_axis=[0, .5, 0])]
+        with self.assertRaisesRegex(ValueError, 'width-dependent'):
+            self.config.validate_ready(ControllerConfig(), task='servo')
 
 
 if __name__ == '__main__':

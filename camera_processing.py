@@ -183,16 +183,15 @@ class CameraProcessor:
             return self._reject("pnp_reprojection_error")
 
         height, width = frame.depth.shape
-        rows, columns = np.indices((height, width))
-        pixels = np.stack((columns, rows, np.ones_like(rows)), axis=-1)
-        rays = pixels @ np.linalg.inv(intrinsics).T
         valid = frame.valid_depth & np.isfinite(frame.depth) & (frame.depth > 0)
-        points = rays * np.where(valid, frame.depth, 0)[..., None]
         tag_mask = np.zeros((height, width), dtype=np.uint8)
         cv2.fillConvexPoly(tag_mask, np.rint(corners).astype(np.int32), 1)
         # Avoid mixing the marker face with neighboring pixels at its boundary.
         tag_mask = cv2.erode(tag_mask, np.ones((5, 5), dtype=np.uint8))
-        samples = points[(tag_mask > 0) & valid]
+        # Marker-only fits need only the eroded tag pixels, not a full-frame cloud.
+        ys, xs = np.nonzero((tag_mask > 0) & valid)
+        rays = np.column_stack((xs, ys, np.ones(len(xs)))) @ np.linalg.inv(intrinsics).T
+        samples = rays * frame.depth[ys, xs, None]
         if len(samples) < 16:
             return self._reject("insufficient_valid_tag_depth")
         samples = samples[::max(1, len(samples) // 2048)]
@@ -258,6 +257,10 @@ class CameraProcessor:
 
         camera_from_cube = camera_from_marker.copy()
         camera_from_cube[:3, 3] -= rotation[:, 2] * (self.cube_size / 2 + self.label_offset)
+        rows, columns = np.indices((height, width))
+        pixels = np.stack((columns, rows, np.ones_like(rows)), axis=-1)
+        rays = pixels @ np.linalg.inv(intrinsics).T
+        points = rays * np.where(valid, frame.depth, 0)[..., None]
         points_cube = (points - camera_from_cube[:3, 3]) @ rotation
         mask = valid & np.all(np.abs(points_cube) <= self.cube_size / 2 + self.depth_tolerance, axis=-1)
         ys, xs = np.nonzero(mask)

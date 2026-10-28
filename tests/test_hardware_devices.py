@@ -1,5 +1,6 @@
 import struct
 import sys
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -33,6 +34,49 @@ class PacketSocket:
 
 
 class HardwareDeviceTests(unittest.TestCase):
+    def test_slow_prepare_sends_no_target_then_accepts_fresh_command(self):
+        config, clock = configured(), Clock()
+        receiver, sender = Mock(), Mock()
+        receiver.isConnected.return_value = True
+        receiver.getSafetyMode.return_value = 1
+        receiver.getTimestamp.side_effect = lambda: clock() + 1000
+        receiver.getActualQ.return_value = receiver.getActualQd.return_value = [0.] * 6
+        sent = threading.Event()
+
+        def connect():
+            clock.sleep(2.)
+            return sender
+
+        with patch.object(URRTDE, '_connect_receive', lambda arm: setattr(arm, '_receive', receiver)), \
+             patch.object(URRTDE, '_connect_command', side_effect=connect):
+            arm = URRTDE(config.robot, config.control, clock)
+            arm.prepare_motion()
+            self.assertIsNone(arm._command)
+            sender.speedJ.assert_not_called()
+            sender.setWatchdog.assert_called_once_with(1 / config.control['command_timeout'])
+
+            def speed(*args):
+                arm._stop_event.set()
+                sent.set()
+                return True
+
+            sender.speedJ.side_effect = speed
+            arm.command_velocity(np.zeros(6))
+            self.assertTrue(sent.wait(1))
+            arm.close()
+            self.assertIsNone(arm._error)
+
+    def test_prepare_propagates_connection_failure_without_waiting_for_timeout(self):
+        config = configured()
+        with patch.object(URRTDE, '_connect_receive', lambda arm: setattr(arm, '_receive', Mock())), \
+             patch.object(URRTDE, '_connect_command', side_effect=RuntimeError('offline')):
+            arm = URRTDE(config.robot, config.control)
+            with self.assertRaisesRegex(RuntimeError, 'startup failed.*offline'):
+                arm.prepare_motion(timeout=1)
+            with self.assertRaisesRegex(RuntimeError, 'offline'):
+                arm.close()
+            arm._receive.disconnect.assert_called_once()
+
     def test_modbus_handles_split_packets_and_validates_transaction(self):
         for transaction, accepted in ((1, True), (2, False)):
             sock = PacketSocket(struct.pack('>HHHBBBH', transaction, 0, 5, 65, 3, 2, 1000))

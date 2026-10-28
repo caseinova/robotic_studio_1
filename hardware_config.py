@@ -78,7 +78,7 @@ class HardwareConfig:
             settings = getattr(self, name)
             driver = settings.get("driver")
             supported = {"robot": ("ur_rtde", "ur3_rg2_rosbridge", "custom"), "camera": ("unconfigured", "custom"),
-                         "gripper": ("onrobot_rg", "custom")}[name]
+                         "gripper": ("onrobot_rg", "custom", "disabled")}[name]
             if driver not in supported:
                 raise ValueError(f"unsupported {name}.driver: {driver!r}")
             if not isinstance(settings.get("options", {}), dict):
@@ -115,8 +115,15 @@ class HardwareConfig:
         """Reject placeholders and inconsistent calibration before connecting."""
         self.validate_schema()
         missing = []
+        if self.gripper["driver"] == "disabled":
+            if task not in ("servo", "observe"):
+                raise ValueError("disabled gripper is only supported for servo/observe, not pickup")
+            if any(np.any(link.get("opening_axis", [0, 0, 0])) for link in self.collision.get("links", [])):
+                raise ValueError("disabled gripper cannot use width-dependent collision geometry")
         for name in ("robot", "camera", "gripper"):
             settings = getattr(self, name)
+            if name == "gripper" and settings["driver"] == "disabled":
+                continue
             if settings["driver"] == "unconfigured":
                 missing.append(f"{name}.driver/factory")
             elif settings["driver"] == "custom":

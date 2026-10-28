@@ -56,7 +56,7 @@ class URRTDE:
     Only the worker owns RTDEControlInterface (the SDK is not thread safe).
     Command age is checked independently of the slower vision/MPC loop.
     An on-robot SDK watchdog also stops control if worker communication dies.
-    No control script is uploaded until the first explicit motion command.
+    Control startup is explicit via prepare_motion or the first motion command.
     """
 
     def __init__(self, settings, control, clock=time.monotonic):
@@ -64,6 +64,7 @@ class URRTDE:
         self._connect_receive()
         self._read_lock, self._command_lock = threading.Lock(), threading.Lock()
         self._stop_event = threading.Event()
+        self._ready_event = threading.Event()
         self._thread = None
         self._error = None
         self._command = None
@@ -146,20 +147,48 @@ class URRTDE:
     def command_position(self, target):
         self._queue("position", target)
 
+    def prepare_motion(self, timeout=10.):
+        """Open control on its owning worker, without queuing a motion target."""
+        if self._closed or self._stop_event.is_set():
+            raise RuntimeError("UR command transport stopped")
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._run, name="ur3-command-worker", daemon=True)
+            self._thread.start()
+        if not self._ready_event.wait(timeout):
+            self._stop_event.set()
+            raise TimeoutError("UR command connection startup timed out")
+        if self._error is not None or self._stop_event.is_set():
+            raise RuntimeError(f"UR command startup failed: {self._error or 'stopped'}")
+
     def _run(self):
         rtde = None
+        connection_started = self.clock()
+        sent_commands = 0
         try:
             rtde = self._connect_command()
+            connection_elapsed = self.clock() - connection_started
             watchdog = self._watchdog_transport(rtde)
             if not watchdog.setWatchdog(1 / self.control["command_timeout"]):
                 raise RuntimeError("UR command watchdog could not be enabled")
+            self._ready_event.set()
             period = 1 / self.settings["frequency_hz"]
             while not self._stop_event.is_set():
                 started = self.clock()
                 with self._command_lock:
-                    mode, target, timestamp = self._command
+                    command = self._command
+                if command is None:
+                    # Keep the watchdog alive before the first target, never replay
+                    # or fabricate a command while waiting for fresh vision/state.
+                    if not watchdog.kickWatchdog():
+                        raise RuntimeError("UR idle watchdog kick failed")
+                    self._stop_event.wait(period)
+                    continue
+                mode, target, timestamp = command
                 if started - timestamp > self.control["command_timeout"]:
-                    raise RuntimeError("UR command expired: upper-level control stopped updating")
+                    raise RuntimeError("UR command expired: upper-level control stopped updating; "
+                        f"command_age_ms={(started - timestamp) * 1000:.1f}, "
+                        f"timeout_ms={self.control['command_timeout'] * 1000:.1f}, "
+                        f"connect_ms={connection_elapsed * 1000:.1f}, sent_commands={sent_commands}")
                 measured = self.read_joint_state()
                 if not 0 <= self.clock() - measured.timestamp <= self.control["state_max_age"]:
                     raise RuntimeError("UR joint stream is stale")
@@ -177,11 +206,13 @@ class URRTDE:
                                    np.minimum(braking_upper, self.control["velocity_limit"]))
                 if not watchdog.kickWatchdog() or not self._send_velocity(rtde, velocity, period):
                     raise RuntimeError("UR rejected the velocity command")
+                sent_commands += 1
                 self._stop_event.wait(max(0., period - (self.clock() - started)))
         except Exception as error:
             self._error = error
         finally:
             self._stop_event.set()
+            self._ready_event.set()
             if rtde is not None:
                 self._close_command(rtde)
 

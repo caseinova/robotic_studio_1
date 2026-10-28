@@ -192,7 +192,8 @@ def test_write_requires_pass_and_unchanged_settings(dataset, tmp_path):
 
 @pytest.mark.parametrize('moving,stale,duplicate', [(False, False, False), (True, False, False),
                                                   (False, True, False), (False, False, True)])
-def test_capture_is_read_only_and_rejects_bad_samples(dataset, moving, stale, duplicate):
+@pytest.mark.parametrize('check_tag_stability', [True, False])
+def test_capture_is_read_only_and_rejects_bad_samples(dataset, moving, stale, duplicate, check_tag_stability):
     data, _, _ = dataset
     sample = data['samples'][0]
     joint = SimpleNamespace(timestamp=0 if stale else 1., positions=np.array(sample['joint_positions']),
@@ -205,8 +206,32 @@ def test_capture_is_read_only_and_rejects_bad_samples(dataset, moving, stale, du
             [sample] if duplicate else [])
     if moving or stale or duplicate:
         with pytest.raises(ValueError):
-            calibration.capture_pose(*args, clock=lambda: 1.)
+            calibration.capture_pose(*args, clock=lambda: 1., check_tag_stability=check_tag_stability)
     else:
-        captured = calibration.capture_pose(*args, clock=lambda: 1.)
+        captured = calibration.capture_pose(*args, clock=lambda: 1., check_tag_stability=check_tag_stability)
         assert captured['frames_averaged'] == 10
         np.testing.assert_allclose(captured['joint_positions'], sample['joint_positions'])
+
+
+@pytest.mark.parametrize('rotation', [False, True])
+def test_stability_check_is_opt_out_and_records_scatter(dataset, rotation):
+    data, _, _ = dataset
+    sample = data['samples'][0]
+    joint = SimpleNamespace(timestamp=1., positions=np.array(sample['joint_positions']), velocities=np.zeros(6))
+    arm = SimpleNamespace(read_joint_state=lambda: joint)
+    camera = SimpleNamespace(capture=lambda: SimpleNamespace(timestamp=1.))
+    poses = []
+    for sign in [-1, 1] * 5:
+        delta = transform([sign * .12, 0, 0] if rotation else [0, 0, 0],
+                          [0, 0, 0] if rotation else [sign * .01, 0, 0])
+        poses.append(SimpleNamespace(camera_from_marker=np.array(sample['camera_from_marker']) @ delta))
+    processor = SimpleNamespace(process_marker=Mock(side_effect=poses))
+    args = (arm, camera, lambda frame: frame, processor, calibration.workspace(data['metadata']), [])
+    with pytest.raises(ValueError, match='tool-tag pose is unstable'):
+        calibration.capture_pose(*args, clock=lambda: 1.)
+    processor.process_marker = Mock(side_effect=poses)
+    captured = calibration.capture_pose(*args, clock=lambda: 1., check_tag_stability=False)
+    assert captured['tag_stability_checked'] is False
+    assert captured['frames_averaged'] == 10
+    metric = 'tag_rotation_max_deviation_deg' if rotation else 'tag_position_max_deviation_mm'
+    assert captured[metric] > (3 if rotation else 5)
