@@ -16,6 +16,25 @@ from simulate import Simulation
 
 
 class ControllerTests(unittest.TestCase):
+    def test_mpc_reuses_identical_linearizations_only_within_one_solve(self):
+        gradient_calls = []
+        checks = []
+        def distances(q, *, gradients=False):
+            checks.append(q.copy())
+            if gradients:
+                gradient_calls.append(q.copy())
+                return np.ones(2), np.zeros((2, 6))
+            return np.ones(2)
+        kin = SimpleNamespace(limits=(np.full(6, -6.), np.full(6, 6.)), distances=distances)
+        mpc = JointSpaceMPC(kin)
+        for expected_calls in (1, 2):
+            mpc.reset()
+            result = mpc.solve(np.zeros(6), np.zeros(6), np.full(6, .01))
+            self.assertTrue(result.feasible, result.status)
+            self.assertEqual(len(gradient_calls), expected_calls)
+        # Each solve still checks current geometry and four points per interval.
+        self.assertGreaterEqual(len(checks), 2 * (1 + 4 * mpc.config.horizon))
+
     def test_pbvs_direction_and_zero_error(self):
         desired = np.eye(4)
         desired[:3, :3] = np.diag([1, -1, -1])

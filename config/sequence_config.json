@@ -11,8 +11,8 @@
     ],
     "collision_support_plane": "table",
     "max_drop_height_m": 0.020,
-    "approach_height_m": 0.10,
-    "retreat_height_m": 0.10
+    "approach_height_m": 0.05,
+    "retreat_height_m": 0.05
   }
   },
   "idle_timeout_s": 10.0,

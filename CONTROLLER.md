@@ -376,12 +376,12 @@ venv/Scripts/python.exe simulate.py --headless --pick --steps 15000
 cube observation to `CubePickupController` in `controller.py`. `--servo`
 continues to run only the approach.
 
-The new class contains the complete pickup sequence: open, descend in world
-Z while holding X/Y and orientation, close, wait for the measured finger
+The new class contains the complete pickup sequence: open, descend along cube
+-Z while holding cube X/Y and entry tool orientation, close, wait for the measured finger
 opening to settle on the cube, and lift along the same line to the entry
 height. It then holds a fixed joint position with the gripper closed. The
-grasp site's height is aligned with the detected cube center. Defaults are
-30 mm/s vertical speed, 50 ms updates, and a 20-second timeout per phase;
+grasp site's cube-Z coordinate targets `grasp_height_offset_m` relative to the
+detected cube center. Defaults are 30 mm/s cube-Z speed, 50 ms updates, and a 20-second timeout per phase;
 constructor arguments can change them.
 
 The sequence uses interface state and actuator commands, not simulator
@@ -523,6 +523,14 @@ owned arrays in `simulation.plots.data`, and release figure resources with
 
 ## Approach and Pickup Speeds
 
+Pickup centering and dwell use the latched cube frame's XY plane, not world XY.
+Descent travels along cube -Z while holding the entry tool orientation and
+local lateral position. `grasp_height_offset_m` is measured along cube +Z.
+Lift returns along the same line to the entry pose. Cube pose is latched at
+handoff; moving the cube afterward is not tracked during pickup. Tilted paths
+still undergo joint-limit and collision checks; this is not a guarantee of
+grasp feasibility on arbitrary tilted surfaces. Placement behavior is unchanged.
+
 `pickup_reapproach_attempts` (default 3, nonnegative integer; 0 disables retries)
 allows a pre-descent `tool_not_centered_over_cube` handoff rejection to return
 to approach. The arm commands zero velocity, discards the rejected pickup
@@ -545,7 +553,7 @@ settings for hardware and simulation (including pickup in the sequence runner):
 
 Defaults preserve the previous behavior. Approach limits the PBVS reference's
 translation/rotation norms before conversion to joint velocity. Pickup caps
-XY correction norm and vertical speed separately, and caps angular correction
+cube-XY correction norm and cube-Z speed separately, and caps angular correction
 norm. These are command limits, not guaranteed measured tool speeds. Hardware
 joint limits remain separate in `config/hardware_config.json`; placement
 speeds remain in `config/sequence_config.json`. Restart the run after edits.

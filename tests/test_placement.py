@@ -354,6 +354,10 @@ def test_raising_timeout_contains_last_progress(monkeypatch):
     action.update()
     assert "current_z_mm=240.0" in s.diagnostic
     assert "target_z_mm=252.0" in s.diagnostic
+    assert "xy_error_mm=" in s.diagnostic
+    assert "jacobian_sigma_min=1.000000" in s.diagnostic
+    assert "acceleration_clipped_joints=" in s.diagnostic
+    assert action._last_joint_positions == s.interface.q.tolist()
     s.interface.timestamp += s.config.phase_timeout_s + 1
     with pytest.raises(TimeoutError, match="raising.*position_error_mm=.*commanded_max_joint_speed"):
         action.update()

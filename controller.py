@@ -148,6 +148,9 @@ class JointSpaceMPC:
         base_rhs = np.concatenate((lower - qbase, qbase - upper,
                                    previous_velocity - c.acceleration_limit * c.dt,
                                    -previous_velocity - c.acceleration_limit * c.dt))
+        # Repeated nominal poses (especially the initial zero plan) have the
+        # same geometry/Jacobian within this solve. Never reuse across cycles.
+        linearizations = {}
         for _ in range(3):
             matrices, rhs = [base_matrix], [base_rhs]
             # Constrain both midpoint and endpoint of every prediction interval.
@@ -156,14 +159,23 @@ class JointSpaceMPC:
                     integrator = self.integration[step * 6:(step + 1) * 6].copy()
                     integrator[:, step * 6:(step + 1) * 6] *= fraction
                     nominal = q + integrator @ initial
-                    distances, derivatives = k.distances(nominal, gradients=True)
-                    matrices.append(derivatives @ integrator)
+                    key = nominal.tobytes()
+                    if key not in linearizations:
+                        distances, derivatives = k.distances(nominal, gradients=True)
+                        linearizations[key] = (distances.copy(), derivatives.copy())
+                    distances, derivatives = linearizations[key]
+                    matrices.append(np.einsum("ij,jk->ik", derivatives, integrator, optimize=False))
                     rhs.append(c.clearance + c.clearance_buffer - distances + derivatives @ (nominal - q))
             matrix, bound = np.vstack(matrices), np.concatenate(rhs)
+            # Tall, narrow constraints do not benefit from threaded BLAS
+            # dispatch on each SLSQP callback.
+            def constraints(u):
+                return np.einsum("ij,j->i", matrix, u, optimize=False) - bound
+
             result = minimize(
                 objective, initial, jac=gradient, method="SLSQP",
                 bounds=[(-c.velocity_limit, c.velocity_limit)] * len(initial),
-                constraints={"type": "ineq", "fun": lambda u: matrix @ u - bound,
+                constraints={"type": "ineq", "fun": constraints,
                              "jac": lambda u: matrix},
                 options={"maxiter": c.max_iterations, "ftol": 1e-8},
             )
@@ -177,7 +189,7 @@ class JointSpaceMPC:
                 for fraction in (0.25, 0.5, 0.75, 1.0):
                     minimum = min(minimum, float(np.min(k.distances(start + fraction * (end - start)), initial=np.inf)))
                 start = end
-            if minimum >= c.clearance and np.min(matrix @ result.x - bound) >= -1e-6:
+            if minimum >= c.clearance and np.min(constraints(result.x)) >= -1e-6:
                 self.previous_plan = plan
                 return MPCSolution(plan[0].copy(), trajectory, True, "tracking", minimum)
             initial = result.x
@@ -463,7 +475,11 @@ class CubePickupController:
                 or abs(now - state.timestamp) > 2 * self.control_dt):
             self._fail("stale_pickup_target_or_state")
             return
-        if (not np.all(np.isfinite(observation.world_from_cube))
+        cube_pose = np.asarray(observation.world_from_cube, dtype=float)
+        if (cube_pose.shape != (4, 4) or not np.all(np.isfinite(cube_pose))
+                or not np.allclose(cube_pose[3], [0, 0, 0, 1], atol=1e-8)
+                or not np.allclose(cube_pose[:3, :3].T @ cube_pose[:3, :3], np.eye(3), atol=1e-8)
+                or not np.isclose(np.linalg.det(cube_pose[:3, :3]), 1., atol=1e-8)
                 or not np.all(np.isfinite(state.joint_positions))
                 or not np.isfinite(state.gripper_width)):
             self._fail("invalid_pickup_target_or_state")
@@ -472,13 +488,14 @@ class CubePickupController:
         self._entry_pose = self.kinematics.tool_pose().copy()
         self._descent_pose = self._entry_pose.copy()
         grasp_position = self.kinematics.grasp_pose()[:3, 3]
-        # Align the grasp site's height with the cube center plus world-Z offset. Keep flange X/Y
-        # and orientation fixed, giving a vertical path in the world frame.
-        cube_center = observation.world_from_cube[:3, 3]
+        # Move along the latched cube normal, preserving local XY and the
+        # entry tool orientation. The grasp offset is measured along cube +Z.
+        cube_center = cube_pose[:3, 3]
         self._cube_center = cube_center.copy()
-        self._world_from_cube = observation.world_from_cube.copy()
-        self._descent_pose[2, 3] += cube_center[2] + self.grasp_height_offset_m - grasp_position[2]
-        horizontal_error = grasp_position[:2] - cube_center[:2]
+        self._world_from_cube = cube_pose.copy()
+        grasp_in_cube = cube_pose[:3, :3].T @ (grasp_position - cube_center)
+        self._descent_pose[:3, 3] += cube_pose[:3, 2] * (self.grasp_height_offset_m - grasp_in_cube[2])
+        horizontal_error = grasp_in_cube[:2]
         horizontal_distance = np.linalg.norm(horizontal_error)
         centering_limit = self.pickup_dwell_radius_m if self.pickup_dwell_seconds > 0 else .01
         if horizontal_distance > centering_limit:
@@ -487,12 +504,12 @@ class CubePickupController:
                 "tool_not_centered_over_cube: "
                 f"dx={horizontal_error[0] * 1000:.1f} mm, "
                 f"dy={horizontal_error[1] * 1000:.1f} mm, "
-                f"distance={horizontal_distance * 1000:.1f} mm, limit={centering_limit * 1000:.1f} mm; "
+                f"distance={horizontal_distance * 1000:.1f} mm, limit={centering_limit * 1000:.1f} mm; frame=cube; "
                 f"grasp_xy_mm={np.round(grasp_position[:2] * 1000, 1).tolist()}, "
                 f"cube_xy_mm={np.round(cube_center[:2] * 1000, 1).tolist()}"
             )
             return
-        if self._descent_pose[2, 3] >= self._entry_pose[2, 3]:
+        if grasp_in_cube[2] <= self.grasp_height_offset_m:
             self._fail("cube_not_below_gripper")
             return
         if self.interface.gripper_max_width < self.cube_size + 0.01:
@@ -542,8 +559,9 @@ class CubePickupController:
         if self.phase == "dwelling":
             self.interface.set_joint_velocities(np.zeros(6))
             grasp = self.kinematics.grasp_pose()[:3, 3]
-            distance = np.linalg.norm(grasp[:2] - self._cube_center[:2])
-            if grasp[2] <= self._cube_center[2] + self.grasp_height_offset_m:
+            grasp_in_cube = self._world_from_cube[:3, :3].T @ (grasp - self._cube_center)
+            distance = np.linalg.norm(grasp_in_cube[:2])
+            if grasp_in_cube[2] <= self.grasp_height_offset_m:
                 self._fail("dwell_grasp_not_above_target")
                 return self._result()
             ready = (distance <= self.pickup_dwell_radius_m
@@ -553,7 +571,7 @@ class CubePickupController:
             elif self._dwell_since is None:
                 self._dwell_since = now
             elapsed = 0. if self._dwell_since is None else now-self._dwell_since
-            self.diagnostic = (f"xy_distance={distance*1000:.1f} mm, radius={self.pickup_dwell_radius_m*1000:.1f} mm, "
+            self.diagnostic = (f"frame=cube, xy_distance={distance*1000:.1f} mm, radius={self.pickup_dwell_radius_m*1000:.1f} mm, "
                                f"dwell={elapsed:.2f}/{self.pickup_dwell_seconds:.2f} s")
             if ready and elapsed >= self.pickup_dwell_seconds:
                 self._change_phase("descending", now)
@@ -596,12 +614,12 @@ class CubePickupController:
             return self._result(position_error=np.linalg.norm(error))
 
         jacobian = self.kinematics.tool_jacobian(state.joint_positions)
-        # Integral feedback counters the extra load from the held cube. X/Y
-        # feedback corrects drift off the vertical line rather than planning
-        # horizontal travel.
-        pose_error = np.concatenate((error, rotation_error))
+        # Integrate and limit translation in the latched cube frame so that
+        # lateral correction and travel along the normal remain independent.
+        world_from_cube_rotation = self._world_from_cube[:3, :3]
+        pose_error = np.concatenate((world_from_cube_rotation.T @ error, rotation_error))
         # Integrate translation only near the target to avoid winding up
-        # while the vertical speed is saturated over a long descent/lift.
+        # while normal-axis speed is saturated over a long descent/lift.
         integration_error = pose_error.copy()
         if np.linalg.norm(error) > self.speed / 8:
             integration_error[2] = 0
@@ -610,10 +628,10 @@ class CubePickupController:
         )
         twist = 8.0 * pose_error + 4.0 * self._pose_integral
         linear_velocity = twist[:3]
-        # Limit vertical travel independently, so a large height error cannot
-        # dilute the horizontal feedback that keeps the tool on its line.
+        # Cap cube XY correction and cube Z travel separately.
         linear_velocity[:2] *= min(1.0, self.speed / max(np.linalg.norm(linear_velocity[:2]), 1e-12))
         linear_velocity[2] = np.clip(linear_velocity[2], -self.speed, self.speed)
+        twist[:3] = world_from_cube_rotation @ linear_velocity
         twist[3:] *= min(1.0, self.angular_speed / max(np.linalg.norm(twist[3:]), 1e-12))
         command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + 0.01 ** 2 * np.eye(6), twist)
         command /= max(1.0, np.max(np.abs(command)) / self.velocity_limit)

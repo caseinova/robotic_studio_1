@@ -22,7 +22,7 @@ class ControllerConfig:
     tool_pose_source: str = "tag_with_fk_fallback"
     # Vision freshness budget in control intervals; hardware checks also apply.
     frame_max_age_intervals: float = 2.0
-    # Pickup grasp-center height relative to cube center, along world Z (meters).
+    # Pickup grasp-center height relative to cube center, along latched cube +Z (meters).
     grasp_height_offset_m: float = 0.0
     pickup_dwell_seconds: float = 0.0
     pickup_dwell_radius_m: float = 0.01

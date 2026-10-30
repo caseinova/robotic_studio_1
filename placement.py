@@ -91,10 +91,12 @@ class PlaceAction:
         self.targets = []
         self.released = False
         self._progress = "no motion sample yet"
+        self._last_joint_positions = None
 
     def _phase(self, name):
         self.phase, self.started = name, self.s.interface.timestamp
         self._progress = "no motion sample yet"
+        self._last_joint_positions = None
         self.s.diagnostic = ""
 
     def _destination_candidate(self, tag):
@@ -120,7 +122,8 @@ class PlaceAction:
                        else s.config.phase_timeout_s)
         if interface.timestamp - self.started > phase_limit:
             raise TimeoutError(f"placement phase_timeout: {self.phase}; "
-                               f"limit={phase_limit:g} s; last_sample: {self._progress}")
+                               f"limit={phase_limit:g} s; last_sample: {self._progress}; "
+                               f"joint_positions_rad={self._last_joint_positions}")
         s.status = "placement_" + self.phase
         if self.phase == "acquiring":
             interface.set_joint_velocities(np.zeros(6))
@@ -162,6 +165,7 @@ class PlaceAction:
 
         state = interface.read_state()
         k.synchronize(state)
+        self._last_joint_positions = state.joint_positions.tolist()
         if not self.released and not s.cube_size * .5 <= state.gripper_width <= s.cube_size * 1.15:
             raise RuntimeError("grasp_lost during placement")
         self.guard.check(state.joint_positions)
@@ -179,6 +183,7 @@ class PlaceAction:
             f"phase={self.phase}, elapsed_s={interface.timestamp-self.started:.1f}, "
             f"current_z_mm={current[2, 3]*1000:.1f}, target_z_mm={target[2, 3]*1000:.1f}, "
             f"position_error_mm={np.linalg.norm(error[:3])*1000:.1f}, "
+            f"xy_error_mm={np.linalg.norm(error[:2])*1000:.1f}, z_error_mm={error[2]*1000:.1f}, "
             f"rotation_error_deg={np.degrees(np.linalg.norm(error[3:])):.2f}, "
             f"measured_max_joint_speed_rad_s={np.max(np.abs(state.joint_velocities)):.4f}")
         s.diagnostic = self._progress
@@ -230,8 +235,13 @@ class PlaceAction:
         command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + .01**2 * np.eye(6), twist)
         command /= max(1., np.max(np.abs(command)) / s.settings.velocity_limit)
         acceleration = s.hardware.control["acceleration_limit"] * s.settings.dt
-        command = np.clip(command, state.joint_velocities - acceleration, state.joint_velocities + acceleration)
+        limited = np.clip(command, state.joint_velocities - acceleration, state.joint_velocities + acceleration)
+        clipped_joints = int(np.count_nonzero(np.abs(limited - command) > 1e-10))
+        command = limited
         self._progress += f", commanded_max_joint_speed_rad_s={np.max(np.abs(command)):.4f}"
+        self._progress += (f", jacobian_sigma_min={np.linalg.svd(jacobian, compute_uv=False)[-1]:.6f}, "
+                           f"acceleration_clipped_joints={clipped_joints}, "
+                           f"state_age_ms={(interface.timestamp-state.timestamp)*1000:.1f}")
         s.diagnostic = self._progress
         if np.max(np.abs(command)) > s.settings.velocity_limit:
             raise RuntimeError("measured joint velocity exceeds placement speed limit")
