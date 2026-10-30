@@ -4,6 +4,17 @@ Active JSON configuration files live here. Default loaders resolve this director
 relative to the application, independently of the current working directory.
 Explicit command-line config paths still work.
 
+To refresh RealSense factory RGB intrinsics at the configured resolution/FPS,
+close other camera programs and run `python update_camera_intrinsics.py` from
+the application root. It updates camera serial, intrinsics, distortion and depth
+scale, preserving exposure settings and all robot transforms. Use `--dry-run`
+to inspect only, or `--serial SERIAL` to select a camera. A sole connected camera
+is selected even if the config still references a previous device; with multiple
+devices the saved serial must match or an explicit selection is required.
+The script briefly starts RGB/depth streams but never connects to the robot.
+Backups go to `old_version/`. Replacement/moved cameras still require fresh
+camera-to-base calibration; old-camera samples must not be appended.
+
 Paths inside `runtime_config.json` are relative to this directory.
 `hardware_config.json` resolves `robot.api_path` relative to this directory too.
 Python configuration/schema modules remain in the application root.

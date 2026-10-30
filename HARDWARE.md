@@ -150,46 +150,13 @@ Observation/device startup validates the interface budget without applying an
 unrelated default controller multiplier. These budgets are freshness checks,
 not guarantees of servo accuracy or reliable worker shutdown.
 
-#### Fixed table-reference settings
+#### Tool-marker calibration
 
-`config/reference_calibration_config.json` holds the separate table-reference marker
-settings: `DICT_4X4_50`, ID 7, and an 80 mm black square (`marker_size: 0.08`).
-`base_from_reference_tag` is intentionally null until measured. It maps tag
-coordinates into robot-base coordinates; translation is in meters and its
-rotation columns are the tag axes expressed in base coordinates.
-
-For verified parallel tag/base axes, replace null with this matrix, substituting
-your signed measured offsets for x, y and z (the following is schematic, not JSON):
-
-```text
-[[1, 0, 0, x],
- [0, 1, 0, y],
- [0, 0, 1, z],
- [0, 0, 0, 1]]
-```
-
-Do not assume the table is at base Z=0. For nonparallel axes, supply the measured
-rotation rather than identity. Run the camera-only reference mode from the workspace root:
-
-```bash
-venv/bin/python robotic_studio_1/calibrate_camera.py reference
-venv/bin/python robotic_studio_1/calibrate_camera.py reference --write-config
-```
-
-Close other camera applications first. Keep camera and table tag fixed. This
-automatically collects 30 valid fresh observations (no Space key required),
-with a 30-second capture timeout; Q/Esc cancels. Options include `--headless`,
-`--frames`, `--timeout`, `--reference-config`, and `--output`. At least 12
-observations are required. No robot or gripper connection is opened.
-
-The separate `reference_calibration_result.json` records raw marker poses,
-timestamps, the mounting transform and consistency errors. These use the fit
-limits, but measure repeatability only: a wrong measured mounting transform
-can still give very small errors. Independently check the physical alignment.
-With `--write-config`, a passing result updates only `world_from_camera`, after
-backing up the hardware config. Tool, grasp, and cube mounting transforms remain
-unchanged. This does not enable online reference-tag correction. Each command
-above captures a new batch; the second does not apply the first batch's file.
+Camera-to-base calibration uses the marker mounted on the tool and paired robot
+joint measurements across multiple poses. The single fixed base/table-marker
+calibration mode is no longer supported. Use `calibrate_camera.py collect`, then
+`calibrate_camera.py solve --write-config`. Existing calibration results and
+samples are not modified by this change.
 
 Calibration collection optionally accepts `--skip-tag-stability-check`. This
 disables only the across-frame tool-tag scatter rejection (5 mm / 3 degrees).

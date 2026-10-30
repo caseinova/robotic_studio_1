@@ -6,7 +6,6 @@ from controller_config import ControllerConfig
 from simulation_config import SimulationConfig
 from noise_config import NoiseConfig
 from estimator import EKFConfig
-from calibrate_camera import load_reference
 
 
 def test_defaults_load_from_config_outside_project_directory(tmp_path, monkeypatch):
@@ -27,4 +26,3 @@ def test_defaults_load_from_config_outside_project_directory(tmp_path, monkeypat
     SimulationConfig.load()
     NoiseConfig.load()
     EKFConfig.load()
-    load_reference(directory / 'reference_calibration_config.json')

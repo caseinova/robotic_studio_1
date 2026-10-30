@@ -342,115 +342,9 @@ def apply_result(config_path, result):
     return backup
 
 
-def load_reference(path):
-    with Path(path).open(encoding="utf-8") as source:
-        settings = json.load(source)
-    required = {"marker_dictionary", "marker_id", "marker_size", "base_from_reference_tag"}
-    if not isinstance(settings, dict) or set(settings) != required:
-        raise ValueError("reference config requires exactly: " + ", ".join(sorted(required)))
-    if settings["marker_dictionary"] != "DICT_4X4_50":
-        raise ValueError("reference marker dictionary must be DICT_4X4_50")
-    if type(settings["marker_id"]) is not int or not 0 <= settings["marker_id"] < 50:
-        raise ValueError("reference marker_id must be an integer in 0..49")
-    size = settings["marker_size"]
-    if isinstance(size, bool) or not isinstance(size, (int, float)) or not np.isfinite(size) or size <= 0:
-        raise ValueError("reference marker_size must be positive meters")
-    if settings["base_from_reference_tag"] is None:
-        raise ValueError("measure and set base_from_reference_tag before reference calibration")
-    _pose(settings["base_from_reference_tag"], "base_from_reference_tag")
-    return settings
-
-
-def solve_reference(meta, reference, observations):
-    if len(observations) < 12:
-        raise ValueError("reference calibration needs at least 12 observations")
-    world_from_tag = _pose(meta["world_from_base"], "world_from_base") @ _pose(
-        reference["base_from_reference_tag"], "base_from_reference_tag")
-    poses = [world_from_tag @ np.linalg.inv(_pose(p, "camera_from_reference_tag")) for p in observations]
-    camera = mean_pose(poses)
-    metrics = errors([np.eye(4)] * len(poses), poses, camera, np.eye(4))
-    return {"version": 1, "mode": "reference", "metadata": meta, "reference": reference,
-            "pose_count": len(poses), "repeatability_errors": metrics,
-            "acceptance_limits": dict(ACCEPTANCE_LIMITS["fit"]),
-            "passed": acceptable(metrics, "fit"),
-            "calibration": {"world_from_camera": camera.tolist()},
-            "accuracy_note": "Repeatability only; does not validate the measured reference mounting or camera intrinsics."}
-
-
-def reference_calibration(args):
-    if args.frames < 12 or not np.isfinite(args.timeout) or args.timeout <= 0:
-        raise ValueError("reference mode requires --frames >= 12 and a finite positive --timeout")
-    if args.output.resolve() in (args.config.resolve(), args.reference_config.resolve(), DEFAULT_SAMPLES.resolve()):
-        raise ValueError("reference output must differ from configuration and sample files")
-    config = HardwareConfig.load(args.config)
-    reference = load_reference(args.reference_config)
-    if reference["marker_id"] in {config.perception["tool_marker_id"],
-                                  *(int(i) for i in config.perception["cube_from_markers"])}:
-        raise ValueError("reference marker ID must differ from tool and cube IDs")
-    meta = metadata(config)
-    processor = CameraProcessor(marker_id=reference["marker_id"], marker_size=reference["marker_size"],
-                                cube_size=max(.1, reference["marker_size"]))
-    convert = rectifier(config.camera)
-    observations, timestamps = [], []
-    print("Camera-only calibration: keep camera and reference tag fixed. No robot connection.")
-    print("Reported errors measure repeatability, not accuracy of the measured base-to-tag mounting.")
-    with ExitStack() as stack:
-        camera = RealSenseD435i(config.camera)
-        stack.callback(camera.close)
-        if not args.headless:
-            cv2.namedWindow("Reference calibration", cv2.WINDOW_AUTOSIZE)
-            stack.callback(cv2.destroyAllWindows)
-        started = time.monotonic()
-        status = "no frames"
-        while len(observations) < args.frames:
-            if time.monotonic() - started > args.timeout:
-                raise RuntimeError(f"reference capture timed out: {len(observations)}/{args.frames}; {status}")
-            frame = convert(capture_fresh(camera))
-            observation = processor.process_marker(frame)
-            fresh = 0 <= time.monotonic() - frame.timestamp <= config.control["frame_max_age"]
-            fresh = fresh and (not timestamps or frame.timestamp > timestamps[-1])
-            status = processor.last_status if fresh else "stale or repeated frame"
-            if observation is not None and fresh:
-                observations.append(observation.camera_from_marker.tolist())
-                timestamps.append(frame.timestamp)
-                print(f"Reference samples: {len(observations)}/{args.frames}", flush=True)
-            if not args.headless:
-                view = cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2BGR)
-                if observation is not None:
-                    cv2.aruco.drawDetectedMarkers(view, [observation.corners.astype(np.float32).reshape(1, 4, 2)],
-                                                 np.array([[reference["marker_id"]]], dtype=np.int32))
-                cv2.putText(view, f"{len(observations)}/{args.frames}: {status}", (8, 22),
-                            cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 180, 255), 1)
-                cv2.imshow("Reference calibration", view)
-                if cv2.waitKey(1) & 255 in (27, ord('q')) or cv2.getWindowProperty(
-                        "Reference calibration", cv2.WND_PROP_VISIBLE) < 1:
-                    raise RuntimeError("reference calibration cancelled; configuration unchanged")
-        serial = camera.serial
-    result = solve_reference(meta, reference, observations)
-    result.update(device_serial=serial, timestamps=timestamps, camera_from_reference_tags=observations,
-                  solved_at=datetime.now(timezone.utc).isoformat())
-    atomic_json(args.output, result)
-    print(json.dumps({k: result[k] for k in ("pose_count", "repeatability_errors", "passed")}, indent=2))
-    print(f"Result: {args.output}")
-    if args.write_config:
-        if load_reference(args.reference_config) != reference:
-            raise ValueError("reference mounting settings changed during capture; configuration unchanged")
-        print(f"Configuration updated; backup: {apply_result(args.config, result)}")
-    return 0 if result["passed"] else 2
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="mode", required=True)
-    reference = commands.add_parser("reference", help="camera-only calibration from a measured fixed reference tag")
-    reference.add_argument("--config", type=Path, default=DEFAULT_HARDWARE_CONFIG_PATH)
-    reference.add_argument("--reference-config", type=Path,
-                           default=Path(__file__).parent / "config" / "reference_calibration_config.json")
-    reference.add_argument("--output", type=Path, default=Path(__file__).with_name("reference_calibration_result.json"))
-    reference.add_argument("--frames", type=int, default=30)
-    reference.add_argument("--timeout", type=float, default=30.)
-    reference.add_argument("--headless", action="store_true")
-    reference.add_argument("--write-config", action="store_true")
     for mode in ("collect", "solve"):
         command = commands.add_parser(mode)
         command.add_argument("--config", type=Path, default=DEFAULT_HARDWARE_CONFIG_PATH)
@@ -465,8 +359,6 @@ def main(argv=None):
             command.add_argument("--write-config", action="store_true")
     args = parser.parse_args(argv)
     try:
-        if args.mode == "reference":
-            return reference_calibration(args)
         if args.mode == "collect":
             collect(args)
         else:
