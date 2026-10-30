@@ -1,5 +1,10 @@
 # UR arm hardware backend
 
+For callable pickup and destination placement in one persistent connection,
+see [SEQUENCES.md](SEQUENCES.md). Destination settings live in
+`config/sequence_config.json`; `run_sequence.py NAME --validate` performs
+offline preflight without opening devices. Existing `run.py` tasks are unchanged.
+
 ## Supplied UR3e API
 
 The checked-in configuration selects `robot.driver = "ur3_rg2_rosbridge"`.

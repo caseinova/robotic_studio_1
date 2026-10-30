@@ -15,7 +15,7 @@ from controller_config import ControllerConfig
 from estimator import EKFConfig
 from hardware_kinematics import (
     UR3DH, UR3Kinematics, LinkCapsule, SphereObstacle, BoxObstacle, PlaneObstacle,
-    _segment_distance, _segment_box_distance,
+    _segment_distance, _segment_distances, _segment_box_distance,
 )
 from robot_state import RobotState
 
@@ -36,6 +36,16 @@ def backend(**kwargs):
 
 
 class HardwareKinematicsTests(unittest.TestCase):
+    def test_batched_segments_match_scalar_including_degenerate_cases(self):
+        rng = np.random.default_rng(17)
+        a, b, c, d = rng.normal(size=(4, 500, 3))
+        b[:50] = a[:50]
+        d[25:75] = c[25:75]
+        d[75:125] = c[75:125] + b[75:125] - a[75:125]
+        d[125:175] = c[125:175] + b[125:175] - a[125:175] + 1e-10
+        expected = [_segment_distance(*points) for points in zip(a, b, c, d)]
+        np.testing.assert_allclose(_segment_distances(a, b, c, d), expected, atol=1e-12)
+
     def test_known_nominal_ur3_zero_pose(self):
         k = backend()
         expected = pose((-.4569, -.19425, .06655), (np.pi / 2, 0, 0))

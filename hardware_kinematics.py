@@ -152,6 +152,28 @@ def _segment_distance(a, b, c, d):
     return float(min(candidates))
 
 
+def _segment_distances(a, b, c, d):
+    """Batched equivalent of _segment_distance, preserving degenerate cases."""
+    u, v, w = b - a, d - c, a - c
+    dot = lambda x, y: np.einsum("ij,ij->i", x, y)
+    aa, bb, cc = dot(u, u), dot(u, v), dot(v, v)
+    dd, ee = dot(u, w), dot(v, w)
+    candidates = []
+    for s in (0., 1.):
+        t = np.clip(np.divide(ee + s * bb, cc, out=np.zeros_like(cc), where=cc > 1e-20), 0, 1)
+        candidates.append(np.linalg.norm(w + s * u - t[:, None] * v, axis=1))
+    for t in (0., 1.):
+        s = np.clip(np.divide(t * bb - dd, aa, out=np.zeros_like(aa), where=aa > 1e-20), 0, 1)
+        candidates.append(np.linalg.norm(w + s[:, None] * u - t * v, axis=1))
+    determinant = aa * cc - bb * bb
+    valid = determinant > 1e-12 * aa * cc
+    s = np.divide(bb * ee - cc * dd, determinant, out=np.zeros_like(aa), where=valid)
+    t = np.divide(aa * ee - bb * dd, determinant, out=np.zeros_like(aa), where=valid)
+    interior = np.linalg.norm(w + s[:, None] * u - t[:, None] * v, axis=1)
+    candidates.append(np.where(valid & (s >= 0) & (s <= 1) & (t >= 0) & (t <= 1), interior, np.inf))
+    return np.min(candidates, axis=0)
+
+
 def _segment_box_distance(start, end, half):
     """Exact segment-to-solid-AABB distance, zero when intersecting.
 
@@ -323,12 +345,20 @@ class UR3Kinematics:
 
     def _distances_at(self, positions):
         capsules = self._capsules(self._chain(positions))
+        self_pairs = [(i, j) for kind, i, j in self._pairs if kind == "self"]
+        if self_pairs:
+            indices = np.asarray(self_pairs)
+            starts = np.asarray([c[0] for c in capsules])
+            ends = np.asarray([c[1] for c in capsules])
+            radii = np.asarray([c[2] for c in capsules])
+            i, j = indices.T
+            self_distances = iter(_segment_distances(starts[i], ends[i], starts[j], ends[j])
+                                  - radii[i] - radii[j])
         result = []
         for kind, i, j in self._pairs:
             a, b, radius = capsules[i]
             if kind == "self":
-                c, d, other_radius = capsules[j]
-                distance = _segment_distance(a, b, c, d) - radius - other_radius
+                distance = next(self_distances)
             else:
                 obstacle = self.obstacles[j]
                 if isinstance(obstacle, SphereObstacle):

@@ -520,3 +520,32 @@ Matplotlib is included in `requirements.txt`. Python callers can export after
 `run_controlled()` with `simulation.plots.save("results/test_01")`, inspect the
 owned arrays in `simulation.plots.data`, and release figure resources with
 `simulation.plots.close()`. Simulation reset clears the recorded history.
+
+## Approach and Pickup Speeds
+
+`pickup_reapproach_attempts` (default 3, nonnegative integer; 0 disables retries)
+allows a pre-descent `tool_not_centered_over_cube` handoff rejection to return
+to approach. The arm commands zero velocity, discards the rejected pickup
+target, restores fresh camera-based control, and resets the MPC plan if used.
+The gripper is not opened on a rejected handoff. Retries share the original
+run/action time budget and apply in hardware, sequence pickup and simulation.
+Other failures and exhausted retries remain blocking. Persistent disagreement
+between approach and pickup can indicate frame/calibration mismatch; this
+retry policy does not alter calibration or relax the centering radius.
+
+`config/controller_config.json` exposes these positive, finite tool-speed
+settings for hardware and simulation (including pickup in the sequence runner):
+
+```json
+"approach_linear_speed_m_s": 0.06,
+"approach_angular_speed_rad_s": 0.3,
+"pickup_linear_speed_m_s": 0.03,
+"pickup_angular_speed_rad_s": 0.3
+```
+
+Defaults preserve the previous behavior. Approach limits the PBVS reference's
+translation/rotation norms before conversion to joint velocity. Pickup caps
+XY correction norm and vertical speed separately, and caps angular correction
+norm. These are command limits, not guaranteed measured tool speeds. Hardware
+joint limits remain separate in `config/hardware_config.json`; placement
+speeds remain in `config/sequence_config.json`. Restart the run after edits.

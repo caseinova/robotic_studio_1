@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, Mock, patch
 import mujoco
 import numpy as np
 
-from controller import ApproachController, ControlResult, CubePickupController
+from controller import ApproachController, ControlResult, CubePickupController, start_pickup_or_reapproach
 from controller_config import ControllerConfig
 from kinematics import MujocoKinematics
 from robot_model import RobotModel
@@ -20,6 +20,64 @@ from noise_config import NoiseConfig
 
 
 class PickupTests(unittest.TestCase):
+    def test_centering_rejection_returns_to_approach_then_accepts_fresh_target(self):
+        pickup, interface, observation, state = self._recorded_pickup()
+        interface.require_camera_for_motion = False
+        approach = SimpleNamespace(interface=interface, settings=ControllerConfig(), mpc=Mock())
+        offset = observation.world_from_cube.copy()
+        offset[0, 3] += .05
+        rejected = SimpleNamespace(timestamp=observation.timestamp, world_from_cube=offset)
+        result = start_pickup_or_reapproach(approach, pickup, rejected)
+        self.assertEqual(result.status, "reapproaching")
+        self.assertEqual(pickup.phase, "idle")
+        self.assertFalse(pickup.finished)
+        self.assertTrue(interface.require_camera_for_motion)
+        self.assertIsNone(pickup._descent_pose)
+        approach.mpc.reset.assert_called_once()
+        interface.open_gripper.assert_not_called()
+        interface.close_gripper.assert_not_called()
+        for call in interface.set_joint_velocities.call_args_list:
+            np.testing.assert_array_equal(call.args[0], np.zeros(6))
+        result = start_pickup_or_reapproach(approach, pickup, observation)
+        self.assertEqual(result.status, "pickup_descending")
+        interface.open_gripper.assert_called_once()
+
+    def test_centering_retries_are_bounded_and_other_failures_not_retried(self):
+        for maximum in (0, 3):
+            pickup, interface, observation, state = self._recorded_pickup()
+            observation.world_from_cube[0, 3] += .05
+            approach = SimpleNamespace(interface=interface,
+                settings=ControllerConfig(pickup_reapproach_attempts=maximum), mpc=None)
+            for _ in range(maximum):
+                self.assertEqual(start_pickup_or_reapproach(approach, pickup, observation).status,
+                                 "reapproaching")
+            result = start_pickup_or_reapproach(approach, pickup, observation)
+            self.assertEqual(result.status, "pickup_failed")
+            self.assertIn("tool_not_centered_over_cube", result.diagnostic)
+            interface.open_gripper.assert_not_called()
+        pickup, interface, observation, state = self._recorded_pickup()
+        observation.timestamp -= 1.
+        approach = SimpleNamespace(interface=interface, settings=ControllerConfig(), mpc=None)
+        result = start_pickup_or_reapproach(approach, pickup, observation)
+        self.assertEqual(result.status, "pickup_failed")
+        self.assertEqual(result.diagnostic, "stale_pickup_target_or_state")
+        self.assertFalse(pickup.retry_centering(3))
+
+    def test_held_cube_transform_is_recorded_before_lift(self):
+        controller, interface, observation, state = self._recorded_pickup()
+        controller.start(observation)
+        controller._change_phase("closing", 10.)
+        expected = np.linalg.inv(controller.kinematics.tool_pose()) @ observation.world_from_cube
+        for index in range(12):
+            now = 10. + index * .05
+            interface.timestamp = now
+            interface.read_state.return_value = replace(state, timestamp=now, gripper_width=.1)
+            controller.update()
+            if controller.phase == "lifting":
+                break
+        self.assertEqual(controller.phase, "lifting")
+        np.testing.assert_allclose(controller.tool_from_cube, expected)
+
     def test_dwell_allows_xy_motion_inside_radius_and_resets_outside(self):
         original, interface, observation, state = self._recorded_pickup()
         controller = CubePickupController(interface, original.kinematics,

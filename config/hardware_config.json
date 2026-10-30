@@ -897,9 +897,65 @@
           -0.02096660785818107
         ],
         "radius": 0.04199815135455766
+      },
+      {
+        "name": "rg2_body_simplified",
+        "frame": "tool",
+        "start": [0, 0, 0],
+        "end": [0, 0, 0.135],
+        "radius": 0.036
+      },
+      {
+        "name": "rg2_left_first_simplified",
+        "frame": "tool",
+        "start": [0, 0.0125, 0.135],
+        "end": [0, 0.0125, 0.180],
+        "radius": 0.018,
+        "opening_axis": [0, 0.5, 0],
+        "contact_group": "finger"
+      },
+      {
+        "name": "rg2_left_second_simplified",
+        "frame": "tool",
+        "start": [0, 0.0125, 0.180],
+        "end": [0, 0.0125, 0.235],
+        "radius": 0.018,
+        "opening_axis": [0, 0.5, 0],
+        "contact_group": "finger"
+      },
+      {
+        "name": "rg2_right_first_simplified",
+        "frame": "tool",
+        "start": [0, -0.0125, 0.135],
+        "end": [0, -0.0125, 0.180],
+        "radius": 0.018,
+        "opening_axis": [0, -0.5, 0],
+        "contact_group": "finger"
+      },
+      {
+        "name": "rg2_right_second_simplified",
+        "frame": "tool",
+        "start": [0, -0.0125, 0.180],
+        "end": [0, -0.0125, 0.235],
+        "radius": 0.018,
+        "opening_axis": [0, -0.5, 0],
+        "contact_group": "finger"
       }
     ],
-    "obstacles": [],
+    "obstacles": [
+      {
+        "type": "plane",
+        "name": "table",
+        "normal": [0, 0, 1],
+        "offset": 0.0,
+        "exclude_links": [
+          "ur3e_base_link_inertia_part_0",
+          "ur3e_base_link_inertia_part_1",
+          "ur3e_base_link_inertia_part_2",
+          "ur3e_base_link_inertia_part_3"
+        ]
+      }
+    ],
     "excluded_self_pairs": []
   },
   "control": {

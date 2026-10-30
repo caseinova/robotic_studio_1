@@ -8,7 +8,7 @@ import time
 
 import numpy as np
 
-from controller import ApproachController, CubePickupController
+from controller import ApproachController, CubePickupController, start_pickup_or_reapproach
 from hardware_devices import URRTDE, OnRobotRG, custom_device
 from hardware_rosbridge import RosbridgeArm
 from interface import HardwareInterface
@@ -96,6 +96,8 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                 config=settings, controller_config=controller_config, estimator_config=estimator_config,
                 processor=processor))
             pickup = (CubePickupController(interface, kinematics, cube_size=processor.cube_size,
+                                           speed=controller_config.pickup_linear_speed_m_s,
+                                           angular_speed=controller_config.pickup_angular_speed_rad_s,
                                            control_dt=settings.dt, velocity_limit=settings.velocity_limit,
                                            clearance=settings.clearance,
                                            frame_max_age_intervals=controller_config.frame_max_age_intervals,
@@ -137,8 +139,7 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                         observation = result.observation
                         if pickup is not None and result.status == "reached":
                             interface.require_camera_for_motion = False
-                            pickup.start(_pickup_target(result))
-                            result = pickup.update()
+                            result = start_pickup_or_reapproach(controller, pickup, _pickup_target(result))
                     timings["observe" if controller is None else "controller"] = clock() - processing_start
                     frame_age_after_processing = clock() - frame.timestamp
                     display_start = clock()

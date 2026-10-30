@@ -16,6 +16,7 @@ from controller_config import DEFAULT_CONTROLLER_CONFIG_PATH, ControllerConfig
 from noise_config import DEFAULT_NOISE_CONFIG_PATH, NoiseConfig
 from estimator import DEFAULT_ESTIMATOR_CONFIG_PATH, EKFConfig
 from plots import SimulationPlots
+from controller import start_pickup_or_reapproach
 
 
 def _pickup_observation(result):
@@ -111,6 +112,8 @@ class Simulation:
                                         estimator_config=self.estimator_config)
         self.plots.reset()
         pickup_controller = (CubePickupController(self.interface, controller.kinematics,
+                             speed=controller.settings.pickup_linear_speed_m_s,
+                             angular_speed=controller.settings.pickup_angular_speed_rad_s,
                              frame_max_age_intervals=controller.settings.frame_max_age_intervals,
                              grasp_height_offset_m=controller.settings.grasp_height_offset_m,
                              pickup_dwell_seconds=controller.settings.pickup_dwell_seconds,
@@ -126,8 +129,8 @@ class Simulation:
                         else:
                             result = controller.update()
                             if result.status == "reached" and pickup_controller is not None:
-                                pickup_controller.start(_pickup_observation(result))
-                                result = pickup_controller.update()
+                                result = start_pickup_or_reapproach(controller, pickup_controller,
+                                                                   _pickup_observation(result))
                         self._record_control(result)
                         next_update = self.interface.timestamp + controller.control_dt
                         if (result.status == "reached"
@@ -161,6 +164,8 @@ class Simulation:
                                             estimator_config=self.estimator_config)
             if self.pickup:
                 pickup_controller = CubePickupController(self.interface, controller.kinematics,
+                    speed=controller.settings.pickup_linear_speed_m_s,
+                    angular_speed=controller.settings.pickup_angular_speed_rad_s,
                     frame_max_age_intervals=controller.settings.frame_max_age_intervals,
                     grasp_height_offset_m=controller.settings.grasp_height_offset_m,
                     pickup_dwell_seconds=controller.settings.pickup_dwell_seconds,
@@ -213,8 +218,8 @@ class Simulation:
                         else:
                             last_control = controller.update(frame)
                             if last_control.status == "reached" and pickup_controller is not None:
-                                pickup_controller.start(_pickup_observation(last_control))
-                                last_control = pickup_controller.update()
+                                last_control = start_pickup_or_reapproach(controller, pickup_controller,
+                                                                         _pickup_observation(last_control))
                         self._record_control(last_control)
                         if plots and time.perf_counter() >= next_plot_refresh:
                             self.plots.refresh()

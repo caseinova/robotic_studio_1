@@ -137,8 +137,10 @@ class HardwareInterface(RobotInterface):
 
     def read_state(self):
         self._open()
-        joints = self.robot.read_joint_state()
         width = self.gripper.read_width() if self.gripper is not None else None
+        # Gripper transport may block; sample arm feedback afterward so that
+        # this latency does not consume the command's robot-state age budget.
+        joints = self.robot.read_joint_state()
         self._fresh(joints.timestamp, self.config.control["state_max_age"], "robot state")
         if width is not None:
             self._fresh(width.timestamp, self.config.control["gripper_max_age"], "gripper state")

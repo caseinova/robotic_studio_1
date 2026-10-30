@@ -25,6 +25,22 @@ class HardwareInterfaceTests(unittest.TestCase):
         second = self.interface.capture_rgbd()
         self.assertFalse(np.shares_memory(frame.depth, second.depth))
 
+    def test_gripper_latency_does_not_age_new_joint_measurement(self):
+        read_width = self.gripper.read_width
+        def slow_width():
+            sample = read_width()
+            self.clock.sleep(.08)
+            return sample
+        self.gripper.read_width = slow_width
+        self.interface.require_camera_for_motion = False
+        state = self.interface.read_state()
+        self.assertEqual(state.timestamp, self.clock())
+        self.clock.sleep(.03)
+        self.interface.set_joint_velocities(np.ones(6) * .01)
+        self.clock.sleep(.08)
+        with self.assertRaisesRegex(RuntimeError, "command state"):
+            self.interface.set_joint_velocities(np.ones(6) * .01)
+
     def test_cleanup_keeps_primary_error_and_deduplicates_worker_error(self):
         self.robot.stop = Mock(side_effect=RuntimeError('worker expired'))
         self.robot.close = Mock(side_effect=RuntimeError('worker expired'))

@@ -26,8 +26,21 @@ class ControllerConfig:
     grasp_height_offset_m: float = 0.0
     pickup_dwell_seconds: float = 0.0
     pickup_dwell_radius_m: float = 0.01
+    approach_linear_speed_m_s: float = 0.06
+    approach_angular_speed_rad_s: float = 0.3
+    pickup_linear_speed_m_s: float = 0.03
+    pickup_angular_speed_rad_s: float = 0.3
+    pickup_reapproach_attempts: int = 3
 
     def __post_init__(self):
+        if type(self.pickup_reapproach_attempts) is not int or self.pickup_reapproach_attempts < 0:
+            raise ValueError("pickup_reapproach_attempts must be a nonnegative integer")
+        for name in ("approach_linear_speed_m_s", "approach_angular_speed_rad_s",
+                     "pickup_linear_speed_m_s", "pickup_angular_speed_rad_s"):
+            value = getattr(self, name)
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value <= 0):
+                raise ValueError(f"{name} must be finite and positive")
         for name, value, positive in (("pickup_dwell_seconds", self.pickup_dwell_seconds, False),
                                       ("pickup_dwell_radius_m", self.pickup_dwell_radius_m, True)):
             if (isinstance(value, bool) or not isinstance(value, (int, float))

@@ -61,7 +61,8 @@ class PBVS:
     control uses tool-from-marker and a tool-frame flange Jacobian.
     """
 
-    def __init__(self, desired_camera_from_marker, *, gain=1.2, damping=0.025):
+    def __init__(self, desired_camera_from_marker, *, gain=1.2, damping=0.025,
+                 linear_speed=0.06, angular_speed=0.3):
         self.desired = np.asarray(desired_camera_from_marker, dtype=float)
         if self.desired.shape != (4, 4) or not np.all(np.isfinite(self.desired)):
             raise ValueError("desired camera pose must be finite and 4x4")
@@ -69,6 +70,11 @@ class PBVS:
             raise ValueError("PBVS gain and damping must be finite and positive")
         self.gain = gain
         self.damping = damping
+        for name, value in (("linear_speed", linear_speed), ("angular_speed", angular_speed)):
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not np.isfinite(value) or value <= 0):
+                raise ValueError(f"{name} must be finite and positive")
+        self.linear_speed, self.angular_speed = linear_speed, angular_speed
 
     def reference(self, camera_from_marker, camera_jacobian):
         # Desired controlled-frame pose expressed in its current frame.
@@ -76,7 +82,7 @@ class PBVS:
         rotation_error, _ = cv2.Rodrigues(error_pose[:3, :3])
         error = np.concatenate((error_pose[:3, 3], rotation_error.reshape(3)))
         twist = self.gain * error
-        for part, maximum in ((slice(0, 3), 0.06), (slice(3, 6), 0.3)):
+        for part, maximum in ((slice(0, 3), self.linear_speed), (slice(3, 6), self.angular_speed)):
             norm = np.linalg.norm(twist[part])
             if norm > maximum:
                 twist[part] *= maximum / norm
@@ -231,7 +237,9 @@ class ApproachController:
             [np.cos(yaw), -np.sin(yaw), 0],
             [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]]) @ np.diag([1, -1, -1])
         marker_from_tool[:3, 3] = [0, 0, self.settings.tool_clearance]
-        self.pbvs = PBVS(inverse_pose(marker_from_tool))
+        self.pbvs = PBVS(inverse_pose(marker_from_tool),
+                         linear_speed=self.settings.approach_linear_speed_m_s,
+                         angular_speed=self.settings.approach_angular_speed_rad_s)
 
     def update(self, frame: RGBDFrame | None = None) -> ControlResult:
         """Acquire through the interface and command one control interval.
@@ -370,7 +378,7 @@ class CubePickupController:
     """
 
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
-                 cube_size: float = 0.10, speed: float = 0.03,
+                 cube_size: float = 0.10, speed: float = 0.03, angular_speed: float = 0.3,
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
                  velocity_limit: float = 0.35, clearance: float = 0.015,
                  frame_max_age_intervals: float = 2.0, grasp_height_offset_m: float = 0.0,
@@ -394,15 +402,17 @@ class CubePickupController:
                 or not np.isfinite(frame_max_age_intervals) or frame_max_age_intervals <= 0):
             raise ValueError("frame_max_age_intervals must be finite and positive")
         self.frame_max_age_intervals = frame_max_age_intervals
-        for name, value in (("cube_size", cube_size), ("speed", speed),
+        for name, value in (("cube_size", cube_size), ("speed", speed), ("angular_speed", angular_speed),
                             ("control_dt", control_dt), ("phase_timeout", phase_timeout),
                             ("velocity_limit", velocity_limit), ("clearance", clearance)):
-            if not np.isfinite(value) or value <= 0:
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not np.isfinite(value) or value <= 0):
                 raise ValueError(f"{name} must be finite and positive")
         self.interface = interface
         self.kinematics = kinematics
         self.cube_size = cube_size
         self.speed = speed
+        self.angular_speed = angular_speed
         self.control_dt = control_dt
         self.phase_timeout = phase_timeout
         self.velocity_limit, self.clearance = velocity_limit, clearance
@@ -414,6 +424,10 @@ class CubePickupController:
         self._descent_pose = None
         self._pose_integral = np.zeros(6)
         self._hold_positions = None
+        self.tool_from_cube = None
+        self._world_from_cube = None
+        self._handoff_centering_rejected = False
+        self._reapproach_attempts = 0
 
         # Existing prediction pairs remain untouched. Only the two finger/cube
         # pairs may make contact during pickup; the palm must stay clear.
@@ -422,6 +436,20 @@ class CubePickupController:
     @property
     def finished(self) -> bool:
         return self.phase in ("complete", "failed")
+
+    def retry_centering(self, maximum):
+        """Reset only a rejected, pre-gripper centering handoff for fresh vision."""
+        if (self.phase != "failed" or not self._handoff_centering_rejected
+                or self._reapproach_attempts >= maximum):
+            return False
+        self.interface.set_joint_velocities(np.zeros(6))
+        self._reapproach_attempts += 1
+        self._handoff_centering_rejected = False
+        self._entry_pose = self._descent_pose = self._cube_center = self._world_from_cube = None
+        self._dwell_since = None
+        self._hold_positions = self.tool_from_cube = None
+        self._change_phase("idle", self.interface.timestamp)
+        return True
 
     def start(self, observation: CubeObservation) -> None:
         """Latch the final approach pose and the observed cube center."""
@@ -448,11 +476,13 @@ class CubePickupController:
         # and orientation fixed, giving a vertical path in the world frame.
         cube_center = observation.world_from_cube[:3, 3]
         self._cube_center = cube_center.copy()
+        self._world_from_cube = observation.world_from_cube.copy()
         self._descent_pose[2, 3] += cube_center[2] + self.grasp_height_offset_m - grasp_position[2]
         horizontal_error = grasp_position[:2] - cube_center[:2]
         horizontal_distance = np.linalg.norm(horizontal_error)
         centering_limit = self.pickup_dwell_radius_m if self.pickup_dwell_seconds > 0 else .01
         if horizontal_distance > centering_limit:
+            self._handoff_centering_rejected = True
             self._fail(
                 "tool_not_centered_over_cube: "
                 f"dx={horizontal_error[0] * 1000:.1f} mm, "
@@ -538,6 +568,7 @@ class CubePickupController:
                 if width < self.cube_size * 0.5:
                     self._fail("empty_grasp")
                 elif width <= self.cube_size * 1.15 and settled:
+                    self.tool_from_cube = np.linalg.inv(self.kinematics.tool_pose()) @ self._world_from_cube
                     self._change_phase("lifting", now)
             return self._result()
 
@@ -583,7 +614,7 @@ class CubePickupController:
         # dilute the horizontal feedback that keeps the tool on its line.
         linear_velocity[:2] *= min(1.0, self.speed / max(np.linalg.norm(linear_velocity[:2]), 1e-12))
         linear_velocity[2] = np.clip(linear_velocity[2], -self.speed, self.speed)
-        twist[3:] *= min(1.0, 0.3 / max(np.linalg.norm(twist[3:]), 1e-12))
+        twist[3:] *= min(1.0, self.angular_speed / max(np.linalg.norm(twist[3:]), 1e-12))
         command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + 0.01 ** 2 * np.eye(6), twist)
         command /= max(1.0, np.max(np.abs(command)) / self.velocity_limit)
         lower, upper = self.kinematics.limits
@@ -665,3 +696,19 @@ class CubePickupController:
         velocity = np.zeros(6) if command is None else command.copy()
         return ControlResult(None, velocity, velocity.copy(), "pickup_" + self.phase,
                              position_error, 0.0, minimum_clearance, self.diagnostic)
+
+
+def start_pickup_or_reapproach(approach, pickup, observation):
+    """Shared handoff policy for hardware, sequence, and simulation runners."""
+    pickup.start(observation)
+    if pickup.phase == "failed" and pickup.diagnostic.startswith("tool_not_centered_over_cube:"):
+        reason = pickup.diagnostic
+        maximum = approach.settings.pickup_reapproach_attempts
+        if pickup.retry_centering(maximum):
+            if hasattr(approach.interface, "require_camera_for_motion"):
+                approach.interface.require_camera_for_motion = True
+            if approach.mpc is not None:
+                approach.mpc.reset()
+            return replace(pickup._result(), status="reapproaching",
+                           diagnostic=f"{reason}; returning to approach ({pickup._reapproach_attempts}/{maximum})")
+    return pickup.update()

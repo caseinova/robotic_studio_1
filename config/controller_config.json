@@ -1,5 +1,10 @@
 {
   "mode": "pure_pbvs",
+  "approach_linear_speed_m_s": 0.06,
+  "approach_angular_speed_rad_s": 0.3,
+  "pickup_linear_speed_m_s": 0.03,
+  "pickup_angular_speed_rad_s": 0.3,
+  "pickup_reapproach_attempts": 3,
   "pickup_dwell_seconds": 2.0,
   "pickup_dwell_radius_m": 0.01,
   "grasp_height_offset_m": 0.04,

@@ -172,6 +172,7 @@ class CameraProcessor:
         return intrinsics
 
     def _extract(self, frame, intrinsics, corners, *, marker_only=False):
+        self.last_metric_edges = None
         success, rvec, tvec = cv2.solvePnP(
             self._marker_points, corners, intrinsics, None, flags=cv2.SOLVEPNP_ITERATIVE
         )
@@ -233,6 +234,7 @@ class CameraProcessor:
         measured_corners = corner_rays * corner_depth[:, None]
         edge_lengths = np.linalg.norm(measured_corners - np.roll(measured_corners, -1, axis=0), axis=1)
         if np.any(np.abs(edge_lengths - self.marker_size) > self.marker_size * 0.1):
+            self.last_metric_edges = edge_lengths.copy()
             return self._reject("tag_metric_size_inconsistent")
         # Rigid alignment fits the known marker square to its measured 3D corners.
         translation = measured_corners.mean(axis=0)
@@ -374,6 +376,7 @@ class TaggedCubeProcessor(CameraProcessor):
 
     def process(self, frame):
         self._validate_frame(frame)
+        self.metric_size_rejections = []
         self.last_status = "tag_not_detected"
         self.last_marker_corners = None
         gray = cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2GRAY)
@@ -392,6 +395,8 @@ class TaggedCubeProcessor(CameraProcessor):
             self.last_marker_corners = detected[marker_id].copy()
             measurement = self._extract(frame, frame.intrinsics, detected[marker_id], marker_only=True)
             if measurement is None:
+                if self.last_status == "tag_metric_size_inconsistent" and self.last_metric_edges is not None:
+                    self.metric_size_rejections.append((marker_id, self.last_metric_edges.copy()))
                 continue
             measurement = replace(measurement, marker_id=marker_id)
             inverse_mount = np.eye(4)
