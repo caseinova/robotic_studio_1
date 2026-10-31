@@ -9,11 +9,11 @@ import sys
 from hardware_devices import URRTDE
 
 
-DEFAULT_API_PATH = Path(__file__).resolve().parents[1] / "UR3_RG2_rosbridge"
+DEFAULT_API_PATH = Path(__file__).resolve().parent / "UR3_RG2_rosbridge"
 
 
 def load_backend(path):
-    """Load the sibling package without modifying sys.path or importing a generic robot package."""
+    """Load the bundled package without modifying sys.path or importing a generic robot package."""
     package = Path(path).resolve() / "robot"
     if not (package / "real_ur_backend.py").is_file():
         raise ValueError(f"UR3_RG2_rosbridge backend not found in {package}")

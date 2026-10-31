@@ -1,7 +1,7 @@
 {
   "robot": {
     "driver": "ur3_rg2_rosbridge",
-    "api_path": "../../UR3_RG2_rosbridge",
+    "api_path": "../UR3_RG2_rosbridge",
     "factory": null,
     "options": {},
     "host": "192.168.0.192",

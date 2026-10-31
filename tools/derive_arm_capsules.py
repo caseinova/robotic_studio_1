@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 from hardware_config import HardwareConfig
 from calibrate_camera import atomic_json
 
-MODEL = ROOT.parent / 'UR3_RG2_rosbridge/models/ur3e_official'
+MODEL = ROOT / 'UR3_RG2_rosbridge/models/ur3e_official'
 LINKS = ['base_link_inertia', 'shoulder_link', 'upper_arm_link', 'forearm_link',
          'wrist_1_link', 'wrist_2_link', 'wrist_3_link']
 
@@ -220,7 +220,7 @@ def derive(config):
             margins.append(margin)
             capsules.append(dict(name=f'ur3e_{name}_part_{part}', frame=i,
                                  start=a.tolist(), end=b.tolist(), radius=radius))
-        report.append(dict(link=name, mesh=str(path.relative_to(ROOT.parent)),
+        report.append(dict(link=name, mesh=str(path.relative_to(ROOT)),
                            vertices=len(points), triangles=len(points)//3, parts=len(parts),
                            minimum_triangle_margin_m=min(margins)))
     return capsules, report

@@ -8,10 +8,10 @@ offline preflight without opening devices. Existing `run.py` tasks are unchanged
 ## Supplied UR3e API
 
 The checked-in configuration selects `robot.driver = "ur3_rg2_rosbridge"`.
-`hardware_rosbridge.RosbridgeArm` uses `RealUR3e` from the sibling
+`hardware_rosbridge.RosbridgeArm` uses `RealUR3e` from the nested
 `UR3_RG2_rosbridge` repository. `robot.api_path` resolves relative to the
 hardware configuration file; the default is `../UR3_RG2_rosbridge`.
-Keep both repositories together, including the integration changes to the
+Keep the API repository inside `robotic_studio_1/UR3_RG2_rosbridge`, including the integration changes to the
 supplied backend (relative package import and cleanup on connection failure).
 Validation checks the path without importing the RTDE SDK or opening devices.
 

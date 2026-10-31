@@ -1,7 +1,7 @@
 # UR3e simulation
 
 The arm mesh assets, joint transforms, and inertias are taken from
-`UR3_RG2_rosbridge/models/ur3e_official/ur3e_official.xml` in the sibling
+`UR3_RG2_rosbridge/models/ur3e_official/ur3e_official.xml` in the nested
 repository at commit `ff18f272b9988f129c23d3ffd1beb2d13762a276`.
 This directory is self-contained at runtime; the source license is retained
 in `SOURCE_LICENSE`.

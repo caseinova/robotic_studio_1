@@ -1,5 +1,5 @@
 {
-  "source": "/home/tom/ur3_ws/UR3_RG2_rosbridge/models/ur3e_official",
+  "source": "/home/tom/ur3_ws/robotic_studio_1/UR3_RG2_rosbridge/models/ur3e_official",
   "margin_m": 0.003,
   "mapping_test_poses": 30,
   "ranking": "Deterministic sampled union volume; not a coverage test",
