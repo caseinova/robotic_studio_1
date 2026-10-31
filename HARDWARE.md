@@ -86,7 +86,8 @@ py run.py
 The hardware preflight intentionally fails on the checked-in placeholders.
 File paths in the runtime JSON are relative to that file, not the working
 directory. `--config`, `--hardware-config`, `--backend`, `--task`, `--steps`,
-and `--headless` can override selection. `simulate.py` remains available.
+and `--headless` can override selection. Simulator-specific options are available
+through `python -m simulation.simulate` from the application directory.
 
 Install `requirements-hardware.txt` for the hardware path (it does not require
 MuJoCo). No SDK dependencies or network connections are needed for `--validate`.

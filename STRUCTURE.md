@@ -9,7 +9,7 @@ python run_sequence.py drop_zone_b --backend hardware --validate
 ```
 
 Root Python files are command-line entry points: `run.py`, `run_sequence.py`,
-`simulate.py`, `calibrate_camera.py`, `camera_tag_test.py`, and
+`calibrate_camera.py`, `camera_tag_test.py`, and
 `update_camera_intrinsics.py`. Calibration and camera commands operate on
 hardware; simulation commands do not connect to physical devices.
 
@@ -53,4 +53,7 @@ historical backups are intentionally unchanged.
 
 Use `python -m hardware.hardware_realsense` for the adapter's diagnostic CLI,
 not direct execution of a file inside a package. Existing root entry-point
-commands are unchanged, but old flat-module Python imports are not retained.
+commands remain available except the removed root `simulate.py` launcher.
+For simulator-specific options, run `python -m simulation.simulate` from this
+directory (for example, `python -m simulation.simulate --pick --plots`).
+Old flat-module Python imports are not retained.

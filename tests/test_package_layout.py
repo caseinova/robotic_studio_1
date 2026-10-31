@@ -28,19 +28,27 @@ def test_backend_dependency_direction(package, forbidden):
 
 def test_only_entry_points_at_root():
     assert {path.name for path in ROOT.glob('*.py')} == {
-        'run.py', 'run_sequence.py', 'simulate.py', 'calibrate_camera.py',
+        'run.py', 'run_sequence.py', 'calibrate_camera.py',
         'camera_tag_test.py', 'update_camera_intrinsics.py',
     }
 
 
 @pytest.mark.parametrize('entry', [
-    'run.py', 'run_sequence.py', 'simulate.py', 'calibrate_camera.py',
+    'run.py', 'run_sequence.py', 'calibrate_camera.py',
     'camera_tag_test.py', 'update_camera_intrinsics.py',
 ])
 def test_entry_point_help_outside_project(entry, tmp_path):
     result = subprocess.run([sys.executable, str(ROOT / entry), '--help'],
                             cwd=tmp_path, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
+
+
+def test_simulator_module_help():
+    result = subprocess.run([sys.executable, '-m', 'simulation.simulate', '--help'],
+                            cwd=ROOT, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert '--pick' in result.stdout
+    assert '--plots' in result.stdout
 
 
 def test_sequence_preflight_outside_project(tmp_path):

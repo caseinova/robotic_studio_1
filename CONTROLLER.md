@@ -55,7 +55,8 @@ The hardware configuration selects the supplied `RealUR3e` API through
 Use `py run.py` with `config/runtime_config.json` for backend/task selection. Fill
 `config/hardware_config.json` before selecting hardware; `py run.py --backend hardware
 --validate` checks it without connecting. The RealSense D435i adapter is selected; camera intrinsics and installation
-calibration must still be supplied. Existing `simulate.py` commands work.
+calibration must still be supplied. For simulator-specific options, use
+`python -m simulation.simulate` from the application directory.
 
 The controller reads one `RobotState` per update. The prediction workspace
 is synchronized from measured arm positions and gripper width; it does not
@@ -138,13 +139,13 @@ uses built-in defaults so automated tests do not depend on your experiment file.
 Run both the robot overview and annotated camera view:
 
 ```powershell
-venv/Scripts/python.exe simulate.py --servo
+venv/Scripts/python.exe -m simulation.simulate --servo
 ```
 
 Run without windows (stops early when the target is reached):
 
 ```powershell
-venv/Scripts/python.exe simulate.py --headless --servo --steps 6000
+venv/Scripts/python.exe -m simulation.simulate --headless --servo --steps 6000
 ```
 
 The default target puts `attachment_site` directly above the detected tag,
@@ -235,8 +236,8 @@ version of the scene so the gripper can lift it through physical contact.
 ## Fixed-camera calibration scene
 
 ```powershell
-py simulate.py --camera
-py simulate.py --camera --camera-name external_camera
+py -m simulation.simulate --camera
+py -m simulation.simulate --camera --camera-name external_camera
 ```
 
 The external RGB-D camera is fixed at world `[0.5852, 0.8864, 0.45]` meters,
@@ -378,8 +379,8 @@ Headless approach runs still stop when the target is reached.
 ## Cube pickup
 
 ```powershell
-venv/Scripts/python.exe simulate.py --pick
-venv/Scripts/python.exe simulate.py --headless --pick --steps 15000
+venv/Scripts/python.exe -m simulation.simulate --pick
+venv/Scripts/python.exe -m simulation.simulate --headless --pick --steps 15000
 ```
 
 `--pick` enables the selected approach controller, then hands off its final
@@ -423,10 +424,10 @@ The CLI loads `config/noise_config.json` independently of the working directory.
 Its default profile enables mild measurement noise with seed 42:
 
 ```powershell
-venv/Scripts/python.exe simulate.py --servo
-venv/Scripts/python.exe simulate.py --pick
-venv/Scripts/python.exe simulate.py --servo --no-noise
-venv/Scripts/python.exe simulate.py --servo --noise-config my_noise.json
+venv/Scripts/python.exe -m simulation.simulate --servo
+venv/Scripts/python.exe -m simulation.simulate --pick
+venv/Scripts/python.exe -m simulation.simulate --servo --no-noise
+venv/Scripts/python.exe -m simulation.simulate --servo --noise-config my_noise.json
 ```
 
 Set `enabled` to false to disable noise, or set individual standard deviations,
@@ -495,15 +496,15 @@ alter the controller's prediction workspace.
 To show live plots alongside the model and camera:
 
 ```powershell
-py simulate.py --servo --plots
-py simulate.py --pick --plots
+py -m simulation.simulate --servo --plots
+py -m simulation.simulate --pick --plots
 ```
 
 To export without opening plot windows:
 
 ```powershell
-py simulate.py --headless --servo --plots --steps 6000
-py simulate.py --servo --plot-dir results/test_01
+py -m simulation.simulate --headless --servo --plots --steps 6000
+py -m simulation.simulate --servo --plot-dir results/test_01
 ```
 
 `--plots` saves to `simulation_plots` after the run ends; `--plot-dir` selects
