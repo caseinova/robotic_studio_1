@@ -4,6 +4,10 @@ Active JSON configuration files live here. Default loaders resolve this director
 relative to the application, independently of the current working directory.
 Explicit command-line config paths still work.
 
+`python run_experiments.py` opens the optional desktop configuration editor and
+experiment launcher. See [desktop setup and profiles](../DESKTOP.md). GUI runs
+use separate snapshots; editing a draft does not overwrite these files.
+
 To refresh RealSense factory RGB intrinsics at the configured resolution/FPS,
 close other camera programs and run `python update_camera_intrinsics.py` from
 the application root. It updates camera serial, intrinsics, distortion and depth
@@ -17,7 +21,8 @@ camera-to-base calibration; old-camera samples must not be appended.
 
 Paths inside `runtime_config.json` are relative to this directory.
 `hardware_config.json` resolves `robot.api_path` relative to this directory too.
-Python configuration/schema modules remain in the application root.
+Python configuration/schema modules live in `common/`, `hardware/` and
+`simulation/`, according to their ownership.
 
 `estimator_config.json` has independent `cube_enabled` and `tool_enabled`
 booleans. For cube-only filtering, set `cube_enabled: true` and

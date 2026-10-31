@@ -1,6 +1,7 @@
 # Cube approach controller
 
 See [source layout](STRUCTURE.md) for package boundaries and updated Python imports.
+For the desktop configuration editor and launcher, see [DESKTOP.md](DESKTOP.md).
 
 For complete simulated pickup, transfer, release and retreat, run
 `python run_sequence.py drop_zone_b --backend simulation` (add `--headless`

@@ -28,13 +28,13 @@ def test_backend_dependency_direction(package, forbidden):
 
 def test_only_entry_points_at_root():
     assert {path.name for path in ROOT.glob('*.py')} == {
-        'run.py', 'run_sequence.py', 'calibrate_camera.py',
+        'run.py', 'run_sequence.py', 'run_experiments.py', 'calibrate_camera.py',
         'camera_tag_test.py', 'update_camera_intrinsics.py',
     }
 
 
 @pytest.mark.parametrize('entry', [
-    'run.py', 'run_sequence.py', 'calibrate_camera.py',
+    'run.py', 'run_sequence.py', 'run_experiments.py', 'calibrate_camera.py',
     'camera_tag_test.py', 'update_camera_intrinsics.py',
 ])
 def test_entry_point_help_outside_project(entry, tmp_path):

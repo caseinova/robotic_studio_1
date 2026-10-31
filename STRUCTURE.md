@@ -8,13 +8,15 @@ python run_sequence.py drop_zone_b --backend simulation
 python run_sequence.py drop_zone_b --backend hardware --validate
 ```
 
-Root Python files are command-line entry points: `run.py`, `run_sequence.py`,
+Root Python files are entry points: `run.py`, `run_sequence.py`, `run_experiments.py`,
 `calibrate_camera.py`, `camera_tag_test.py`, and
 `update_camera_intrinsics.py`. Calibration and camera commands operate on
 hardware; simulation commands do not connect to physical devices.
 
 - `common/`: perception, estimation, controllers, pickup/placement actions,
   interfaces, collision geometry, and shared configuration loaders.
+- `desktop/`: optional PySide6 experiment manager, profile snapshots and child
+  process launcher. See [DESKTOP.md](DESKTOP.md).
 - `simulation/`: MuJoCo model, I/O, prediction workspace, physics runner,
   synchronous sequence session, simulated noise, and plots.
 - `hardware/`: device adapters, calibrated UR kinematics, measured I/O,
