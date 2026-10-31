@@ -77,7 +77,7 @@ def test_pickup_preserves_separate_xy_z_limits_and_configures_rotation():
     kin.grasp_pose.return_value = current
     kin.tool_jacobian.return_value = np.eye(6)
     kin.distances.return_value = np.array([])
-    pickup = CubePickupController(interface, kin, speed=.01, angular_speed=.08)
+    pickup = CubePickupController(interface, kin, cube_size=.064, speed=.01, angular_speed=.08)
     cube = np.eye(4)
     cube[2, 3] = .2
     pickup.start(SimpleNamespace(timestamp=10., world_from_cube=cube))

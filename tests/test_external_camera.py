@@ -37,17 +37,17 @@ class ExternalCameraTests(unittest.TestCase):
 
     def test_fixed_rgbd_camera_sees_both_distinct_markers(self):
         robot = RobotModel(camera_name="external_camera")
-        frame = robot.capture_rgbd()
+        frame = robot.capture_rgbd(width=1280, height=960)
         parameters = cv2.aruco.DetectorParameters()
-        parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_APRILTAG
+        parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
         detector = cv2.aruco.ArucoDetector(
             cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50), parameters)
         corners, ids, _ = detector.detectMarkers(cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2GRAY))
         self.assertTrue({0, 1}.issubset(set(ids.reshape(-1))))
         self.assertGreater(np.count_nonzero(frame.valid_depth), 10000)
         self.assertEqual(robot.model.cam_bodyid[robot.camera_id], 0)
-        np.testing.assert_allclose(frame.world_from_camera[:3, 3], [0.5852, 0.8864, 0.85])
-        # The declared 80 mm marker size must agree with its rendered geometry.
+        np.testing.assert_allclose(frame.world_from_camera[:3, 3], [0.5852, 0.8864, 0.45])
+        # The declared 40 mm marker size must agree with its rendered geometry.
         tag = corners[list(ids.reshape(-1)).index(1)].reshape(4, 2).astype(float)
         half = robot.end_effector_marker_size / 2
         points = np.array([[-half, half, 0], [half, half, 0],
@@ -60,10 +60,11 @@ class ExternalCameraTests(unittest.TestCase):
 
     def test_tool_tag_pose_uses_mounting_calibration_without_cube_geometry(self):
         robot = RobotModel()
-        frame = robot.capture_rgbd()
+        frame = robot.capture_rgbd(width=1280, height=960)
         # The tool plate has no cube behind it. A deliberately unrelated cube
         # offset must not affect the marker-only pose extraction.
-        marker = CameraProcessor(marker_id=1, label_offset=1.0).process_marker(frame)
+        marker = CameraProcessor(marker_id=1, marker_size=robot.end_effector_marker_size,
+                                 label_offset=1.0).process_marker(frame)
         self.assertIsNotNone(marker)
         kinematics = MujocoKinematics(robot)
         camera_from_tool = marker.camera_from_marker @ np.linalg.inv(
@@ -85,7 +86,7 @@ class ExternalCameraTests(unittest.TestCase):
         np.testing.assert_allclose(second.world_from_camera, frame.world_from_camera, atol=1e-12)
         self.assertGreater(np.linalg.norm(marker.xpos - marker_initial), 0.01)
         np.testing.assert_allclose(tool.xmat.reshape(3, 3).T @ (marker.xpos - tool.xpos), offset, atol=1e-12)
-        for name in ("end_effector_aruco", "end_effector_tag_board", "end_effector_tag_bracket"):
+        for name in ("end_effector_aruco", "end_effector_tag_board"):
             geom = robot.model.geom(name)
             self.assertEqual(geom.contype, 0)
             self.assertEqual(geom.conaffinity, 0)

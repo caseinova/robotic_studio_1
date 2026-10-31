@@ -1,15 +1,15 @@
 # Cube approach controller
 
-The simulator now uses the supplied UR3e arm with the existing generic gripper
+The simulator now uses the supplied UR3e arm with an articulated RG2 gripper
 and tagged-cube scene. See [model notes](models/ur3e/README.md) for provenance,
 actuators, frame conventions, and simulation-specific changes. The default
-cube center is `[-0.074, 0.32, 0.05]` m. Simulation planning clearance is
+cube center is `[-0.074, 0.32, 0.032]` m (64 mm cube). Simulation planning clearance is
 15 mm plus a 3 mm buffer; hardware retains its separately configured clearance.
 
 The cube carries six ArUco `DICT_4X4_50` markers: ID 0 on top, ID 2 on
 +Y, ID 3 on +X, ID 4 on -Y, ID 5 on -X, and ID 6 on the bottom. The tool
-keeps its single ID 1 marker. All markers have an 80 mm black square and
-5 mm white margins. Bottom-face visibility requires lifting or turning the cube.
+keeps its single ID 1 marker. All markers have a 40 mm black square and
+2.5 mm white margins. Bottom-face visibility requires lifting or turning the cube.
 
 `TaggedCubeProcessor` in `camera_processing.py` converts each validated RGB-D
 marker measurement through its known rigid mounting transform to the cube
@@ -195,9 +195,10 @@ exceeds the control period. MPC parameters are in `MPCConfig`.
 
 Checks: `venv/Scripts/python.exe -m unittest discover -s tests -v`.
 
-The tool flange carries a generic parallel two-finger gripper with a maximum
-inner opening of 120 mm. The fingers have collision geometry, friction, and
-separate position actuators with 30 N force limits. It starts fully open.
+The tool flange carries an RG2 model with a configured maximum inner opening
+of 100.5 mm. Coupled revolute linkages keep the pads parallel; commands in
+meters are converted to joint angles. It starts fully open. See
+[RG2 model notes](models/rg2/README.md) for provenance and dynamics limitations.
 The portable interface controls the opening in meters, independently of the
 six arm joint commands:
 
@@ -228,15 +229,14 @@ py simulate.py --camera
 py simulate.py --camera --camera-name external_camera
 ```
 
-The external RGB-D camera is fixed at world `[0.5852, 0.8864, 0.85]` meters,
-looking diagonally across the UR3e gripper/cube workspace from +X and +Y.
+The external RGB-D camera is fixed at world `[0.5852, 0.8864, 0.45]` meters,
+looking toward `[-0.05, 0.28, 0.22]` from +X and +Y at a shallow downward angle.
 The end-effector carries ArUco DICT_4X4_50
-ID 1, with an 80 mm black square and a 5 mm white margin. Its raised horizontal
-plate faces upward so turning the wrist does not turn the tag away from the
-camera. The cube retains ID 0, and the camera view outlines
-the end-effector marker separately. Both tags are detectable at 640x480 at home.
+ID 1, with a 40 mm black square on the broad gripper body face, matching the
+photographed mounting approximately. It is not an upward-facing raised plate:
+visibility depends on wrist orientation. The cube retains ID 0 on top.
 
-The board and bracket are visual-only, with no added mass or collision geometry.
+The thin marker board is visual-only, with no added mass or collision geometry.
 `end_effector_marker_site` defines the marker face center and mounting axes.
 The camera and marker are also included in the bare robot XML.
 

@@ -59,10 +59,13 @@ class MujocoKinematics:
         self.q_indices = self.model.jnt_qposadr[robot.joint_ids]
         self.v_indices = self.model.jnt_dofadr[robot.joint_ids]
         self.camera_id = robot.camera_id
-        self.gripper_indices = self.model.jnt_qposadr[robot.gripper_joint_ids]
+        self.gripper_indices = np.array([self.model.joint(name).qposadr[0]
+                                        for name in robot.gripper_linkage_joint_names])
         self.tool_id = self.model.site("attachment_site").id
         self.end_effector_marker_id = robot.end_effector_marker_id
         self.end_effector_marker_size = robot.end_effector_marker_size
+        self.cube_size = robot.cube_size
+        self.cube_marker_size = robot.cube_marker_size
         self.limits = np.maximum(self.model.jnt_range[robot.joint_ids, 0],
                                  self.model.actuator_ctrlrange[robot.actuator_ids, 0]), np.minimum(
                                      self.model.jnt_range[robot.joint_ids, 1],
@@ -108,7 +111,8 @@ class MujocoKinematics:
         The parallel gripper is modeled symmetrically from its measured width.
         Its opening stays fixed during arm predictions, not copied from physics.
         """
-        self.data.qpos[self.gripper_indices] = state.gripper_width / 2
+        from rg2_model import linkage_positions
+        self.data.qpos[self.gripper_indices] = linkage_positions(state.gripper_width)
         self.set_positions(state.joint_positions)
 
     def set_positions(self, positions):
@@ -133,8 +137,22 @@ class MujocoKinematics:
         site = self.data.site("grasp_site")
         pose = np.eye(4)
         pose[:3, :3] = site.xmat.reshape(3, 3)
-        pose[:3, 3] = site.xpos
+        pose[:3, 3] = (self.data.site('rg2_left_pad').xpos + self.data.site('rg2_right_pad').xpos) / 2
         return pose
+
+    def grasp_pose_at_width(self, width):
+        """Predict the pad midpoint after closing, without changing current FK."""
+        import mujoco
+        from rg2_model import linkage_positions
+
+        previous = self.data.qpos[self.gripper_indices].copy()
+        try:
+            self.data.qpos[self.gripper_indices] = linkage_positions(width)
+            mujoco.mj_forward(self.model, self.data)
+            return self.grasp_pose()
+        finally:
+            self.data.qpos[self.gripper_indices] = previous
+            mujoco.mj_forward(self.model, self.data)
 
     def pickup_collision_indices(self):
         """Keep all constraints except intended finger/target contact."""

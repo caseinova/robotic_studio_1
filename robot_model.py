@@ -10,6 +10,7 @@ import mujoco
 import numpy as np
 
 from robot_state import RGBDFrame
+from rg2_model import MAX_WIDTH
 
 
 MODEL_DIRECTORY = (
@@ -28,11 +29,17 @@ class RobotModel:
 
     camera_name = "external_camera"
     camera_names = ("external_camera",)
+    cube_size = .064
+    cube_marker_size = .04
     end_effector_marker_id = 1
-    end_effector_marker_size = 0.08  # black square side length, meters
+    end_effector_marker_size = 0.04  # black square side length, meters
     gripper_joint_names = ("gripper_left_joint", "gripper_right_joint")
     gripper_actuator_names = ("gripper_left", "gripper_right")
-    gripper_max_width = 0.12  # meters between the inner finger faces
+    gripper_max_width = MAX_WIDTH
+    gripper_linkage_joint_names = (
+        'gripper_left_joint', 'rg2_left_finger_joint', 'rg2_left_inner_joint',
+        'gripper_right_joint', 'rg2_right_finger_joint', 'rg2_right_inner_joint',
+    )
 
     joint_names = (
         "shoulder_pan_joint",
@@ -85,19 +92,21 @@ class RobotModel:
 
     @property
     def gripper_width(self) -> float:
-        """Measured inner finger opening in meters (0 to 0.12 nominally)."""
-        return float(np.sum(self.data.qpos[self.model.jnt_qposadr[self.gripper_joint_ids]]))
+        """Measured inner pad separation along the gripper opening axis."""
+        tool_rotation = self.data.site('attachment_site').xmat.reshape(3, 3)
+        delta = self.data.site('rg2_right_pad').xpos - self.data.site('rg2_left_pad').xpos
+        return float(delta @ tool_rotation[:, 1])
 
     @property
     def grasp_pose(self) -> np.ndarray:
         """World-from-grasp-site pose; +Z is the finger approach direction.
 
-        The site is 105 mm beyond the gripper mount, between the fingertips.
+        The origin is the measured midpoint of the two pads; it varies with opening.
         Call after forwarding the simulation state for current transforms.
         """
         pose = np.eye(4)
         pose[:3, :3] = self.data.site_xmat[self.grasp_site_id].reshape(3, 3)
-        pose[:3, 3] = self.data.site_xpos[self.grasp_site_id]
+        pose[:3, 3] = (self.data.site('rg2_left_pad').xpos + self.data.site('rg2_right_pad').xpos) / 2
         return pose
 
     def reset(self) -> None:

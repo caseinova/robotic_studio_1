@@ -307,8 +307,9 @@ class MujocoInterface(RobotInterface):
         """Drive both finger slides, without changing the arm's control mode."""
         if (isinstance(width, bool) or not isinstance(width, (int, float))
                 or not np.isfinite(width) or not 0 <= width <= self.robot.gripper_max_width):
-            raise ValueError("gripper width must be finite and between 0 and 0.12 meters")
-        self.robot.data.ctrl[self.robot.gripper_actuator_ids] = width / 2
+            raise ValueError(f"gripper width must be finite and between 0 and {self.robot.gripper_max_width} meters")
+        from rg2_model import width_to_angle
+        self.robot.data.ctrl[self.robot.gripper_actuator_ids] = width_to_angle(width)
 
     def set_joint_positions(self, positions) -> None:
         """Set actuator targets; simulate.py advances the physics."""

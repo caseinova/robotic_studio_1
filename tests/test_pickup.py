@@ -71,7 +71,7 @@ class PickupTests(unittest.TestCase):
         for index in range(12):
             now = 10. + index * .05
             interface.timestamp = now
-            interface.read_state.return_value = replace(state, timestamp=now, gripper_width=.1)
+            interface.read_state.return_value = replace(state, timestamp=now, gripper_width=controller.cube_size)
             controller.update()
             if controller.phase == "lifting":
                 break
@@ -112,7 +112,7 @@ class PickupTests(unittest.TestCase):
             controller, interface, observation, state = self._recorded_pickup()
             controller = CubePickupController(interface, controller.kinematics,
                                               grasp_height_offset_m=offset)
-            grasp = controller.kinematics.grasp_pose().copy()
+            grasp = controller.kinematics.grasp_pose_at_width(controller.cube_size).copy()
             entry = controller.kinematics.tool_pose().copy()
             controller.start(observation)
             expected = entry.copy()
@@ -195,18 +195,18 @@ class PickupTests(unittest.TestCase):
         positions = robot.joint_positions
         kinematics = MujocoKinematics(robot)
         robot.data = None  # Prediction must not depend on a live simulator.
-        state = RobotState(10.0, positions, np.zeros(6), 0.12)
+        state = RobotState(10.0, positions, np.zeros(6), robot.gripper_max_width)
         interface = SimpleNamespace(
-            timestamp=10.0, gripper_max_width=0.12, read_state=Mock(return_value=state),
+            timestamp=10.0, gripper_max_width=robot.gripper_max_width, read_state=Mock(return_value=state),
             capture_rgbd=Mock(side_effect=AssertionError("pickup does not require fresh vision")),
             open_gripper=Mock(), close_gripper=Mock(),
             set_joint_positions=Mock(), set_joint_velocities=Mock(),
         )
-        grasp_position = kinematics.data.site("grasp_site").xpos.copy()
+        grasp_position = kinematics.grasp_pose()[:3, 3].copy()
         pose = np.eye(4)
         pose[:3, 3] = grasp_position - [0, 0, 0.1]
         observation = SimpleNamespace(timestamp=10.0, world_from_cube=pose)
-        return CubePickupController(interface, kinematics), interface, observation, state
+        return CubePickupController(interface, kinematics, cube_size=robot.cube_size), interface, observation, state
 
     def test_pickup_uses_interface_and_descends_without_camera(self):
         controller, interface, observation, state = self._recorded_pickup()
@@ -239,7 +239,7 @@ class PickupTests(unittest.TestCase):
             elif problem == "offset":
                 observation.world_from_cube[0, 3] += 0.05
             else:
-                interface.gripper_max_width = 0.085
+                interface.gripper_max_width = controller.cube_size + .005
             controller.start(observation)
             self.assertEqual(controller.phase, "failed")
             if problem == "offset":
@@ -274,13 +274,13 @@ class PickupTests(unittest.TestCase):
         result = controller.update()
         self.assertEqual(result.status, "pickup_opening")
         self.assertIn("gripper_width=80.0 mm", result.diagnostic)
-        self.assertIn("requested=120.0 mm", result.diagnostic)
+        self.assertIn("requested=100.5 mm", result.diagnostic)
         interface.timestamp = 31.
         interface.read_state.return_value = replace(state, timestamp=31., gripper_width=.08)
         result = controller.update()
         self.assertEqual(result.status, "pickup_failed")
         self.assertIn("phase_timeout: opening", result.diagnostic)
-        self.assertIn("required>=119.0 mm", result.diagnostic)
+        self.assertIn("required>=99.5 mm", result.diagnostic)
         interface.open_gripper.assert_called_once()
         interface.close_gripper.assert_not_called()
         for call in interface.set_joint_velocities.call_args_list:
@@ -304,8 +304,8 @@ class PickupTests(unittest.TestCase):
                 controller._change_phase("closing", 10.0)
                 for i in range(21):
                     now = 10.0 + 0.05 * i
-                    width = (0.114 - 0.005 * (now - 10.0) if moving
-                             else 0.10 + (0.001 if i % 2 else -0.001))
+                    width = (controller.cube_size + .014 - 0.005 * (now - 10.0) if moving
+                             else controller.cube_size + (0.001 if i % 2 else -0.001))
                     interface.timestamp = now
                     interface.read_state.return_value = replace(
                         state, timestamp=now, gripper_width=width,
@@ -334,7 +334,7 @@ class PickupTests(unittest.TestCase):
             controller._change_phase('closing', 10.)
             for i in range(18):
                 now = 10. + i*.063
-                width = .105 - .005*(now-10.) if moving else .1
+                width = controller.cube_size + .005 - .005*(now-10.) if moving else controller.cube_size
                 interface.timestamp = now
                 interface.read_state.return_value = replace(state, timestamp=now, gripper_width=width)
                 result = controller.update()

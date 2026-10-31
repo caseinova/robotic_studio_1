@@ -3,7 +3,7 @@
   <visual>
     <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0 0 0" />
     <rgba haze="0.15 0.25 0.35 1" />
-    <global azimuth="120" elevation="-20" />
+    <global azimuth="120" elevation="-10" />
   </visual>
   <asset>
     <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
@@ -25,14 +25,14 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" castshadow="false" />
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
-    <body name="cube" pos="-0.074 0.32 0.05">
-      <geom name="cube_geom" type="box" size="0.05 0.05 0.05" rgba="0.9 0.25 0.08 1" />
-      <geom name="cube_aruco" type="box" pos="0 0 0.0501" size="0.045 0.045 0.00005" material="cube_aruco_material" contype="0" conaffinity="0" mass="0" />
-      <geom name="cube_aruco_2" type="box" pos="0.0 0.0501 0.0" quat="0.707106781187 -0.707106781187 0 0" size="0.045 0.045 0.00005" material="cube_tag_2_material" contype="0" conaffinity="0" mass="0" />
-      <geom name="cube_aruco_3" type="box" pos="0.0501 0.0 0.0" quat="0.707106781187 0 0.707106781187 0" size="0.045 0.045 0.00005" material="cube_tag_3_material" contype="0" conaffinity="0" mass="0" />
-      <geom name="cube_aruco_4" type="box" pos="0.0 -0.0501 0.0" quat="0.707106781187 0.707106781187 0 0" size="0.045 0.045 0.00005" material="cube_tag_4_material" contype="0" conaffinity="0" mass="0" />
-      <geom name="cube_aruco_5" type="box" pos="-0.0501 0.0 0.0" quat="0.707106781187 0 -0.707106781187 0" size="0.045 0.045 0.00005" material="cube_tag_5_material" contype="0" conaffinity="0" mass="0" />
-      <geom name="cube_aruco_6" type="box" pos="0.0 0.0 -0.0501" quat="6.12323399574e-17 1 0 0" size="0.045 0.045 0.00005" material="cube_tag_6_material" contype="0" conaffinity="0" mass="0" />
+    <body name="cube" pos="-0.074 0.32 0.032">
+      <geom name="cube_geom" type="box" size=".032 .032 .032" rgba="0.9 0.25 0.08 1" />
+      <geom name="cube_aruco" type="box" pos="0 0 0.0321" size=".0225 .0225 .00005" material="cube_aruco_material" contype="0" conaffinity="0" mass="0" />
+      <geom name="cube_aruco_2" type="box" pos="0 0.0321 0" quat="0.707106781187 -0.707106781187 0 0" size=".0225 .0225 .00005" material="cube_tag_2_material" contype="0" conaffinity="0" mass="0" />
+      <geom name="cube_aruco_3" type="box" pos="0.0321 0 0" quat="0.707106781187 0 0.707106781187 0" size=".0225 .0225 .00005" material="cube_tag_3_material" contype="0" conaffinity="0" mass="0" />
+      <geom name="cube_aruco_4" type="box" pos="0 -0.0321 0" quat="0.707106781187 0.707106781187 0 0" size=".0225 .0225 .00005" material="cube_tag_4_material" contype="0" conaffinity="0" mass="0" />
+      <geom name="cube_aruco_5" type="box" pos="-0.0321 0 0" quat="0.707106781187 0 -0.707106781187 0" size=".0225 .0225 .00005" material="cube_tag_5_material" contype="0" conaffinity="0" mass="0" />
+      <geom name="cube_aruco_6" type="box" pos="0 0 -0.0321" quat="6.12323399574e-17 1 0 0" size=".0225 .0225 .00005" material="cube_tag_6_material" contype="0" conaffinity="0" mass="0" />
     </body>
   </worldbody>
 </mujoco>

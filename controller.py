@@ -223,7 +223,9 @@ class ApproachController:
                  controller_config: ControllerConfig | None = None,
                  estimator_config: EKFConfig | None = None, processor: TaggedCubeProcessor | None = None):
         self.interface = interface
-        self.processor = processor if processor is not None else TaggedCubeProcessor()
+        self.processor = processor if processor is not None else TaggedCubeProcessor(
+            cube_size=getattr(kinematics, 'cube_size', .1),
+            marker_size=getattr(kinematics, 'cube_marker_size', .08))
         estimator_config = estimator_config if estimator_config is not None else EKFConfig()
         self.estimator = RelativePoseEKF(estimator_config.for_target("cube"))
         # A separate tracker smooths the moving tool measured by its tag.
@@ -390,11 +392,13 @@ class CubePickupController:
     """
 
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
-                 cube_size: float = 0.10, speed: float = 0.03, angular_speed: float = 0.3,
+                 cube_size: float | None = None, speed: float = 0.03, angular_speed: float = 0.3,
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
                  velocity_limit: float = 0.35, clearance: float = 0.015,
                  frame_max_age_intervals: float = 2.0, grasp_height_offset_m: float = 0.0,
                  pickup_dwell_seconds: float = 0.0, pickup_dwell_radius_m: float = 0.01):
+        if cube_size is None:
+            cube_size = getattr(kinematics, 'cube_size', .1)
         for name, value, positive in (("pickup_dwell_seconds", pickup_dwell_seconds, False),
                                       ("pickup_dwell_radius_m", pickup_dwell_radius_m, True)):
             if (isinstance(value, bool) or not isinstance(value, (int, float))
@@ -494,7 +498,13 @@ class CubePickupController:
         self._cube_center = cube_center.copy()
         self._world_from_cube = cube_pose.copy()
         grasp_in_cube = cube_pose[:3, :3].T @ (grasp_position - cube_center)
-        self._descent_pose[:3, 3] += cube_pose[:3, 2] * (self.grasp_height_offset_m - grasp_in_cube[2])
+        target_grasp = grasp_position
+        # Articulated simulated fingers change pad depth as they close.
+        width_pose = getattr(type(self.kinematics), 'grasp_pose_at_width', None)
+        if width_pose is not None:
+            target_grasp = self.kinematics.grasp_pose_at_width(self.cube_size)[:3, 3]
+        target_grasp_z = (cube_pose[:3, :3].T @ (target_grasp - cube_center))[2]
+        self._descent_pose[:3, 3] += cube_pose[:3, 2] * (self.grasp_height_offset_m - target_grasp_z)
         horizontal_error = grasp_in_cube[:2]
         horizontal_distance = np.linalg.norm(horizontal_error)
         centering_limit = self.pickup_dwell_radius_m if self.pickup_dwell_seconds > 0 else .01

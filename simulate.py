@@ -45,7 +45,7 @@ class Simulation:
             self.robot.camera_name = camera_name
             self.robot.camera_id = self.robot.model.camera(camera_name).id
         self.config = config if config is not None else SimulationConfig()
-        self.controller_config = controller_config or ControllerConfig()
+        self.controller_config = controller_config or ControllerConfig(tool_clearance=.28)
         self.estimator_config = estimator_config or EKFConfig()
         # Preserve an explicitly supplied custom model unless settings are supplied.
         if robot is None or config is not None:
@@ -112,6 +112,7 @@ class Simulation:
                                         estimator_config=self.estimator_config)
         self.plots.reset()
         pickup_controller = (CubePickupController(self.interface, controller.kinematics,
+                             cube_size=self.robot.cube_size,
                              speed=controller.settings.pickup_linear_speed_m_s,
                              angular_speed=controller.settings.pickup_angular_speed_rad_s,
                              frame_max_age_intervals=controller.settings.frame_max_age_intervals,
@@ -164,6 +165,7 @@ class Simulation:
                                             estimator_config=self.estimator_config)
             if self.pickup:
                 pickup_controller = CubePickupController(self.interface, controller.kinematics,
+                    cube_size=self.robot.cube_size,
                     speed=controller.settings.pickup_linear_speed_m_s,
                     angular_speed=controller.settings.pickup_angular_speed_rad_s,
                     frame_max_age_intervals=controller.settings.frame_max_age_intervals,
@@ -183,7 +185,8 @@ class Simulation:
                 import cv2
                 from camera_processing import TaggedCubeProcessor
 
-                processor = controller.processor if controller is not None else TaggedCubeProcessor()
+                processor = controller.processor if controller is not None else TaggedCubeProcessor(
+                    cube_size=self.robot.cube_size, marker_size=self.robot.cube_marker_size)
 
             viewer = stack.enter_context(
                 mujoco.viewer.launch_passive(self.robot.model, self.robot.data)
