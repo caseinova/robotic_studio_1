@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-import calibrate_camera as calibration
+import hardware.calibrate_camera as calibration
 
 
 def test_removed_reference_mode_is_rejected_before_device_access(monkeypatch, capsys):

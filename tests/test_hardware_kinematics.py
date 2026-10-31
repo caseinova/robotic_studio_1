@@ -10,14 +10,12 @@ from unittest.mock import Mock, patch
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from controller import ApproachController, CubePickupController, JointSpaceMPC, MPCConfig
-from controller_config import ControllerConfig
-from estimator import EKFConfig
-from hardware_kinematics import (
-    UR3DH, UR3Kinematics, LinkCapsule, SphereObstacle, BoxObstacle, PlaneObstacle,
-    _segment_distance, _segment_distances, _segment_box_distance,
-)
-from robot_state import RobotState
+from common.controller import ApproachController, CubePickupController, JointSpaceMPC, MPCConfig
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
+from hardware.hardware_kinematics import UR3DH, UR3Kinematics
+from common.geometry import LinkCapsule, SphereObstacle, BoxObstacle, PlaneObstacle, _segment_distance, _segment_distances, _segment_box_distance
+from common.robot_state import RobotState
 
 
 def pose(xyz=(0, 0, 0), rotvec=(0, 0, 0)):
@@ -213,9 +211,11 @@ def blocked(name, *args, **kwargs):
     return original(name, *args, **kwargs)
 builtins.__import__ = blocked
 import numpy as np
-from hardware_kinematics import UR3Kinematics
-from controller import PBVS, JointSpaceMPC, CubePickupController
-from interface import RobotInterface
+from hardware.hardware_kinematics import UR3Kinematics
+from common.controller import PBVS
+from common.controller import JointSpaceMPC
+from common.controller import CubePickupController
+from common.interface import RobotInterface
 k = UR3Kinematics(joint_limits=(-np.ones(6), np.ones(6)), world_from_base=np.eye(4),
                   flange_from_tool=np.eye(4), tool_from_grasp=np.eye(4))
 assert k.tool_jacobian(np.zeros(6)).shape == (6, 6)

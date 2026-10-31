@@ -8,13 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from controller import ControlResult
-from controller_config import ControllerConfig
-from kinematics import MujocoKinematics
-from plots import SimulationPlots
-from robot_model import RobotModel
-from robot_state import RobotState
-from simulate import Simulation
+from common.controller import ControlResult
+from common.controller_config import ControllerConfig
+from simulation.kinematics import MujocoKinematics
+from simulation.plots import SimulationPlots
+from simulation.robot_model import RobotModel
+from common.robot_state import RobotState
+from simulation.simulate import Simulation
 
 
 class PlotTests(unittest.TestCase):
@@ -107,7 +107,7 @@ class PlotTests(unittest.TestCase):
                 stack.enter_context(patch(f"cv2.{name}"))
             stack.enter_context(patch("cv2.waitKey", return_value=-1))
             stack.enter_context(patch("cv2.getWindowProperty", return_value=1))
-            stack.enter_context(patch("simulate.time.sleep"))
+            stack.enter_context(patch("simulation.simulate.time.sleep"))
             live = stack.enter_context(patch.object(simulation.plots, "start_live"))
             refresh = stack.enter_context(patch.object(simulation.plots, "refresh"))
             simulation.launch_viewer(servo=True, plots=True)

@@ -5,12 +5,12 @@ import time
 import numpy as np
 import pytest
 
-from controller_config import ControllerConfig
-from estimator import EKFConfig
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
 from hardware_fakes import configured
-from robot_session import RobotSession
-from robot_session import PickAction
-from sequence_config import Destination, SequenceConfig
+from hardware.robot_session import RobotSession
+from common.pickup import PickAction
+from common.sequence_config import Destination, SequenceConfig
 
 
 def destination(**changes):
@@ -21,7 +21,7 @@ def destination(**changes):
 
 
 def test_pick_tracking_diagnostics_keep_timing_and_source_changes():
-    from controller import ControlResult
+    from common.controller import ControlResult
     from dataclasses import replace
     interface = SimpleNamespace(timestamp=10.)
     def capture():
@@ -126,8 +126,8 @@ def test_one_session_pick_then_place_and_idle_heartbeat(monkeypatch):
             self.s.tool_from_cube = None
             return True
 
-    monkeypatch.setattr("robot_session.PickAction", Pick)
-    monkeypatch.setattr("placement.PlaceAction", Place)
+    monkeypatch.setattr("hardware.robot_session.PickAction", Pick)
+    monkeypatch.setattr("common.placement.PlaceAction", Place)
     with robot:
         assert robot.servo_to_pick_up().holding_cube
         before = calls.count("stop")
@@ -148,7 +148,7 @@ def test_failure_stops_chain_and_closes_without_release(monkeypatch):
         def update(self):
             raise RuntimeError("path blocked")
 
-    monkeypatch.setattr("robot_session.PickAction", Fails)
+    monkeypatch.setattr("hardware.robot_session.PickAction", Fails)
     with pytest.raises(RuntimeError, match="path blocked"):
         with robot:
             robot.servo_to_pick_up()
@@ -164,7 +164,7 @@ def test_concurrent_actions_rejected_and_cancel_propagates(monkeypatch):
             pass
         def update(self):
             return False
-    monkeypatch.setattr("robot_session.PickAction", Waiting)
+    monkeypatch.setattr("hardware.robot_session.PickAction", Waiting)
     with robot:
         future = robot.start_servo_to_pick_up()
         with pytest.raises(RuntimeError, match="already active"):
@@ -210,7 +210,7 @@ def test_exit_does_not_duplicate_same_action_failure(monkeypatch):
 def test_preview_renders_rgb_and_window_cancel(monkeypatch):
     import sys
     from unittest.mock import Mock
-    from sequence_preview import SequencePreview
+    from common.sequence_preview import SequencePreview
     cv = Mock()
     cv.waitKey.return_value = -1
     cv.getWindowProperty.return_value = 1

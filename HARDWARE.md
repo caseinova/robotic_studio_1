@@ -8,7 +8,7 @@ offline preflight without opening devices. Existing `run.py` tasks are unchanged
 ## Supplied UR3e API
 
 The checked-in configuration selects `robot.driver = "ur3_rg2_rosbridge"`.
-`hardware_rosbridge.RosbridgeArm` uses `RealUR3e` from the nested
+`hardware.hardware_rosbridge.RosbridgeArm` uses `RealUR3e` from the nested
 `UR3_RG2_rosbridge` repository. `robot.api_path` resolves relative to the
 hardware configuration file; the default is `../UR3_RG2_rosbridge`.
 Keep the API repository inside `robotic_studio_1/UR3_RG2_rosbridge`, including the integration changes to the
@@ -38,17 +38,17 @@ The supplied model's `tool0` matches nominal DH frame 6; the physical active
 TCP, gripper, camera, and tag mounting still require installation calibration.
 No identity calibration or joint operating limits are inferred automatically.
 
-`hardware_kinematics.py` provides `UR3Kinematics`, implementing the same
+`hardware/hardware_kinematics.py` provides `UR3Kinematics`, implementing the same
 `Kinematics` contract as `MujocoKinematics`. It needs NumPy, not MuJoCo,
-`robot_model.py`, XML, rendering, or a running physics simulation.
+`simulation/robot_model.py`, XML, rendering, or a running physics simulation.
 
-`interface.py` remains responsible for sensor acquisition, timestamps, and
+`common/interface.py` remains responsible for sensor acquisition, timestamps, and
 robot/gripper communication. Geometry calculations belong in the kinematics
 backend so measured robot states and hypothetical MPC states stay separate.
 `run.py` selects simulation or hardware from `config/runtime_config.json`. Hardware
 uses `HardwareInterface`, the supplied UR3e API (or direct UR RTDE), and configurable OnRobot
 RG2/RG6 Compute Box Modbus TCP. The camera is a RealSense D435i, selected
-through `hardware_realsense:create_camera`. Any component can use a custom adapter.
+through `hardware.hardware_realsense:create_camera`. Any component can use a custom adapter.
 
 ## Configure and launch
 
@@ -100,7 +100,7 @@ Install the hardware dependencies, then inspect the connected camera:
 
 ```powershell
 py -m pip install -r requirements-hardware.txt
-py hardware_realsense.py
+py -m hardware.hardware_realsense
 ```
 
 The inspection command opens only the camera and prints its factory intrinsics,
@@ -116,7 +116,7 @@ SDK distortion model cannot be represented by the OpenCV model, the report leave
 
 The supplied `15_real_gripper_control.py` uses HTTP XML-RPC on the robot host,
 port 41414, gripper ID 0. Select `gripper.driver: "custom"` and
-`gripper.factory: "hardware_onrobot_xmlrpc:create_gripper"`, with
+`gripper.factory: "hardware.hardware_onrobot_xmlrpc:create_gripper"`, with
 `gripper.options: {"gripper_id": 0}`. This adapter uses the same `rg_get_width`
 and `rg_grip` wire methods, but supplies bounded PycURL requests and parsed
 XML-RPC responses rather than wrapping the example library's unbounded calls.
@@ -268,7 +268,7 @@ created adapters are owned and closed by the runtime.
 For additional cameras, the adapter contract is:
 
 ```python
-from hardware_devices import CameraSample
+from hardware.hardware_devices import CameraSample
 
 class CameraAdapter:
     def capture(self):
@@ -385,8 +385,8 @@ raises an explicit error if a detected tool tag is used.
 The JSON loader builds these calculation objects without opening devices:
 
 ```python
-from hardware_config import HardwareConfig
-from controller_config import ControllerConfig
+from hardware.hardware_config import HardwareConfig
+from common.controller_config import ControllerConfig
 
 hardware = HardwareConfig.load("config/hardware_config.json")
 hardware.validate_ready(ControllerConfig.load(), task="servo")

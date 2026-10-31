@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, Mock, patch
 import mujoco
 import numpy as np
 
-from controller import ApproachController, ControlResult, CubePickupController, start_pickup_or_reapproach
-from controller_config import ControllerConfig
-from kinematics import MujocoKinematics
-from robot_model import RobotModel
-from robot_state import RobotState
-from simulate import Simulation
-from simulation_config import SimulationConfig
-from noise_config import NoiseConfig
+from common.controller import ApproachController, ControlResult, CubePickupController, start_pickup_or_reapproach
+from common.controller_config import ControllerConfig
+from simulation.kinematics import MujocoKinematics
+from simulation.robot_model import RobotModel
+from common.robot_state import RobotState
+from simulation.simulate import Simulation
+from simulation.simulation_config import SimulationConfig
+from simulation.noise_config import NoiseConfig
 
 
 class PickupTests(unittest.TestCase):
@@ -416,14 +416,14 @@ class PickupTests(unittest.TestCase):
         context = MagicMock()
         context.__enter__.return_value = viewer
         with ExitStack() as stack:
-            stack.enter_context(patch("controller.ApproachController", return_value=approach))
-            stack.enter_context(patch("controller.CubePickupController", return_value=pickup))
+            stack.enter_context(patch("common.controller.ApproachController", return_value=approach))
+            stack.enter_context(patch("common.controller.CubePickupController", return_value=pickup))
             stack.enter_context(patch("mujoco.viewer.launch_passive", return_value=context))
             for name in ("namedWindow", "imshow", "destroyWindow"):
                 stack.enter_context(patch(f"cv2.{name}"))
             stack.enter_context(patch("cv2.waitKey", return_value=-1))
             stack.enter_context(patch("cv2.getWindowProperty", return_value=1))
-            stack.enter_context(patch("simulate.time.sleep"))
+            stack.enter_context(patch("simulation.simulate.time.sleep"))
             simulation.launch_viewer()
         approach.update.assert_called_once()
         pickup.start.assert_called_once_with(observation)

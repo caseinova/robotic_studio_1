@@ -5,9 +5,9 @@ import unittest
 import numpy as np
 import mujoco
 
-from robot_model import RobotModel
-from kinematics import MujocoKinematics
-from hardware_config import HardwareConfig
+from simulation.robot_model import RobotModel
+from simulation.kinematics import MujocoKinematics
+from hardware.hardware_config import HardwareConfig
 
 
 class UR3eModelTests(unittest.TestCase):

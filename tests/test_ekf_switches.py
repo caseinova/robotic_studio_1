@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from estimator import EKFConfig
+from common.estimator import EKFConfig
 
 
 @pytest.mark.parametrize('cube', [False, True])

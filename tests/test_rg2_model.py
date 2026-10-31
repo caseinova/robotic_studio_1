@@ -3,10 +3,10 @@ import mujoco
 import numpy as np
 import pytest
 
-from interface import MujocoInterface
-from kinematics import MujocoKinematics
-from robot_model import RobotModel
-from rg2_model import MAX_WIDTH, angles_to_width, linkage_positions, width_to_angle
+from simulation.interface import MujocoInterface
+from simulation.kinematics import MujocoKinematics
+from simulation.robot_model import RobotModel
+from simulation.rg2_model import MAX_WIDTH, angles_to_width, linkage_positions, width_to_angle
 
 
 @pytest.mark.parametrize('width', [0, .02, .064, .08, MAX_WIDTH])

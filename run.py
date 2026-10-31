@@ -3,35 +3,35 @@
 import argparse
 from pathlib import Path
 
-from runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
-from controller_config import ControllerConfig
-from estimator import EKFConfig
+from common.runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
 
 
 def launch(settings, *, validate_only=False):
     controller_config = ControllerConfig.load(settings.controller_config)
     estimator_config = EKFConfig.load(settings.estimator_config)
     if settings.backend == "hardware":
-        from hardware_config import HardwareConfig
+        from hardware.hardware_config import HardwareConfig
 
         hardware = HardwareConfig.load(settings.hardware_config)
         hardware.validate_ready(controller_config, task=settings.task)
         if validate_only:
             print("Hardware configuration valid; no devices opened")
             return
-        from hardware_runtime import run_hardware
+        from hardware.hardware_runtime import run_hardware
 
         return run_hardware(hardware, controller_config, estimator_config, task=settings.task,
                             steps=settings.steps, camera_view=settings.camera and not settings.headless)
-    from simulation_config import SimulationConfig
-    from noise_config import NoiseConfig
+    from simulation.simulation_config import SimulationConfig
+    from simulation.noise_config import NoiseConfig
 
     experiment = SimulationConfig.load(settings.simulation_config)
     noise = NoiseConfig.load(settings.noise_config)
     if validate_only:
         print("Simulation configuration valid; no simulation started")
         return
-    from simulate import Simulation
+    from simulation.simulate import Simulation
 
     simulation = Simulation(config=experiment, controller_config=controller_config,
         estimator_config=estimator_config, noise_config=noise, pickup=settings.task == "pick")

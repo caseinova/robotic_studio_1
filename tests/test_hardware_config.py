@@ -6,9 +6,9 @@ import unittest
 
 import numpy as np
 
-from controller_config import ControllerConfig
-from hardware_config import HardwareConfig
-from runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
+from common.controller_config import ControllerConfig
+from hardware.hardware_config import HardwareConfig
+from common.runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
 from hardware_fakes import configured
 
 

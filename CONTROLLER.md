@@ -1,5 +1,7 @@
 # Cube approach controller
 
+See [source layout](STRUCTURE.md) for package boundaries and updated Python imports.
+
 For complete simulated pickup, transfer, release and retreat, run
 `python run_sequence.py drop_zone_b --backend simulation` (add `--headless`
 for offline execution). See [sequence configuration and API](SEQUENCES.md).
@@ -15,7 +17,7 @@ The cube carries six ArUco `DICT_4X4_50` markers: ID 0 on top, ID 2 on
 keeps its single ID 1 marker. All markers have a 40 mm black square and
 2.5 mm white margins. Bottom-face visibility requires lifting or turning the cube.
 
-`TaggedCubeProcessor` in `camera_processing.py` converts each validated RGB-D
+`TaggedCubeProcessor` in `common/camera_processing.py` converts each validated RGB-D
 marker measurement through its known rigid mounting transform to the cube
 center. It rejects faces inconsistent with the best measurement and combines
 the remaining positions and rotations, weighting image area and reprojection
@@ -30,22 +32,26 @@ top reference frame for PBVS, even when only a side marker is visible, so the
 approach target does not jump between cube faces. For hardware, calibrate the
 face mounting transforms in `TaggedCubeProcessor` to the physical labels.
 
-Robot measurements and commands go through `RobotInterface` in `interface.py`.
+Robot measurements and commands go through `RobotInterface` in `common/interface.py`.
 The controller never reads live `RobotModel.data`. The responsibilities are:
 
 | File | Responsibility |
 | --- | --- |
-| `interface.py` | Robot state, clock, RGBD acquisition, arm/gripper commands, resource cleanup |
-| `robot_state.py` | Backend-independent `RobotState` and `RGBDFrame` data |
-| `kinematics.py` | Shared calculation contract and MuJoCo prediction workspace |
-| `hardware_kinematics.py` | UR3 FK, Jacobians, and geometric constraints without MuJoCo |
-| `controller.py` | Camera processing, PBVS, and optional MPC |
-| `simulate.py` | Physics stepping, experiment scene configuration, and viewer windows |
+| `common/interface.py` | Robot state, clock, RGBD acquisition, arm/gripper commands, resource cleanup |
+| `common/robot_state.py` | Backend-independent `RobotState` and `RGBDFrame` data |
+| `common/kinematics.py` | Backend-independent calculation contract and pose helpers |
+| `common/geometry.py` | Collision shapes and geometry calculations |
+| `common/pickup.py`, `common/placement.py` | Shared pick and place actions |
+| `simulation/interface.py`, `simulation/kinematics.py` | MuJoCo I/O and independent prediction workspace |
+| `hardware/interface.py` | Hardware measurements, timestamp checks, and commands |
+| `hardware/hardware_kinematics.py` | UR3 FK, Jacobians, and geometric constraints without MuJoCo |
+| `common/controller.py` | Camera processing, PBVS, and optional MPC |
+| `simulation/simulate.py` | Physics stepping, experiment scene configuration, and viewer windows |
 
 The UR3 backend and its calibration inputs are described in [HARDWARE.md](HARDWARE.md).
 Both the approach and pickup controllers accept either calculation backend.
 The hardware configuration selects the supplied `RealUR3e` API through
-`hardware_rosbridge.RosbridgeArm`, with a separate paced command worker.
+`hardware.hardware_rosbridge.RosbridgeArm`, with a separate paced command worker.
 Use `py run.py` with `config/runtime_config.json` for backend/task selection. Fill
 `config/hardware_config.json` before selecting hardware; `py run.py --backend hardware
 --validate` checks it without connecting. The RealSense D435i adapter is selected; camera intrinsics and installation
@@ -58,10 +64,10 @@ the measured width and remain fixed during arm prediction. Hardware can use
 `UR3Kinematics` without MuJoCo; simulation uses `MujocoKinematics`.
 
 ```python
-from controller import ApproachController
-from interface import MujocoInterface
-from kinematics import MujocoKinematics
-from robot_model import RobotModel
+from common.controller import ApproachController
+from simulation.interface import MujocoInterface
+from simulation.kinematics import MujocoKinematics
+from simulation.robot_model import RobotModel
 
 robot = RobotModel()
 with MujocoInterface(robot) as interface:
@@ -207,7 +213,7 @@ The portable interface controls the opening in meters, independently of the
 six arm joint commands:
 
 ```python
-from simulate import Simulation
+from simulation.simulate import Simulation
 
 simulation = Simulation()
 simulation.interface.close_gripper()
@@ -295,7 +301,7 @@ necessary for FK fallback, world-frame target estimates, and pickup.
 
 ## Relative pose EKF
 
-`estimator.py` provides `RelativePoseEKF`, an error-state extended Kalman
+`common/estimator.py` provides `RelativePoseEKF`, an error-state extended Kalman
 filter for a translating and rotating cube. The CLI loads
 `config/estimator_config.json` (`--estimator-config path.json` selects another file).
 `enabled` controls whether the approach controller uses the EKF; set it to
@@ -352,8 +358,8 @@ it does not command motion from prediction alone. Repeated exposure timestamps
 are not fused twice. Call `reset()` after restarting an interface clock.
 
 ```python
-from camera_processing import CameraProcessor
-from estimator import EKFConfig, RelativePoseEKF
+from common.camera_processing import CameraProcessor
+from common.estimator import EKFConfig, RelativePoseEKF
 
 processor = CameraProcessor()
 ekf = RelativePoseEKF(EKFConfig.load())
@@ -377,7 +383,7 @@ venv/Scripts/python.exe simulate.py --headless --pick --steps 15000
 ```
 
 `--pick` enables the selected approach controller, then hands off its final
-cube observation to `CubePickupController` in `controller.py`. `--servo`
+cube observation to `CubePickupController` in `common/controller.py`. `--servo`
 continues to run only the approach.
 
 The new class contains the complete pickup sequence: open, descend along cube
@@ -439,7 +445,7 @@ settings, not specifications for a particular real sensor.
 | `depth_bias` | Fixed depth offset, meters |
 | `depth_dropout_probability` | Probability 0–1 that a valid depth pixel becomes a hole |
 
-`noise.py` implements `MeasurementNoise`, with independent Gaussian errors
+`simulation/noise.py` implements `MeasurementNoise`, with independent Gaussian errors
 and fixed configurable biases. The depth model is
 `sigma(z) = depth_std + depth_std_per_meter_squared * z**2`. Invalid/background
 depth stays invalid; dropouts and readings outside the valid range become zero.
@@ -466,8 +472,8 @@ sequence and configuration.
 Python callers use noise-free defaults unless they supply settings explicitly:
 
 ```python
-from noise_config import NoiseConfig
-from simulate import Simulation
+from simulation.noise_config import NoiseConfig
+from simulation.simulate import Simulation
 
 simulation = Simulation(noise_config=NoiseConfig.load())
 state = simulation.interface.read_state()  # Noisy feedback, clean physics.
@@ -480,7 +486,7 @@ communication delays/dropouts, or calibration perturbations.
 
 ## Simulation plots
 
-`plots.py` provides `SimulationPlots`. Simulation records every control update
+`simulation/plots.py` provides `SimulationPlots`. Simulation records every control update
 in `simulation.plots`, including approach, target loss, and pickup. Samples use
 interface joint position/velocity measurements and a separate FK/Jacobian
 workspace. Recording does not read simulator ground truth, send commands, or

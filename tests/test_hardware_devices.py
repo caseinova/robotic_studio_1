@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-from hardware_devices import ModbusTCP, OnRobotRG, URRTDE
+from hardware.hardware_devices import ModbusTCP, OnRobotRG, URRTDE
 from hardware_fakes import Clock, configured
 
 
@@ -80,7 +80,7 @@ class HardwareDeviceTests(unittest.TestCase):
     def test_modbus_handles_split_packets_and_validates_transaction(self):
         for transaction, accepted in ((1, True), (2, False)):
             sock = PacketSocket(struct.pack('>HHHBBBH', transaction, 0, 5, 65, 3, 2, 1000))
-            with patch('hardware_devices.socket.create_connection', return_value=sock):
+            with patch('hardware.hardware_devices.socket.create_connection', return_value=sock):
                 bus = ModbusTCP('offline', 502, 65, .1)
                 if accepted:
                     self.assertEqual(bus.read_register(275), 1000)
@@ -93,7 +93,7 @@ class HardwareDeviceTests(unittest.TestCase):
     def test_modbus_write_checks_acknowledged_address_and_count(self):
         pdu = struct.pack('>BHH', 16, 0, 3)
         sock = PacketSocket(struct.pack('>HHHB', 1, 0, len(pdu) + 1, 65) + pdu)
-        with patch('hardware_devices.socket.create_connection', return_value=sock):
+        with patch('hardware.hardware_devices.socket.create_connection', return_value=sock):
             bus = ModbusTCP('offline', 502, 65, .1)
             bus.write_registers(0, [200, 1000, 16])
         self.assertEqual(sock.sent[7:], struct.pack('>BHHBHHH', 16, 0, 3, 6, 200, 1000, 16))
@@ -101,7 +101,7 @@ class HardwareDeviceTests(unittest.TestCase):
     def test_onrobot_uses_measured_width_and_atomic_force_width_control(self):
         bus = Mock()
         bus.read_register.side_effect = [0, 950, 0]
-        with patch('hardware_devices.ModbusTCP', return_value=bus):
+        with patch('hardware.hardware_devices.ModbusTCP', return_value=bus):
             device = OnRobotRG(configured().gripper, Clock())
         self.assertAlmostEqual(device.read_width().width, .095)
         device.command_width(.08)
@@ -115,7 +115,7 @@ class HardwareDeviceTests(unittest.TestCase):
         for status in (1, 4, 8, 16, 32, 64):
             bus = Mock()
             bus.read_register.return_value = status
-            with patch('hardware_devices.ModbusTCP', return_value=bus):
+            with patch('hardware.hardware_devices.ModbusTCP', return_value=bus):
                 device = OnRobotRG(configured().gripper, Clock())
             with self.subTest(status=status), self.assertRaises(RuntimeError):
                 device.command_width(.04)

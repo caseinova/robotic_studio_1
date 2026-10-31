@@ -11,12 +11,12 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from controller import ApproachController, ControlResult
-from controller_config import ControllerConfig
-from estimator import EKFConfig
-from hardware_runtime import run_hardware, open_hardware
-from interface import HardwareInterface
-from runtime_config import RuntimeConfig
+from common.controller import ApproachController, ControlResult
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
+from hardware.hardware_runtime import run_hardware, open_hardware
+from hardware.interface import HardwareInterface
+from common.runtime_config import RuntimeConfig
 from hardware_fakes import Clock, Robot, Camera, Gripper, configured
 
 
@@ -142,7 +142,7 @@ class HardwareRuntimeTests(unittest.TestCase):
             None, np.zeros(6), np.zeros(6), 'pickup_opening', 0, 0, np.nan,
             'gripper_width=80.0 mm')
         with patch.object(type(self.config), 'validate_ready'), \
-             patch('hardware_runtime.CubePickupController', return_value=pickup), \
+             patch('hardware.hardware_runtime.CubePickupController', return_value=pickup), \
              patch.object(ApproachController, 'update') as approach, \
              patch.object(self.interface, 'capture_rgbd', wraps=self.interface.capture_rgbd) as capture, \
              patch.object(cv2, 'namedWindow'), patch.object(cv2, 'imshow') as show, \
@@ -161,7 +161,7 @@ class HardwareRuntimeTests(unittest.TestCase):
         pickup.update.return_value = ControlResult(
             None, np.zeros(6), np.zeros(6), 'pickup_opening', 0, 0, np.nan)
         with patch.object(type(self.config), 'validate_ready'), \
-             patch('hardware_runtime.CubePickupController', return_value=pickup), \
+             patch('hardware.hardware_runtime.CubePickupController', return_value=pickup), \
              patch.object(self.interface, 'capture_rgbd') as capture:
             self.run_loop(task='pick', steps=3)
         capture.assert_not_called()
@@ -192,7 +192,7 @@ class HardwareRuntimeTests(unittest.TestCase):
         self.assertTrue(self.robot.stopped and self.camera.closed and self.gripper.closed)
         self.setUp()
         # Observe path deliberately makes processing exceed the configured budget.
-        with patch('camera_processing.TaggedCubeProcessor.process', side_effect=lambda frame: self.clock.sleep(.21)):
+        with patch('common.camera_processing.TaggedCubeProcessor.process', side_effect=lambda frame: self.clock.sleep(.21)):
             with self.assertRaisesRegex(TimeoutError, 'max_cycle_time') as failure:
                 self.run_loop(task='observe', steps=1)
         self.assertIn('observe=210.0 ms', str(failure.exception))
@@ -229,9 +229,9 @@ class HardwareRuntimeTests(unittest.TestCase):
         factory.assert_not_called()
 
     def test_partial_connection_failure_closes_already_opened_devices(self):
-        with patch('hardware_runtime.custom_device', return_value=self.camera), \
-             patch('hardware_runtime.OnRobotRG', return_value=self.gripper), \
-             patch('hardware_runtime.URRTDE', side_effect=RuntimeError('robot offline')):
+        with patch('hardware.hardware_runtime.custom_device', return_value=self.camera), \
+             patch('hardware.hardware_runtime.OnRobotRG', return_value=self.gripper), \
+             patch('hardware.hardware_runtime.URRTDE', side_effect=RuntimeError('robot offline')):
             with self.assertRaisesRegex(RuntimeError, 'offline'):
                 open_hardware(self.config, clock=self.clock)
         self.assertTrue(self.camera.closed and self.gripper.closed)
@@ -247,8 +247,8 @@ class HardwareRuntimeTests(unittest.TestCase):
                 raise AssertionError('hardware path imported simulation')
             return original_import(name, *args, **kwargs)
 
-        with patch('hardware_config.HardwareConfig.load', return_value=self.config), \
-             patch('hardware_runtime.run_hardware', return_value='hardware') as execute, \
+        with patch('hardware.hardware_config.HardwareConfig.load', return_value=self.config), \
+             patch('hardware.hardware_runtime.run_hardware', return_value='hardware') as execute, \
              patch('builtins.__import__', guarded):
             self.assertEqual(run.launch(settings), 'hardware')
         execute.assert_called_once()
@@ -267,9 +267,9 @@ class HardwareRuntimeTests(unittest.TestCase):
 
     def test_disabled_gripper_does_not_connect_and_servo_can_read_state(self):
         self.config.gripper.update(driver='disabled', host=None)
-        with patch('hardware_runtime.custom_device', return_value=self.camera) as custom, \
-             patch('hardware_runtime.OnRobotRG') as gripper, \
-             patch('hardware_runtime.URRTDE', return_value=self.robot):
+        with patch('hardware.hardware_runtime.custom_device', return_value=self.camera) as custom, \
+             patch('hardware.hardware_runtime.OnRobotRG') as gripper, \
+             patch('hardware.hardware_runtime.URRTDE', return_value=self.robot):
             with open_hardware(self.config, clock=self.clock) as interface:
                 state = interface.read_state()
                 self.assertIsNone(state.gripper_width)

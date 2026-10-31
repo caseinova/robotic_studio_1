@@ -59,7 +59,7 @@
   },
   "camera": {
     "driver": "custom",
-    "factory": "hardware_realsense:create_camera",
+    "factory": "hardware.hardware_realsense:create_camera",
     "options": {
       "serial": "017322075373",
       "fps": 30,
@@ -106,7 +106,7 @@
   },
   "gripper": {
     "driver": "custom",
-    "factory": "hardware_onrobot_xmlrpc:create_gripper",
+    "factory": "hardware.hardware_onrobot_xmlrpc:create_gripper",
     "options": {
       "gripper_id": 0
     },

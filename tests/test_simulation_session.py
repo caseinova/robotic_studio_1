@@ -6,15 +6,14 @@ import mujoco
 import numpy as np
 import pytest
 
-from camera_processing import CameraProcessor
-from controller_config import ControllerConfig
-from sequence_config import SequenceConfig, Destination
-from simulate import Simulation
-from simulation_config import SimulationConfig
-from simulation_session import (SimulationSession, SimulationPlacementGuard,
-                                SimulationPlacementKinematics)
-from noise_config import NoiseConfig
-from estimator import EKFConfig
+from common.camera_processing import CameraProcessor
+from common.controller_config import ControllerConfig
+from common.sequence_config import SequenceConfig, Destination
+from simulation.simulate import Simulation
+from simulation.simulation_config import SimulationConfig
+from simulation.simulation_session import SimulationSession, SimulationPlacementGuard, SimulationPlacementKinematics
+from simulation.noise_config import NoiseConfig
+from common.estimator import EKFConfig
 
 
 def settings():
@@ -92,7 +91,7 @@ def test_actions_chain_and_failure_stops_without_release():
                 calls.append('place')
                 self.s.tool_from_cube = None
                 return True
-        with patch('simulation_session.PickAction', Pick), patch('simulation_session.PlaceAction', Place):
+        with patch('simulation.simulation_session.PickAction', Pick), patch('simulation.simulation_session.PlaceAction', Place):
             assert session.servo_to_pick_up().holding_cube
             assert session.interface.timestamp >= session.settings.dt
             assert not session.move_to_destination_and_drop('drop_zone_b').holding_cube

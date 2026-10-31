@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from hardware_config import DEFAULT_HARDWARE_CONFIG_PATH
-from update_camera_intrinsics import select_serial, update_config
+from hardware.hardware_config import DEFAULT_HARDWARE_CONFIG_PATH
+from hardware.update_camera_intrinsics import select_serial, update_config
 
 
 @pytest.fixture

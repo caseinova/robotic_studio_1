@@ -5,10 +5,10 @@ import unittest
 import mujoco
 import numpy as np
 
-from camera_processing import CameraProcessor
-from controller import MujocoKinematics
-from robot_model import RobotModel
-from simulate import Simulation
+from common.camera_processing import CameraProcessor
+from simulation.kinematics import MujocoKinematics
+from simulation.robot_model import RobotModel
+from simulation.simulate import Simulation
 
 
 class GripperTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class GripperTests(unittest.TestCase):
     def test_cube_contact_stops_fingers_before_full_closure(self):
         simulation = Simulation()
         robot = simulation.robot
-        from rg2_model import linkage_positions
+        from simulation.rg2_model import linkage_positions
         indices = [robot.model.joint(name).qposadr[0] for name in robot.gripper_linkage_joint_names]
         opened = robot.data.qpos[indices].copy()
         robot.data.qpos[indices] = linkage_positions(robot.cube_size)

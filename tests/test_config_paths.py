@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
-from hardware_config import HardwareConfig, DEFAULT_HARDWARE_CONFIG_PATH
-from controller_config import ControllerConfig
-from simulation_config import SimulationConfig
-from noise_config import NoiseConfig
-from estimator import EKFConfig
+from common.runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
+from hardware.hardware_config import HardwareConfig, DEFAULT_HARDWARE_CONFIG_PATH
+from common.controller_config import ControllerConfig
+from simulation.simulation_config import SimulationConfig
+from simulation.noise_config import NoiseConfig
+from common.estimator import EKFConfig
 
 
 def test_defaults_load_from_config_outside_project_directory(tmp_path, monkeypatch):

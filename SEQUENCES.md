@@ -33,10 +33,10 @@ as in hardware; control does not read its ground-truth pose.
 The Python API provides blocking calls:
 
 ```python
-from simulate import Simulation
-from simulation_session import SimulationSession
-from sequence_config import SequenceConfig
-from controller_config import ControllerConfig
+from simulation.simulate import Simulation
+from simulation.simulation_session import SimulationSession
+from common.sequence_config import SequenceConfig
+from common.controller_config import ControllerConfig
 
 simulation = Simulation(controller_config=ControllerConfig.load())
 with SimulationSession(simulation, SequenceConfig.load()) as robot:
@@ -60,10 +60,10 @@ The existing `run.py --task pick` is unchanged. The new API keeps the same
 camera, arm, and gripper connections open across successive actions:
 
 ```python
-from controller_config import ControllerConfig
-from estimator import EKFConfig
-from hardware_config import HardwareConfig
-from robot_session import RobotSession
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
+from hardware.hardware_config import HardwareConfig
+from hardware.robot_session import RobotSession
 
 robot = RobotSession(HardwareConfig.load(), ControllerConfig.load(), EKFConfig.load())
 robot.validate_destination("drop_zone_b")  # Offline check BEFORE picking up.

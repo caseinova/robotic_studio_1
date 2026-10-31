@@ -8,11 +8,11 @@ import unittest
 import mujoco
 import numpy as np
 
-from camera_processing import CameraProcessor
-from controller import ApproachController
-from kinematics import MujocoKinematics
-from simulation_config import SimulationConfig
-from simulate import Simulation
+from common.camera_processing import CameraProcessor
+from common.controller import ApproachController
+from simulation.kinematics import MujocoKinematics
+from simulation.simulation_config import SimulationConfig
+from simulation.simulate import Simulation
 
 
 class SimulationConfigTests(unittest.TestCase):

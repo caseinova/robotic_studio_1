@@ -11,8 +11,8 @@ from scipy.spatial.transform import Rotation
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from hardware_config import HardwareConfig
-from calibrate_camera import atomic_json
+from hardware.hardware_config import HardwareConfig
+from hardware.calibrate_camera import atomic_json
 
 MODEL = ROOT / 'UR3_RG2_rosbridge/models/ur3e_official'
 LINKS = ['base_link_inertia', 'shoulder_link', 'upper_arm_link', 'forearm_link',

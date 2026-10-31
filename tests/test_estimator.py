@@ -10,7 +10,7 @@ from unittest.mock import patch
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from estimator import EKFConfig, RelativePoseEKF
+from common.estimator import EKFConfig, RelativePoseEKF
 
 
 def pose(position=(0, 0, 0), rotvec=(0, 0, 0)):
@@ -133,10 +133,10 @@ class EstimatorTests(unittest.TestCase):
         self.assertIsNone(tracker.predict(0, np.eye(4)))
 
     def test_controller_consumes_filtered_pose_and_stops_on_rejected_measurement(self):
-        from controller import ApproachController
-        from controller_config import ControllerConfig
-        from kinematics import MujocoKinematics
-        from simulate import Simulation
+        from common.controller import ApproachController
+        from common.controller_config import ControllerConfig
+        from simulation.kinematics import MujocoKinematics
+        from simulation.simulate import Simulation
         simulation = Simulation(controller_config=ControllerConfig(mode="pure_pbvs"))
         controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot),
                                         controller_config=simulation.controller_config)

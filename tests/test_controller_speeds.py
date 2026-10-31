@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from controller import PBVS, CubePickupController
-from controller_config import ControllerConfig
-from robot_session import PickAction
+from common.controller import PBVS, CubePickupController
+from common.controller_config import ControllerConfig
+from common.pickup import PickAction
 from hardware_fakes import configured
-from estimator import EKFConfig
+from common.estimator import EKFConfig
 
 
 FIELDS = ("approach_linear_speed_m_s", "approach_angular_speed_rad_s",

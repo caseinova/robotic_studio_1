@@ -6,9 +6,9 @@ import unittest
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from camera_processing import TaggedCubeProcessor
-from estimator import RelativePoseEKF
-from robot_model import RobotModel
+from common.camera_processing import TaggedCubeProcessor
+from common.estimator import RelativePoseEKF
+from simulation.robot_model import RobotModel
 
 
 class CubeMarkersTests(unittest.TestCase):
@@ -64,9 +64,9 @@ class CubeMarkersTests(unittest.TestCase):
         self.assertIsNone(processor.process(robot.capture_rgbd()))
 
     def test_approach_reaches_goal_with_top_tag_hidden(self):
-        from controller_config import ControllerConfig
-        from noise_config import NoiseConfig
-        from simulate import Simulation
+        from common.controller_config import ControllerConfig
+        from simulation.noise_config import NoiseConfig
+        from simulation.simulate import Simulation
 
         simulation = Simulation(controller_config=ControllerConfig(
             mode='pure_pbvs', tool_pose_source='tag_only'),

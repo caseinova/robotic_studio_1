@@ -5,8 +5,8 @@ from unittest.mock import Mock, MagicMock
 import numpy as np
 import pytest
 
-from camera_processing import TaggedCubeProcessor
-from runtime_config import RuntimeConfig
+from common.camera_processing import TaggedCubeProcessor
+from common.runtime_config import RuntimeConfig
 import run_sequence
 
 

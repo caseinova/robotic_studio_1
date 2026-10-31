@@ -9,10 +9,11 @@ from contextlib import ExitStack
 import mujoco
 import numpy as np
 
-from controller import ApproachController, JointSpaceMPC, MujocoKinematics, PBVS
-from interface import MujocoInterface
-from robot_model import RobotModel
-from simulate import Simulation
+from common.controller import ApproachController, JointSpaceMPC, PBVS
+from simulation.kinematics import MujocoKinematics
+from simulation.interface import MujocoInterface
+from simulation.robot_model import RobotModel
+from simulation.simulate import Simulation
 
 
 class ControllerTests(unittest.TestCase):
@@ -142,7 +143,7 @@ class ControllerTests(unittest.TestCase):
     def test_solver_failure_stops(self):
         robot = RobotModel()
         mpc = JointSpaceMPC(MujocoKinematics(robot))
-        with patch("controller.minimize", return_value=SimpleNamespace(success=False, message="test failure")):
+        with patch("common.controller.minimize", return_value=SimpleNamespace(success=False, message="test failure")):
             solution = mpc.solve(robot.joint_positions, np.zeros(6), np.ones(6) * 0.1)
         self.assertFalse(solution.feasible)
         np.testing.assert_array_equal(solution.velocity, np.zeros(6))
@@ -179,7 +180,7 @@ class ControllerTests(unittest.TestCase):
                 stack.enter_context(patch(f"cv2.{name}"))
             stack.enter_context(patch("cv2.waitKey", return_value=-1))
             stack.enter_context(patch("cv2.getWindowProperty", return_value=1))
-            stack.enter_context(patch("simulate.time.sleep"))
+            stack.enter_context(patch("simulation.simulate.time.sleep"))
             simulation.launch_viewer(servo=True)
         self.assertAlmostEqual(simulation.robot.data.time, 12.25, places=6)
         self.assertGreater(np.linalg.norm(simulation.robot.joint_positions - initial), 0.3)

@@ -8,11 +8,11 @@ import unittest
 
 import numpy as np
 
-from kinematics import MujocoKinematics
-from noise import MeasurementNoise
-from noise_config import NoiseConfig
-from robot_state import RGBDFrame, RobotState
-from simulate import Simulation
+from simulation.kinematics import MujocoKinematics
+from simulation.noise import MeasurementNoise
+from simulation.noise_config import NoiseConfig
+from common.robot_state import RGBDFrame, RobotState
+from simulation.simulate import Simulation
 
 
 def quiet_config(**settings):

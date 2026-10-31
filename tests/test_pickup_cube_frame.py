@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from controller import CubePickupController
+from common.controller import CubePickupController
 
 
 def setup_pickup(angles=(20, 35, 10), local_grasp=(0, 0, .1), dwell=0):

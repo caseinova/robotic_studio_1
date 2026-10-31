@@ -1,6 +1,6 @@
 import numpy as np
 
-from hardware_config import HardwareConfig
+from hardware.hardware_config import HardwareConfig
 from tools.derive_arm_capsules import derive, fit, fit_parts, coarse_parts, partition_triangles, segment_distances
 
 

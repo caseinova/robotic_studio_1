@@ -4,12 +4,12 @@ import argparse
 import time
 from pathlib import Path
 
-from controller_config import ControllerConfig
-from estimator import EKFConfig
-from hardware_config import HardwareConfig
-from robot_session import RobotSession
-from sequence_config import SequenceConfig, DEFAULT_SEQUENCE_CONFIG_PATH
-from runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
+from hardware.hardware_config import HardwareConfig
+from hardware.robot_session import RobotSession
+from common.sequence_config import SequenceConfig, DEFAULT_SEQUENCE_CONFIG_PATH
+from common.runtime_config import RuntimeConfig, DEFAULT_RUNTIME_CONFIG_PATH
 
 
 def main(argv=None):
@@ -29,7 +29,7 @@ def main(argv=None):
             hardware_config=None if args.hardware_config is None else args.hardware_config.resolve())
         camera_view = runtime.camera and not runtime.headless
         if runtime.backend == 'simulation':
-            from simulation_session import run_simulation_sequence
+            from simulation.simulation_session import run_simulation_sequence
             return run_simulation_sequence(runtime, SequenceConfig.load(args.sequence_config),
                                            args.destination, validate_only=args.validate)
         robot = RobotSession(HardwareConfig.load(runtime.hardware_config),
@@ -43,7 +43,7 @@ def main(argv=None):
             print("Sequence configuration is valid. No devices opened; physical geometry is not certified.")
             return 0
         if camera_view:
-            from sequence_preview import SequencePreview
+            from common.sequence_preview import SequencePreview
             preview = SequencePreview(robot.hardware.camera)
         with robot:
             def wait(action):

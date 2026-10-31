@@ -9,7 +9,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from rg2_model import MAX_WIDTH, linkage_positions
+from simulation.rg2_model import MAX_WIDTH, linkage_positions
 
 
 def render(output):

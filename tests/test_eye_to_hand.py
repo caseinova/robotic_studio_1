@@ -8,19 +8,19 @@ from unittest.mock import Mock, patch
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from camera_processing import CameraProcessor
-from controller import ApproachController
-from controller_config import ControllerConfig
-from estimator import EKFConfig
-from kinematics import MujocoKinematics
-from robot_model import RobotModel
-from robot_state import RobotState
+from common.camera_processing import CameraProcessor
+from common.controller import ApproachController
+from common.controller_config import ControllerConfig
+from common.estimator import EKFConfig
+from simulation.kinematics import MujocoKinematics
+from simulation.robot_model import RobotModel
+from common.robot_state import RobotState
 
 
 class EyeToHandTests(unittest.TestCase):
     def test_tag_only_closed_loop_keeps_both_tags_visible_and_reaches_goal(self):
-        from simulate import Simulation
-        from noise_config import NoiseConfig
+        from simulation.simulate import Simulation
+        from simulation.noise_config import NoiseConfig
 
         simulation = Simulation(controller_config=ControllerConfig(
             mode="pure_pbvs", tool_pose_source="tag_only"), noise_config=NoiseConfig(enabled=False))

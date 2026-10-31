@@ -6,8 +6,8 @@ import unittest
 import numpy as np
 
 from hardware_fakes import Clock, Robot, Gripper, configured
-from hardware_realsense import RealSenseD435i, RepeatedFrameError, validate_settings
-from interface import HardwareInterface
+from hardware.hardware_realsense import RealSenseD435i, RepeatedFrameError, validate_settings
+from hardware.interface import HardwareInterface
 
 
 class Frame:
@@ -90,7 +90,7 @@ class FakeSDK:
 class RealSenseTests(unittest.TestCase):
     def setUp(self):
         self.config, self.clock = configured(), Clock()
-        self.config.camera['factory'] = 'hardware_realsense:create_camera'
+        self.config.camera['factory'] = 'hardware.hardware_realsense:create_camera'
         self.config.camera['options']['warmup_frames'] = 0
         self.sdk = FakeSDK(self.config.camera, self.clock)
 

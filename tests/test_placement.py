@@ -3,9 +3,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hardware_kinematics import LinkCapsule, PlaneObstacle, SphereObstacle
-from placement import PlaceAction, PlacementCollisionGuard, cube_plane_gap, vertical_drop_height
-from sequence_config import Destination, SequenceConfig
+from common.geometry import LinkCapsule, PlaneObstacle, SphereObstacle
+from common.placement import PlaceAction, PlacementCollisionGuard, cube_plane_gap, vertical_drop_height
+from common.sequence_config import Destination, SequenceConfig
 
 
 def pose(z=0):

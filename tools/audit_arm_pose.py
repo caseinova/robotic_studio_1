@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.derive_arm_capsules import ROOT, MODEL, LINKS, chain, origin
-from hardware_config import HardwareConfig
+from hardware.hardware_config import HardwareConfig
 
 
 def audit(config, q):

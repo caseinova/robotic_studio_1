@@ -1,6 +1,6 @@
 import numpy as np
 
-from hardware_config import HardwareConfig
+from hardware.hardware_config import HardwareConfig
 from tools.audit_arm_pose import audit
 
 

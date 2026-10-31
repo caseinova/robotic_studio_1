@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import numpy as np
 
-from interface import HardwareInterface
+from hardware.interface import HardwareInterface
 from hardware_fakes import Clock, Robot, Camera, Gripper, configured
 
 

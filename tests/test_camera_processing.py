@@ -6,10 +6,10 @@ import unittest
 import mujoco
 import numpy as np
 
-from camera_processing import CameraProcessor
-from robot_model import RobotModel
-from noise import MeasurementNoise
-from noise_config import NoiseConfig
+from common.camera_processing import CameraProcessor
+from simulation.robot_model import RobotModel
+from simulation.noise import MeasurementNoise
+from simulation.noise_config import NoiseConfig
 
 
 class CameraProcessingTests(unittest.TestCase):

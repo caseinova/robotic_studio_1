@@ -6,11 +6,11 @@ import cv2
 import mujoco
 import numpy as np
 
-from interface import MujocoInterface
-from noise_config import NoiseConfig
-from robot_model import RobotModel
-from camera_processing import CameraProcessor
-from kinematics import MujocoKinematics
+from simulation.interface import MujocoInterface
+from simulation.noise_config import NoiseConfig
+from simulation.robot_model import RobotModel
+from common.camera_processing import CameraProcessor
+from simulation.kinematics import MujocoKinematics
 
 
 class ExternalCameraTests(unittest.TestCase):
@@ -26,7 +26,7 @@ class ExternalCameraTests(unittest.TestCase):
             RobotModel(camera_name="wrist_camera")
 
     def test_fixed_camera_servo_commands_tool_motion(self):
-        from simulate import Simulation
+        from simulation.simulate import Simulation
 
         simulation = Simulation()
         initial = simulation.robot.joint_positions

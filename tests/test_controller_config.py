@@ -10,11 +10,11 @@ from unittest.mock import patch
 import numpy as np
 import mujoco
 
-from controller import ApproachController
-from kinematics import MujocoKinematics
-from controller_config import ControllerConfig
-from simulate import Simulation
-from simulation_config import SimulationConfig
+from common.controller import ApproachController
+from simulation.kinematics import MujocoKinematics
+from common.controller_config import ControllerConfig
+from simulation.simulate import Simulation
+from simulation.simulation_config import SimulationConfig
 
 
 class ControllerConfigTests(unittest.TestCase):
@@ -100,7 +100,7 @@ class ControllerConfigTests(unittest.TestCase):
         controller = ApproachController(simulation.interface, MujocoKinematics(simulation.robot), controller_config=config)
         self.assertIsNone(controller.mpc)
         frame = simulation.robot.capture_rgbd()
-        with patch("controller.JointSpaceMPC.solve", side_effect=AssertionError("MPC must not run")), \
+        with patch("common.controller.JointSpaceMPC.solve", side_effect=AssertionError("MPC must not run")), \
              patch.object(controller.kinematics, "distances", side_effect=AssertionError("no collision queries")):
             result = controller.update(frame)
         self.assertEqual(result.status, "tracking")
@@ -113,7 +113,7 @@ class ControllerConfigTests(unittest.TestCase):
 
     def test_pure_pbvs_closed_loop_reaches_goal(self):
         simulation = Simulation(controller_config=ControllerConfig(mode="pure_pbvs"))
-        with patch("controller.JointSpaceMPC.solve", side_effect=AssertionError("MPC must not run")):
+        with patch("common.controller.JointSpaceMPC.solve", side_effect=AssertionError("MPC must not run")):
             result = simulation.run_controlled(6000)
         self.assertEqual(result.status, "reached")
         self.assertLess(result.position_error, 0.003)

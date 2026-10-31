@@ -5,13 +5,13 @@ import unittest
 
 import numpy as np
 
-from controller import ApproachController
-from controller_config import ControllerConfig
-from interface import RobotInterface
-from kinematics import MujocoKinematics
-from robot_model import RobotModel
-from robot_state import RobotState
-from simulate import Simulation
+from common.controller import ApproachController
+from common.controller_config import ControllerConfig
+from common.interface import RobotInterface
+from simulation.kinematics import MujocoKinematics
+from simulation.robot_model import RobotModel
+from common.robot_state import RobotState
+from simulation.simulate import Simulation
 
 
 class RecordedRobotInterface(RobotInterface):

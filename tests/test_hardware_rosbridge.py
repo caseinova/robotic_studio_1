@@ -10,9 +10,9 @@ from unittest.mock import Mock, patch
 import numpy as np
 import cv2  # Keep native OpenCV initialized outside temporary sys.modules patches.
 
-from controller_config import ControllerConfig
-from hardware_config import HardwareConfig
-from hardware_rosbridge import DEFAULT_API_PATH, RosbridgeArm, load_backend
+from common.controller_config import ControllerConfig
+from hardware.hardware_config import HardwareConfig
+from hardware.hardware_rosbridge import DEFAULT_API_PATH, RosbridgeArm, load_backend
 from hardware_fakes import Clock, configured, Camera, Gripper
 
 
@@ -136,10 +136,10 @@ class RosbridgeTests(unittest.TestCase):
                 self.sender.speedJ.assert_not_called()
 
     def test_runtime_selects_api_without_enabling_control(self):
-        from hardware_runtime import open_hardware
+        from hardware.hardware_runtime import open_hardware
 
-        with patch("hardware_runtime.custom_device", return_value=Camera(self.config.camera, self.clock)), \
-             patch("hardware_runtime.OnRobotRG", return_value=Gripper(self.clock)):
+        with patch("hardware.hardware_runtime.custom_device", return_value=Camera(self.config.camera, self.clock)), \
+             patch("hardware.hardware_runtime.OnRobotRG", return_value=Gripper(self.clock)):
             with open_hardware(self.config, clock=self.clock) as interface:
                 self.assertIsInstance(interface.robot, RosbridgeArm)
                 interface.read_state()

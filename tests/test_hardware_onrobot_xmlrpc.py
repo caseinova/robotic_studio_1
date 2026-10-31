@@ -5,7 +5,7 @@ import xmlrpc.client
 import pytest
 import pycurl
 
-from hardware_onrobot_xmlrpc import OnRobotXMLRPC, validate_settings
+from hardware.hardware_onrobot_xmlrpc import OnRobotXMLRPC, validate_settings
 
 
 SETTINGS = dict(host='192.168.0.192', port=41414, options={'gripper_id': 0},

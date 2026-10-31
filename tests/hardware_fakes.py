@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
-from hardware_config import HardwareConfig
-from hardware_kinematics import UR3DH
-from hardware_devices import CameraSample, JointSample, WidthSample
+from hardware.hardware_config import HardwareConfig
+from hardware.hardware_kinematics import UR3DH
+from hardware.hardware_devices import CameraSample, JointSample, WidthSample
 
 
 class Clock:

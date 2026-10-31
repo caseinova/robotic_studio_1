@@ -14,7 +14,7 @@ from scipy.optimize import lsq_linear
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from hardware_config import HardwareConfig
+from hardware.hardware_config import HardwareConfig
 
 FAILING_Q = [-1.087698761616842, -1.5815416775145472, -1.6191456317901611,
              -1.5562566083720704, 1.6523456573486328, -.3832309881793421]

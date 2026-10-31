@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from controller_config import ControllerConfig
-from controller import CubePickupController
+from common.controller_config import ControllerConfig
+from common.controller import CubePickupController
 
 
 @pytest.mark.parametrize('value', [True, None, '0.005', float('nan'), float('inf')])
