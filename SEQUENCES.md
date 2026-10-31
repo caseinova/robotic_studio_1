@@ -1,5 +1,61 @@
 # Pick and Place Sessions
 
+## Simulation
+
+Run the same pickup and placement actions in MuJoCo:
+
+```bash
+python run_sequence.py drop_zone_b --backend simulation --validate
+python run_sequence.py drop_zone_b --backend simulation
+python run_sequence.py drop_zone_b --backend simulation --headless
+```
+
+Without `--backend`, this launcher retains its hardware default. `run.py --task pick`
+still performs pickup only. Simulation opens no robot/camera hardware connections.
+It uses the controller, estimator, noise, and simulation paths in runtime_config.json,
+and the same sequence_config.json destination IDs, sizes, target offsets, speeds,
+and timeouts as hardware. The non-headless mode opens the MuJoCo viewer and, when
+runtime.camera is enabled, a live camera window. Closing the viewer or pressing
+Q/Escape in the camera window stops the sequence without releasing automatically.
+
+Set tag locations in `config/simulation_config.json`:
+
+```json
+"destination_positions": {"drop_zone_b": [0.12, 0.32, 0.0]}
+```
+
+These are world XYZ positions, in meters, for horizontal tags on the simulated
+floor (Z must be zero). Marker IDs and sizes come from sequence_config.json,
+not this placement map. Each configured destination needs a position. The
+destination is acquired from rendered RGB-D after pickup, then latched just
+as in hardware; control does not read its ground-truth pose.
+
+The Python API provides blocking calls:
+
+```python
+from simulate import Simulation
+from simulation_session import SimulationSession
+from sequence_config import SequenceConfig
+from controller_config import ControllerConfig
+
+simulation = Simulation(controller_config=ControllerConfig.load())
+with SimulationSession(simulation, SequenceConfig.load()) as robot:
+    robot.servo_to_pick_up()
+    robot.move_to_destination_and_drop("drop_zone_b")
+```
+
+Physics advances during actions; between blocking calls it is paused, unlike
+the hardware session's background worker. Phase/action timeouts use simulation
+time. Failures stop joint commands and latch the session failed. A new session
+is required after failure. The simulated cube is free and carried by contact,
+not welded or teleported. The placement collision guard uses an isolated MuJoCo
+model and checks arm/tool meshes plus the carried cube and release envelope.
+This is a single-cube scene, not a multi-object planner. The current configured
+64 mm cube, 40 mm pickup-height offset, and 250 mm approach clearance complete
+the tested sequence; other poses/clearances can still be blocked by RG2 geometry.
+
+## Hardware
+
 The existing `run.py --task pick` is unchanged. The new API keeps the same
 camera, arm, and gripper connections open across successive actions:
 
@@ -32,8 +88,8 @@ receive an independent background motion heartbeat.
 
 ## Destination Configuration
 
-`config/sequence_config.json` has an intentionally empty `destinations` map.
-Add measured destinations. This is an EXAMPLE only for a 64 mm cube on a flat
+`config/sequence_config.json` contains the installed destination settings.
+For hardware, use measured destinations. This is an EXAMPLE only for a 64 mm cube on a flat
 surface, with an 80 mm tag ID 10, cube center 150 mm along marker X:
 
 ```json

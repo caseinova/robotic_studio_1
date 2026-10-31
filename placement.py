@@ -78,13 +78,17 @@ class PlacementCollisionGuard:
 
 
 class PlaceAction:
-    def __init__(self, session, destination):
+    def __init__(self, session, destination, *, guard_factory=PlacementCollisionGuard,
+                 frame_max_age=None, acceleration_limit=None):
         self.s, self.destination = session, destination
         self.processor = CameraProcessor(marker_id=destination.marker_id,
             marker_size=destination.marker_size_m, cube_size=destination.marker_size_m)
         self.phase = "acquiring"
         self.started = session.interface.timestamp
-        self.guard = PlacementCollisionGuard(session.kinematics, session.cube_size,
+        self.frame_max_age = session.hardware.control["frame_max_age"] if frame_max_age is None else frame_max_age
+        self.acceleration_limit = (session.hardware.control["acceleration_limit"]
+                                   if acceleration_limit is None else acceleration_limit)
+        self.guard = guard_factory(session.kinematics, session.cube_size,
             session.settings.clearance, session.tool_from_cube, destination.collision_support_plane)
         self.collision_support = next(o for o in session.kinematics.obstacles if o.name == destination.collision_support_plane)
         self.placement_plane = None
@@ -139,7 +143,7 @@ class PlaceAction:
                 s.diagnostic = "destination_acquisition_waiting: tag missing or rejected"
                 return False
             age = interface.timestamp - observation.timestamp
-            if not 0 <= age <= min(s.hardware.control["frame_max_age"],
+            if not 0 <= age <= min(self.frame_max_age,
                     s.controller_config.frame_max_age_intervals * s.settings.dt):
                 s.diagnostic = "destination_acquisition_waiting: stale observation"
                 return False
@@ -234,7 +238,7 @@ class PlaceAction:
         jacobian = k.tool_jacobian(state.joint_positions)
         command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + .01**2 * np.eye(6), twist)
         command /= max(1., np.max(np.abs(command)) / s.settings.velocity_limit)
-        acceleration = s.hardware.control["acceleration_limit"] * s.settings.dt
+        acceleration = self.acceleration_limit * s.settings.dt
         limited = np.clip(command, state.joint_velocities - acceleration, state.joint_velocities + acceleration)
         clipped_joints = int(np.count_nonzero(np.abs(limited - command) > 1e-10))
         command = limited

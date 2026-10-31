@@ -18,15 +18,20 @@ def main(argv=None):
     parser.add_argument("--sequence-config", default=DEFAULT_SEQUENCE_CONFIG_PATH)
     parser.add_argument("--config", default=DEFAULT_RUNTIME_CONFIG_PATH, help="shared runtime config, as in run.py")
     parser.add_argument("--hardware-config", type=Path, default=None)
+    parser.add_argument("--backend", choices=('hardware', 'simulation'), default='hardware')
     parser.add_argument("--validate", action="store_true", help="offline preflight only")
     parser.add_argument("--headless", action="store_true", default=None, help="disable the live camera window")
     args = parser.parse_args(argv)
     preview = None
     try:
-        runtime = RuntimeConfig.load(args.config).override(backend="hardware", task="pick",
+        runtime = RuntimeConfig.load(args.config).override(backend=args.backend, task="pick",
             headless=args.headless,
             hardware_config=None if args.hardware_config is None else args.hardware_config.resolve())
         camera_view = runtime.camera and not runtime.headless
+        if runtime.backend == 'simulation':
+            from simulation_session import run_simulation_sequence
+            return run_simulation_sequence(runtime, SequenceConfig.load(args.sequence_config),
+                                           args.destination, validate_only=args.validate)
         robot = RobotSession(HardwareConfig.load(runtime.hardware_config),
                              ControllerConfig.load(runtime.controller_config),
                              EKFConfig.load(runtime.estimator_config),
@@ -68,6 +73,9 @@ def main(argv=None):
             wait(robot.start_servo_to_pick_up())
             wait(robot.start_move_to_destination_and_drop(args.destination))
         return 0
+    except KeyboardInterrupt:
+        print('Stopped')
+        return 130
     except (ValueError, RuntimeError, TimeoutError) as error:
         print(f"Error: {error}")
         return 1

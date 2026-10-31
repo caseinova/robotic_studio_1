@@ -1,5 +1,9 @@
 # Cube approach controller
 
+For complete simulated pickup, transfer, release and retreat, run
+`python run_sequence.py drop_zone_b --backend simulation` (add `--headless`
+for offline execution). See [sequence configuration and API](SEQUENCES.md).
+
 The simulator now uses the supplied UR3e arm with an articulated RG2 gripper
 and tagged-cube scene. See [model notes](models/ur3e/README.md) for provenance,
 actuators, frame conventions, and simulation-specific changes. The default

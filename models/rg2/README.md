@@ -35,6 +35,8 @@ pad geometry, friction and payload behavior before using results quantitatively.
 
 Validation: width conversion, independent FK, open/close dynamics, marker
 mounting, rendered detection, and cube contact have offline regression tests.
-A full default-scene PBVS pickup smoke test reaches gripping but is blocked
-at lift by inner-link/cube collision clearance. The collision guard remains
-enabled; full contact-driven pickup is not yet validated for this model.
+A headless pick-and-place run with the current controller configuration
+(including its 40 mm grasp-height offset) completes with physical cube
+contacts and collision checks enabled. This validates the configured scene,
+not arbitrary grasp offsets or payloads; deeper grasps can bring the inner
+linkages into collision with the cube.

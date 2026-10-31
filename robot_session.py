@@ -28,7 +28,7 @@ class ActionResult:
 class PickAction:
     """Reuse approach -> opening -> dwell -> descend -> close -> lift."""
 
-    def __init__(self, session):
+    def __init__(self, session, *, processor=None):
         self.session = session
         self._last_update = None
         self._last_source = None
@@ -36,7 +36,7 @@ class PickAction:
         settings, c = session.settings, session.controller_config
         self.approach = ApproachController(session.interface, session.kinematics,
             config=settings, controller_config=c, estimator_config=session.estimator_config,
-            processor=session.hardware.build_processor())
+            processor=session.hardware.build_processor() if processor is None else processor)
         self.pickup = CubePickupController(session.interface, session.kinematics,
             speed=c.pickup_linear_speed_m_s, angular_speed=c.pickup_angular_speed_rad_s,
             cube_size=session.cube_size, control_dt=settings.dt,
