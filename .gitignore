@@ -10,3 +10,7 @@ tools/*
 !tools/visualize_capsule_pose.py
 !tools/visualize_cube_tags.py
 !tools/visualize_tool.py
+!tools/build_rg2_model.py
+!tools/render_rg2.py
+.pytest_cache/
+
