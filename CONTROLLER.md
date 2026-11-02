@@ -306,8 +306,10 @@ necessary for FK fallback, world-frame target estimates, and pickup.
 `common/estimator.py` provides `RelativePoseEKF`, an error-state extended Kalman
 filter for a translating and rotating cube. The CLI loads
 `config/estimator_config.json` (`--estimator-config path.json` selects another file).
-`enabled` controls whether the approach controller uses the EKF; set it to
-false to use the raw camera pose. Python callers can pass `EKFConfig` to
+`cube_enabled` and `tool_enabled` independently select filtered or raw visual
+poses. Separate `cube` and `tool` tuning objects configure each tracker; legacy
+flat tuning fields remain fallback defaults. The legacy `enabled` switch applies
+only when the corresponding per-target switch is unset. Python callers can pass `EKFConfig` to
 `Simulation` or `ApproachController` through `estimator_config`.
 
 The filter's nominal state contains world-frame cube position, rotation,

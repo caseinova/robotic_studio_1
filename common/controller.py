@@ -227,7 +227,7 @@ class ApproachController:
         estimator_config = estimator_config if estimator_config is not None else EKFConfig()
         self.estimator = RelativePoseEKF(estimator_config.for_target("cube"))
         # A separate tracker smooths the moving tool measured by its tag.
-        # It uses the same optional noise settings, without sharing cube state.
+        # Its tuning and state are independent of the cube tracker.
         self.tool_estimator = RelativePoseEKF(estimator_config.for_target("tool"))
         self.pose_estimate = None
         self.kinematics = kinematics

@@ -14,6 +14,13 @@ from scipy.spatial.transform import Rotation
 
 DEFAULT_ESTIMATOR_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "estimator_config.json"
 
+TUNING_FIELDS = (
+    "position_measurement_std", "orientation_measurement_std",
+    "linear_acceleration_noise", "angular_acceleration_noise",
+    "initial_linear_velocity_std", "initial_angular_velocity_std",
+    "innovation_gate", "max_prediction_age",
+)
+
 
 @dataclass(frozen=True)
 class EKFConfig:
@@ -29,6 +36,9 @@ class EKFConfig:
     initial_angular_velocity_std: float = 0.5  # rad/s
     innovation_gate: float = 25.0  # squared Mahalanobis distance
     max_prediction_age: float = 0.3  # seconds since last accepted measurement
+    # Target-specific tuning overrides legacy flat fields, which remain defaults.
+    cube: dict | None = None
+    tool: dict | None = None
 
     def __post_init__(self):
         if not isinstance(self.enabled, bool):
@@ -36,20 +46,33 @@ class EKFConfig:
         for name in ("cube_enabled", "tool_enabled"):
             if getattr(self, name) is not None and not isinstance(getattr(self, name), bool):
                 raise ValueError(f"EKF {name} must be boolean or null")
-        for name in self.__dataclass_fields__:
-            if name in ("enabled", "cube_enabled", "tool_enabled"):
-                continue
+        for name in TUNING_FIELDS:
             value = getattr(self, name)
             if (isinstance(value, bool) or not isinstance(value, (int, float))
                     or not np.isfinite(value) or value <= 0):
                 raise ValueError(f"{name} must be a finite positive number")
+        for target in ("cube", "tool"):
+            tuning = getattr(self, target)
+            if tuning is None:
+                continue
+            if not isinstance(tuning, dict):
+                raise ValueError(f"EKF {target} tuning must be a JSON object")
+            unknown = set(tuning) - set(TUNING_FIELDS)
+            if unknown:
+                raise ValueError(f"unknown {target} EKF settings: " + ", ".join(sorted(map(str, unknown))))
+            for name, value in tuning.items():
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not np.isfinite(value) or value <= 0):
+                    raise ValueError(f"{target}.{name} must be a finite positive number")
+            object.__setattr__(self, target, dict(tuning))
 
     def for_target(self, target):
         if target not in ("cube", "tool"):
             raise ValueError("EKF target must be cube or tool")
         override = getattr(self, target + "_enabled")
         return replace(self, enabled=self.enabled if override is None else override,
-                       cube_enabled=None, tool_enabled=None)
+                       cube_enabled=None, tool_enabled=None, cube=None, tool=None,
+                       **(getattr(self, target) or {}))
 
     @classmethod
     def load(cls, path=DEFAULT_ESTIMATOR_CONFIG_PATH):

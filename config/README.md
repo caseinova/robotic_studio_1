@@ -27,9 +27,20 @@ Python configuration/schema modules live in `common/`, `hardware/` and
 `estimator_config.json` has independent `cube_enabled` and `tool_enabled`
 booleans. For cube-only filtering, set `cube_enabled: true` and
 `tool_enabled: false`. A disabled tool EKF leaves raw tool-tag feedback available;
-it does not force FK. Noise/tuning settings remain shared, but tracker states
-are separate. Older configs using `enabled` still control both trackers; an
-explicit per-target boolean overrides that legacy fallback. Restart after edits.
+it does not force FK. Separate `cube` and `tool` objects contain each tracker's
+measurement noise, acceleration noise, initial velocity uncertainty, innovation
+gate and prediction-age limit. The desktop Pose estimation category exposes both
+as collapsible groups. Both simulation and hardware use these settings.
+Existing tuning values were copied into both groups without retuning either filter.
+Position standard deviation is in meters; orientation standard deviation is in
+radians; prediction age is in seconds. These are EKF settings, not artificial
+sensor noise from `noise_config.json`.
+
+Older flat tuning fields remain supported as defaults; a field inside `cube` or
+`tool` overrides its flat default for that tracker only. Missing fields retain
+their legacy defaults. Older configs using `enabled` still control both trackers;
+an explicit per-target boolean overrides that fallback. Enable switches remain
+top-level, outside the tuning objects. Restart an active run after edits.
 
 `controller_config.json` supports `grasp_height_offset_m` (default `0.0`).
 This shifts the pickup grasp-center target along world Z relative to the cube
