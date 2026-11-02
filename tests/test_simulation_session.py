@@ -29,6 +29,48 @@ def test_destination_config_requires_floor_pose():
             SimulationConfig(destination_positions=positions)
 
 
+@pytest.mark.parametrize('camera_view', [True, False])
+def test_pick_preview_reuses_control_observation(camera_view):
+    from common.pickup import PickAction
+    from common.camera_processing import TaggedCubeProcessor
+    with SimulationSession(Simulation(), settings()) as session:
+        session.camera_view = camera_view
+        processor = TaggedCubeProcessor(cube_size=.064, marker_size=.04)
+        action = PickAction(session, processor=processor)
+        frame = session.interface.capture_rgbd()
+        original = frame.rgb.copy()
+        with patch.object(session.interface, 'capture_rgbd', return_value=frame) as capture, \
+             patch.object(processor, 'process', wraps=processor.process) as detect, \
+             patch.object(processor, 'annotate', wraps=processor.annotate) as annotate:
+            action.update()
+        capture.assert_called_once()
+        detect.assert_called_once()
+        assert annotate.call_count == int(camera_view)
+        preview = session.latest_preview()
+        assert preview.timestamp == frame.timestamp
+        if camera_view:
+            assert preview is not frame
+            assert np.any(preview.rgb != original)
+        else:
+            assert preview is frame
+        np.testing.assert_array_equal(frame.rgb, original)
+
+
+def test_sequence_camera_preview_closes_on_cancellation():
+    from common.runtime_config import RuntimeConfig
+    from simulation.simulation_session import run_simulation_sequence
+    runtime = RuntimeConfig.load().override(camera=True, headless=False)
+    with patch('simulation.viewer.launch_viewer') as viewer, \
+         patch('common.sequence_preview.SequencePreview') as preview:
+        viewer.return_value.__enter__.return_value.is_running.return_value = True
+        preview.return_value.update.side_effect = RuntimeError('sequence cancelled from camera window')
+        with pytest.raises(RuntimeError, match='cancelled'):
+            run_simulation_sequence(runtime, settings(), 'drop_zone_b')
+        preview.assert_called_once()
+        preview.return_value.update.assert_called_once()
+        preview.return_value.close.assert_called_once()
+
+
 def test_scene_detects_destination_from_rendered_pixels():
     with SimulationSession(Simulation(), settings()) as session:
         frame = session.interface.capture_rgbd()

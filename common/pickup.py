@@ -51,9 +51,13 @@ class PickAction:
             started = s.interface.timestamp
             frame = s.interface.capture_rgbd()
             captured = s.interface.timestamp
-            s.publish_preview(frame)
             result = self.approach.update(frame)
             finished = s.interface.timestamp
+            if getattr(s, 'camera_view', False):
+                rgb = self.approach.processor.annotate(frame.rgb, result.observation, frame.intrinsics)
+                s.publish_preview(replace(frame, rgb=rgb))
+            else:
+                s.publish_preview(frame)
             source = result.tool_pose_source or "unavailable"
             if source in ("tag", "fk", "fk_fallback"):
                 if self._last_source is not None and source != self._last_source:

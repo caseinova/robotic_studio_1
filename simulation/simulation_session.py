@@ -162,6 +162,9 @@ class SimulationSession:
     def publish_preview(self, frame):
         self.latest_frame = frame
 
+    def latest_preview(self):
+        return self.latest_frame
+
     def _run(self, action, name):
         if self.failed:
             raise RuntimeError('simulation session failed; restart before another action')
@@ -241,9 +244,14 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
             viewer = stack.enter_context(launch_viewer(simulation.robot.model, simulation.robot.data,
                                                        simulation.config.viewer))
         camera_view = runtime.camera and not runtime.headless
+        preview = None
         if camera_view:
-            cv2.namedWindow('Simulation pick and place', cv2.WINDOW_NORMAL)
-            stack.callback(cv2.destroyWindow, 'Simulation pick and place')
+            from common.sequence_preview import SequencePreview
+            initial = session.interface.capture_rgbd()
+            session.publish_preview(initial)
+            preview = SequencePreview({'height': initial.rgb.shape[0], 'width': initial.rgb.shape[1]},
+                                      name='Simulation pick and place RGB-D')
+            stack.callback(preview.close)
         last = [None, -np.inf, time.monotonic()]
 
         def update(s):
@@ -257,10 +265,8 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
             if camera_view:
                 frame = s.latest_frame
                 if frame is None or frame.timestamp != s.interface.timestamp:
-                    frame = s.interface.capture_rgbd()
-                cv2.imshow('Simulation pick and place', cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2BGR))
-                if cv2.waitKey(1) & 0xff in (27, ord('q'), ord('Q')):
-                    raise KeyboardInterrupt
+                    s.publish_preview(s.interface.capture_rgbd())
+                preview.update(s)
             if viewer is not None:
                 time.sleep(max(0., s.settings.dt - (time.monotonic()-last[2])))
                 last[2] = time.monotonic()

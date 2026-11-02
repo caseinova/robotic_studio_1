@@ -2,8 +2,8 @@
   "cube_enabled": true,
   "tool_enabled": false,
   "cube": {
-    "position_measurement_std": 0.04,
-    "orientation_measurement_std": 0.08,
+    "position_measurement_std": 0.12,
+    "orientation_measurement_std": 0.15,
     "linear_acceleration_noise": 0.05,
     "angular_acceleration_noise": 0.2,
     "initial_linear_velocity_std": 0.1,

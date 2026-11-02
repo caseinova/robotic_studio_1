@@ -138,8 +138,14 @@ latched pickup and placement phases. Use `--headless` to disable it. Q, Escape,
 or closing the window cancels the session without automatically releasing the
 cube. Rendering runs on the main thread; device access remains on the session
 thread. Display-only capture still counts against the control cycle budget.
-The display shows the live camera image and phase label only. It performs no
-additional ArUco detection or marker annotation; control-side detection is unchanged.
+Both backends use the same preview window and phase label. During approach,
+the image includes cube segmentation, marker outlines, pose axes and rejection
+diagnostics, reusing the controller's observation without additional detection.
+Latched pickup/placement phases show fresh raw images rather than stale overlays.
+Camera display requires `camera: true` and `headless: false` in the selected
+runtime profile (or the GUI tab's Run settings); an already-open GUI must reload
+externally edited configuration. Annotation uses a separate image copy and never
+modifies the camera frame consumed by control.
 The Python API opts in with `RobotSession(..., camera_view=True)` and a
 main-thread `SequencePreview` consumer. `--validate` creates no window/devices.
 
