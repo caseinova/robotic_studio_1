@@ -1,0 +1,92 @@
+Run directory: /home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a/estimator_config.json
+Sequence configuration is valid. No devices opened; physical geometry is not certified.
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-010606-eawc3j6a/estimator_config.json
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Backend running in READ-ONLY mode.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Connecting RTDE control...
+RTDE control connected.
+Hardware: idle | 
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=0, capture_ms=5.5, processing_ms=92.3, frame_age_ms=157.2, frame_limit_ms=200.0, interval_ms=n/a, position_error_mm=138.1, rotation_error_deg=13.1
+Hardware: tool_lost_or_rejected | expired_reset_required
+Hardware diagnostic: expired_reset_required
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=81.5, frame_age_ms=130.8, frame_limit_ms=200.0, interval_ms=88.0, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=80.9, frame_age_ms=132.2, frame_limit_ms=200.0, interval_ms=86.4, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.1, processing_ms=81.2, frame_age_ms=134.9, frame_limit_ms=200.0, interval_ms=92.0, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=83.5, frame_age_ms=138.3, frame_limit_ms=200.0, interval_ms=88.6, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.1, processing_ms=83.9, frame_age_ms=152.1, frame_limit_ms=200.0, interval_ms=89.8, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.3, processing_ms=80.8, frame_age_ms=153.8, frame_limit_ms=200.0, interval_ms=88.1, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.3, processing_ms=84.2, frame_age_ms=129.4, frame_limit_ms=200.0, interval_ms=93.2, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.2, processing_ms=82.9, frame_age_ms=154.3, frame_limit_ms=200.0, interval_ms=89.8, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=3.9, processing_ms=82.5, frame_age_ms=125.4, frame_limit_ms=200.0, interval_ms=89.2, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=3.9, processing_ms=85.3, frame_age_ms=131.8, frame_limit_ms=200.0, interval_ms=90.0, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.1, processing_ms=82.8, frame_age_ms=142.9, frame_limit_ms=200.0, interval_ms=88.8, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=82.5, frame_age_ms=142.0, frame_limit_ms=200.0, interval_ms=89.1, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=82.0, frame_age_ms=142.0, frame_limit_ms=200.0, interval_ms=89.6, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=96.9, frame_age_ms=155.1, frame_limit_ms=200.0, interval_ms=90.5, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=88.7, frame_age_ms=147.6, frame_limit_ms=200.0, interval_ms=89.2, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=85.1, frame_age_ms=131.0, frame_limit_ms=200.0, interval_ms=90.8, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.2, processing_ms=84.4, frame_age_ms=135.8, frame_limit_ms=200.0, interval_ms=89.8, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.2, processing_ms=85.5, frame_age_ms=155.9, frame_limit_ms=200.0, interval_ms=89.9, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.3, processing_ms=80.6, frame_age_ms=149.6, frame_limit_ms=200.0, interval_ms=90.3, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=82.1, frame_age_ms=148.3, frame_limit_ms=200.0, interval_ms=87.3, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=83.9, frame_age_ms=155.2, frame_limit_ms=200.0, interval_ms=87.4, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=85.5, frame_age_ms=127.7, frame_limit_ms=200.0, interval_ms=89.3, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.2, processing_ms=82.1, frame_age_ms=136.5, frame_limit_ms=200.0, interval_ms=88.6, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.1, processing_ms=82.5, frame_age_ms=133.3, frame_limit_ms=200.0, interval_ms=90.1, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=83.1, frame_age_ms=136.4, frame_limit_ms=200.0, interval_ms=90.1, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.1, processing_ms=82.1, frame_age_ms=146.5, frame_limit_ms=200.0, interval_ms=88.9, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.1, processing_ms=83.6, frame_age_ms=141.4, frame_limit_ms=200.0, interval_ms=86.7, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.5, processing_ms=107.7, frame_age_ms=183.0, frame_limit_ms=200.0, interval_ms=89.7, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.0, processing_ms=85.8, frame_age_ms=145.7, frame_limit_ms=200.0, interval_ms=94.2, position_error_mm=inf, rotation_error_deg=inf
+Tracking: status=tool_lost_or_rejected, reason=expired_reset_required, tool=unavailable, source_switches=1, capture_ms=4.2, processing_ms=96.2, frame_age_ms=144.2, frame_limit_ms=200.0, interval_ms=95.3, position_error_mm=inf, rotation_error_deg=inf
+UR3e RTDE connections closed.
+UR3e RTDE connections closed.
+Traceback (most recent call last):
+  File "/home/tom/ur3_ws/robotic_studio_1/run_sequence.py", line 75, in main
+    wait(robot.start_servo_to_pick_up())
+  File "/home/tom/ur3_ws/robotic_studio_1/run_sequence.py", line 58, in wait
+    preview.update(robot)
+  File "/home/tom/ur3_ws/robotic_studio_1/common/sequence_preview.py", line 40, in update
+    if key in (27, ord("q"), ord("Q")) or cv2.getWindowProperty(self.name, cv2.WND_PROP_VISIBLE) < 1:
+cv2.error: OpenCV(5.0.0) /io/opencv/modules/highgui/src/window_QT.cpp:258: error: (-27:Null pointer) NULL guiReceiver (please create a window) in function 'cvGetPropVisible_QT'
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/tom/ur3_ws/robotic_studio_1/desktop/worker.py", line 42, in <module>
+    raise SystemExit(main())
+  File "/home/tom/ur3_ws/robotic_studio_1/desktop/worker.py", line 31, in main
+    return importlib.import_module(module).main(command)
+  File "/home/tom/ur3_ws/robotic_studio_1/run_sequence.py", line 86, in main
+    preview.close()
+  File "/home/tom/ur3_ws/robotic_studio_1/common/sequence_preview.py", line 44, in close
+    self.cv2.destroyWindow(self.name)
+cv2.error: OpenCV(5.0.0) /io/opencv/modules/highgui/src/window_QT.cpp:578: error: (-27:Null pointer) NULL guiReceiver (please create a window) in function 'destroyWindowImpl'
+
+
+Failed (exit 1) | Verify robot state on pendant

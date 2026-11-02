@@ -1,0 +1,5 @@
+{
+  "backend": "simulation",
+  "task": "pick",
+  "destination": "drop_zone_b"
+}

@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 
 from common.camera_processing import CameraProcessor
+from common.estimator import RelativePoseEKF
+from common.controller import PBVS, JointSpaceMPC, pose_reference_command
 from common.geometry import BoxObstacle, PlaneObstacle, SphereObstacle, _segment_box_distance
 
 
@@ -95,8 +97,73 @@ class PlaceAction:
         self.released = False
         self._progress = "no motion sample yet"
         self._last_joint_positions = None
+        self.tool_processor = None
+        self.tool_estimator = None
+        self.tool_pose_source = 'fk'
+        self.transfer_pbvs = PBVS(np.eye(4), linear_speed=session.config.cartesian_speed_m_s,
+                                  angular_speed=session.config.angular_speed_rad_s)
+        self.transfer_mpc = (JointSpaceMPC(session.kinematics, session.settings)
+                             if session.controller_config.mode == 'pbvs_mpc' else None)
+
+    def _transfer_observation(self):
+        s = self.s
+        if self.phase != 'transferring' or s.controller_config.tool_pose_source == 'fk':
+            return None, None
+        if self.tool_processor is None:
+            k = s.kinematics
+            self.tool_processor = CameraProcessor(marker_id=k.end_effector_marker_id,
+                marker_size=k.end_effector_marker_size,
+                cube_size=max(.1, k.end_effector_marker_size))
+            self.tool_estimator = RelativePoseEKF(s.estimator_config.for_target('tool'))
+        frame = s.interface.capture_rgbd()
+        if getattr(s, 'camera_view', False):
+            s.publish_preview(frame)
+        return frame, self.tool_processor.process_marker(frame)
+
+    def _transfer_pose(self, frame, observation, state):
+        s = self.s
+        self.tool_pose_source = 'fk'
+        if frame is None:
+            return s.kinematics.tool_pose().copy()
+        now = s.interface.timestamp
+        age = now - frame.timestamp
+        state_age = now - state.timestamp
+        limit = min(self.frame_max_age, s.controller_config.frame_max_age_intervals * s.settings.dt)
+        estimator = self.tool_estimator
+        if estimator.timestamp is not None and now < estimator.timestamp:
+            estimator.reset()
+        if (not np.isfinite(age) or not 0 <= age <= limit
+                or not np.isfinite(state_age) or not 0 <= state_age <= 2 * s.settings.dt
+                or (estimator.config.enabled and estimator.timestamp is not None
+                    and frame.timestamp < estimator.timestamp)):
+            s.diagnostic = 'stale_transfer_tool_measurement'
+            self.tool_pose_source = 'unavailable'
+            return None
+        reason = self.tool_processor.last_status
+        if observation is not None:
+            camera_from_tool = observation.camera_from_marker @ np.linalg.inv(
+                s.kinematics.tool_from_end_effector_marker)
+            if estimator.config.enabled:
+                estimate = estimator.update(frame.timestamp, camera_from_tool, frame.world_from_camera)
+                if estimate is not None and estimate.measurement_accepted:
+                    camera_from_tool = estimate.camera_from_cube
+                else:
+                    observation = None
+                    reason = 'tool_ekf_' + estimator.last_status
+            if observation is not None:
+                self.tool_pose_source = 'tag'
+                s.interface.require_camera_for_motion = True
+                return frame.world_from_camera @ camera_from_tool
+        if s.controller_config.tool_pose_source == 'tag_only':
+            s.diagnostic = 'tool_lost_or_rejected: ' + reason
+            self.tool_pose_source = 'unavailable'
+            return None
+        self.tool_pose_source = 'fk_fallback'
+        return s.kinematics.tool_pose().copy()
 
     def _phase(self, name):
+        if self.transfer_mpc is not None:
+            self.transfer_mpc.reset()
         self.phase, self.started = name, self.s.interface.timestamp
         self._progress = "no motion sample yet"
         self._last_joint_positions = None
@@ -166,11 +233,19 @@ class PlaceAction:
             self._phase("raising")
             return False
 
+        frame, tool_observation = self._transfer_observation()
         state = interface.read_state()
         k.synchronize(state)
         self._last_joint_positions = state.joint_positions.tolist()
         if not self.released and not s.cube_size * .5 <= state.gripper_width <= s.cube_size * 1.15:
             raise RuntimeError("grasp_lost during placement")
+        current = self._transfer_pose(frame, tool_observation, state)
+        if current is None:
+            if self.transfer_mpc is not None:
+                self.transfer_mpc.reset()
+            interface.set_joint_velocities(np.zeros(6))
+            self._progress = s.diagnostic
+            return False
         self.guard.check(state.joint_positions)
         if self.phase == "releasing":
             interface.set_joint_velocities(np.zeros(6))
@@ -179,11 +254,10 @@ class PlaceAction:
             return False
 
         target = self.targets[0]
-        current = k.tool_pose().copy()
         error = np.r_[target[:3, 3] - current[:3, 3],
                       cv2.Rodrigues(target[:3, :3] @ current[:3, :3].T)[0].reshape(3)]
         self._progress = (
-            f"phase={self.phase}, elapsed_s={interface.timestamp-self.started:.1f}, "
+            f"phase={self.phase}, tool={self.tool_pose_source}, elapsed_s={interface.timestamp-self.started:.1f}, "
             f"current_z_mm={current[2, 3]*1000:.1f}, target_z_mm={target[2, 3]*1000:.1f}, "
             f"position_error_mm={np.linalg.norm(error[:3])*1000:.1f}, "
             f"xy_error_mm={np.linalg.norm(error[:2])*1000:.1f}, z_error_mm={error[2]*1000:.1f}, "
@@ -231,12 +305,24 @@ class PlaceAction:
                 self._phase("transferring" if self.phase == "raising" else "descending")
             return False
 
-        twist = 4. * error
-        twist[:3] *= min(1., s.config.cartesian_speed_m_s / max(np.linalg.norm(twist[:3]), 1e-12))
-        twist[3:] *= min(1., s.config.angular_speed_rad_s / max(np.linalg.norm(twist[3:]), 1e-12))
-        jacobian = k.tool_jacobian(state.joint_positions)
-        command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + .01**2 * np.eye(6), twist)
-        command /= max(1., np.max(np.abs(command)) / s.settings.velocity_limit)
+        if self.phase == 'transferring':
+            jacobian = k.tool_jacobian(state.joint_positions, local=True)
+            reference, _ = self.transfer_pbvs.reference(np.linalg.inv(current) @ target, jacobian)
+            command, status, _ = pose_reference_command(k, s.settings, self.transfer_mpc,
+                state.joint_positions, state.joint_velocities, reference)
+            if status != 'tracking':
+                interface.set_joint_velocities(np.zeros(6))
+                s.diagnostic = 'transfer_controller: ' + status
+                if self.transfer_mpc is not None:
+                    self.transfer_mpc.reset()
+                return False
+        else:
+            twist = 4. * error
+            twist[:3] *= min(1., s.config.cartesian_speed_m_s / max(np.linalg.norm(twist[:3]), 1e-12))
+            twist[3:] *= min(1., s.config.angular_speed_rad_s / max(np.linalg.norm(twist[3:]), 1e-12))
+            jacobian = k.tool_jacobian(state.joint_positions)
+            command = jacobian.T @ np.linalg.solve(jacobian @ jacobian.T + .01**2 * np.eye(6), twist)
+            command /= max(1., np.max(np.abs(command)) / s.settings.velocity_limit)
         acceleration = self.acceleration_limit * s.settings.dt
         limited = np.clip(command, state.joint_velocities - acceleration, state.joint_velocities + acceleration)
         clipped_joints = int(np.count_nonzero(np.abs(limited - command) > 1e-10))

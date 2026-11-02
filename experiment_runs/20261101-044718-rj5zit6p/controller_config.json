@@ -1,0 +1,15 @@
+{
+  "mode": "pure_pbvs",
+  "approach_linear_speed_m_s": 0.06,
+  "approach_angular_speed_rad_s": 0.3,
+  "pickup_linear_speed_m_s": 0.03,
+  "pickup_angular_speed_rad_s": 0.3,
+  "pickup_reapproach_attempts": 3,
+  "pickup_dwell_seconds": 2.0,
+  "pickup_dwell_radius_m": 0.01,
+  "grasp_height_offset_m": 0.04,
+  "tool_clearance": 0.25,
+  "tool_yaw_deg": 0.0,
+  "tool_pose_source": "tag_with_fk_fallback",
+  "frame_max_age_intervals": 4.0
+}

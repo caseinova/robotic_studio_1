@@ -1,0 +1,37 @@
+Run directory: /home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-231355-i_b000s6
+Hardware configuration valid; no devices opened
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Backend running in READ-ONLY mode.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Connecting RTDE control...
+RTDE control connected.
+Hardware: tracking | 
+Hardware: pickup_dwelling | 
+Hardware: pickup_dwelling | frame=cube, xy_distance=2.8 mm, radius=10.0 mm, dwell=1.00/2.00 s
+Hardware: pickup_descending | 
+Hardware: pickup_closing | 
+Hardware: pickup_closing | gripper_width=63.9 mm, median=72.0 mm, expected=32.0..73.6 mm, settled=False
+Hardware: pickup_lifting | 
+Hardware: pickup_complete | 
+UR3e RTDE connections closed.
+UR3e RTDE connections closed.
+Error: hardware cleanup failed: UR command worker did not stop (phase=closing_control); stop completion unconfirmed; verify robot stopped on pendant
+
+Failed (exit 2) | Verify robot state on pendant

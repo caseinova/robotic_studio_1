@@ -1,0 +1,5 @@
+Run directory: /home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-013104-7_dpfyp0
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-013104-7_dpfyp0/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-013104-7_dpfyp0/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-013104-7_dpfyp0/estimator_config.json
+Sequence configuration is valid. No devices opened; physical geometry is not certified.
+
+Hardware run cancelled

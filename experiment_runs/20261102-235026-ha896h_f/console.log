@@ -1,0 +1,120 @@
+Run directory: /home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f/estimator_config.json
+Sequence configuration is valid. No devices opened; physical geometry is not certified.
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261102-235026-ha896h_f/estimator_config.json
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Backend running in READ-ONLY mode.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Connecting RTDE control...
+RTDE control connected.
+Hardware: idle | 
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=0, capture_ms=4.4, processing_ms=83.7, frame_age_ms=136.7, frame_limit_ms=200.0, interval_ms=n/a, position_error_mm=233.0, rotation_error_deg=47.6
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Tracking: status=target_lost_or_stale, reason=tag_metric_size_inconsistent, tool=unavailable, source_switches=8, capture_ms=3.3, processing_ms=28.3, frame_age_ms=82.2, frame_limit_ms=200.0, interval_ms=77.9, position_error_mm=inf, rotation_error_deg=inf, expected_tag_mm=40.0, tolerance=10%, rejected_edges_mm=[(0, [37.8, 22.3, 38.1, 22.8]), (3, [50.6, 24.6, 50.0, 23.6])]
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=14, capture_ms=2.9, processing_ms=80.3, frame_age_ms=126.7, frame_limit_ms=200.0, interval_ms=82.1, position_error_mm=168.8, rotation_error_deg=40.2
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=18, capture_ms=3.3, processing_ms=77.9, frame_age_ms=131.3, frame_limit_ms=200.0, interval_ms=81.1, position_error_mm=133.8, rotation_error_deg=32.1
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=25, capture_ms=3.0, processing_ms=76.8, frame_age_ms=137.6, frame_limit_ms=200.0, interval_ms=83.1, position_error_mm=108.2, rotation_error_deg=21.3
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=29, capture_ms=3.1, processing_ms=77.1, frame_age_ms=140.7, frame_limit_ms=200.0, interval_ms=82.6, position_error_mm=72.8, rotation_error_deg=18.3
+Tracking: status=tracking, reason=none, tool=tag, source_switches=35, capture_ms=3.0, processing_ms=79.5, frame_age_ms=146.0, frame_limit_ms=200.0, interval_ms=83.2, position_error_mm=45.9, rotation_error_deg=11.9
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=39, capture_ms=3.0, processing_ms=77.8, frame_age_ms=132.3, frame_limit_ms=200.0, interval_ms=83.5, position_error_mm=38.2, rotation_error_deg=12.0
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=46, capture_ms=2.9, processing_ms=73.6, frame_age_ms=140.1, frame_limit_ms=200.0, interval_ms=80.7, position_error_mm=62.2, rotation_error_deg=3.7
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=56, capture_ms=3.0, processing_ms=77.5, frame_age_ms=123.6, frame_limit_ms=200.0, interval_ms=84.5, position_error_mm=31.0, rotation_error_deg=8.2
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=61, capture_ms=3.0, processing_ms=76.0, frame_age_ms=143.8, frame_limit_ms=200.0, interval_ms=79.2, position_error_mm=7.7, rotation_error_deg=1.0
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=68, capture_ms=2.9, processing_ms=76.6, frame_age_ms=126.2, frame_limit_ms=200.0, interval_ms=81.1, position_error_mm=38.5, rotation_error_deg=7.6
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=74, capture_ms=2.9, processing_ms=75.6, frame_age_ms=143.4, frame_limit_ms=200.0, interval_ms=80.9, position_error_mm=23.1, rotation_error_deg=2.2
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=79, capture_ms=2.8, processing_ms=75.5, frame_age_ms=121.1, frame_limit_ms=200.0, interval_ms=79.4, position_error_mm=38.7, rotation_error_deg=8.2
+Tracking: status=tracking, reason=none, tool=tag, source_switches=83, capture_ms=2.9, processing_ms=74.6, frame_age_ms=116.4, frame_limit_ms=200.0, interval_ms=82.5, position_error_mm=14.6, rotation_error_deg=7.6
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=85, capture_ms=3.3, processing_ms=77.1, frame_age_ms=121.5, frame_limit_ms=200.0, interval_ms=50.1, position_error_mm=17.6, rotation_error_deg=2.3
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=88, capture_ms=2.9, processing_ms=76.7, frame_age_ms=135.6, frame_limit_ms=200.0, interval_ms=84.0, position_error_mm=24.1, rotation_error_deg=8.9
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=92, capture_ms=3.2, processing_ms=77.4, frame_age_ms=142.1, frame_limit_ms=200.0, interval_ms=50.1, position_error_mm=46.8, rotation_error_deg=6.8
+Tracking: status=tracking, reason=none, tool=tag, source_switches=97, capture_ms=2.9, processing_ms=79.0, frame_age_ms=134.3, frame_limit_ms=200.0, interval_ms=83.7, position_error_mm=4.0, rotation_error_deg=6.4
+Tracking: status=tracking, reason=none, tool=tag, source_switches=103, capture_ms=2.8, processing_ms=79.3, frame_age_ms=141.5, frame_limit_ms=200.0, interval_ms=83.3, position_error_mm=41.2, rotation_error_deg=6.7
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=110, capture_ms=3.2, processing_ms=77.3, frame_age_ms=144.4, frame_limit_ms=200.0, interval_ms=85.8, position_error_mm=48.3, rotation_error_deg=2.9
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=114, capture_ms=3.1, processing_ms=76.8, frame_age_ms=148.5, frame_limit_ms=200.0, interval_ms=81.3, position_error_mm=52.2, rotation_error_deg=2.4
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=115, capture_ms=2.9, processing_ms=78.1, frame_age_ms=118.7, frame_limit_ms=200.0, interval_ms=81.7, position_error_mm=8.4, rotation_error_deg=10.5
+Tracking: status=tracking, reason=none, tool=tag, source_switches=119, capture_ms=3.1, processing_ms=76.3, frame_age_ms=126.4, frame_limit_ms=200.0, interval_ms=86.0, position_error_mm=3.9, rotation_error_deg=13.6
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=122, capture_ms=2.9, processing_ms=76.3, frame_age_ms=119.3, frame_limit_ms=200.0, interval_ms=80.8, position_error_mm=47.1, rotation_error_deg=3.3
+Tracking: status=tracking, reason=none, tool=tag, source_switches=129, capture_ms=3.1, processing_ms=74.7, frame_age_ms=146.3, frame_limit_ms=200.0, interval_ms=84.3, position_error_mm=6.4, rotation_error_deg=7.4
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=134, capture_ms=3.2, processing_ms=74.9, frame_age_ms=144.5, frame_limit_ms=200.0, interval_ms=83.3, position_error_mm=32.5, rotation_error_deg=9.1
+Tracking: status=tracking, reason=none, tool=tag, source_switches=139, capture_ms=3.7, processing_ms=77.8, frame_age_ms=126.8, frame_limit_ms=200.0, interval_ms=87.7, position_error_mm=16.9, rotation_error_deg=2.3
+Tracking: status=tracking, reason=none, tool=fk_fallback, source_switches=142, capture_ms=3.0, processing_ms=76.7, frame_age_ms=139.5, frame_limit_ms=200.0, interval_ms=82.2, position_error_mm=19.5, rotation_error_deg=11.2
+Tracking: status=tracking, reason=none, tool=tag, source_switches=147, capture_ms=3.0, processing_ms=76.7, frame_age_ms=144.6, frame_limit_ms=200.0, interval_ms=82.5, position_error_mm=16.9, rotation_error_deg=4.0
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+UR3e RTDE connections closed.
+UR3e RTDE connections closed.
+Stopped
+
+Process exited after stop request | Verify robot state on pendant

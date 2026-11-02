@@ -151,6 +151,25 @@ main-thread `SequencePreview` consumer. `--validate` creates no window/devices.
 
 ## Motion and Limitations
 
+Approach and transfer share the PBVS pose-error/reference controller and joint
+command policy. `controller_config.mode` selects `pure_pbvs` or `pbvs_mpc` for
+both. Transfer uses the placement Cartesian/angular speed settings and its
+latched destination target, with PBVS gain 1.2 and damping 0.025, matching
+approach. Placement acceleration limits, payload collision checks, and stricter
+placement arrival tolerances remain in force. Raising, descending and retreat
+retain their existing local controllers. MPC failures hold transfer under its
+normal timeout; enabling MPC may increase control-cycle computation time.
+
+The `transferring` phase honors `controller_config.tool_pose_source`, just like
+approach: `fk`, `tag_only`, or `tag_with_fk_fallback`. Accepted tool tags use
+the tool EKF when enabled; missing/rejected tags hold in `tag_only` or fall
+back to absolute FK in fallback mode. Transfer captures tool feedback even
+when headless and checks frame/state freshness. Its tool filter starts with
+the transfer phase; destination targets remain latched. Pickup, raising,
+placement descent/release, and retreat remain FK-based. Jacobians and collision
+checks are unchanged. Calibration disagreement can still cause source-switch
+jumps, including at the transfer-to-FK-descent handoff.
+
 `transfer_timeout_s` overrides `phase_timeout_s` only for the horizontal/rotating
 transfer phase. The installed config allows 30 s for transfer and 20 s for
 other phases. Omit it or use null to retain the shared phase timeout.

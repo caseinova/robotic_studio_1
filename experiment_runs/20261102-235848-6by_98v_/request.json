@@ -1,0 +1,5 @@
+{
+  "backend": "hardware",
+  "task": "observe",
+  "destination": "drop_zone_b"
+}

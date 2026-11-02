@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -6,6 +7,8 @@ import pytest
 from common.geometry import LinkCapsule, PlaneObstacle, SphereObstacle
 from common.placement import PlaceAction, PlacementCollisionGuard, cube_plane_gap, vertical_drop_height
 from common.sequence_config import Destination, SequenceConfig
+from common.estimator import EKFConfig, RelativePoseEKF
+from common.controller import PBVS, MPCConfig, MPCSolution
 
 
 def pose(z=0):
@@ -39,7 +42,7 @@ class Kinematics:
     def collision_pair_name(self, i):
         return "arm/table"
 
-    def tool_jacobian(self, q):
+    def tool_jacobian(self, q, local=False):
         self.q = q.copy()
         return np.eye(6)
 
@@ -137,7 +140,7 @@ def make_action(monkeypatch):
     s = SimpleNamespace(interface=interface, kinematics=k, cube_size=.064,
         tool_from_cube=pose(-.2), settings=SimpleNamespace(dt=.05, clearance=.02, velocity_limit=.15),
         hardware=SimpleNamespace(control={"acceleration_limit": .5, "frame_max_age": .2}),
-        controller_config=SimpleNamespace(frame_max_age_intervals=4),
+        controller_config=SimpleNamespace(frame_max_age_intervals=4, tool_pose_source='fk', mode='pure_pbvs'),
         config=SequenceConfig(phase_timeout_s=40))
     target = pose(.032)
     target[0, 3] = .1
@@ -146,6 +149,103 @@ def make_action(monkeypatch):
     monkeypatch.setattr(action.processor, "process_marker", lambda frame:
         SimpleNamespace(camera_from_marker=np.eye(4), timestamp=interface.timestamp))
     return action, s
+
+
+@pytest.mark.parametrize('source,visible,expected', [
+    ('fk', True, 'fk'), ('tag_only', True, 'tag'),
+    ('tag_only', False, 'unavailable'),
+    ('tag_with_fk_fallback', False, 'fk_fallback'),
+    ('tag_with_fk_fallback', True, 'tag')])
+def test_transfer_tool_source(monkeypatch, source, visible, expected):
+    action, s = make_action(monkeypatch)
+    action.update()
+    action._phase('transferring')
+    action.targets = [pose(.4)]
+    s.controller_config.tool_pose_source = source
+    s.kinematics.tool_from_end_effector_marker = np.eye(4)
+    measured = pose(.4)
+    measured[0, 3] = .03
+    frame = SimpleNamespace(timestamp=s.interface.timestamp, world_from_camera=np.eye(4))
+    s.interface.capture_rgbd = Mock(return_value=frame)
+    observation = SimpleNamespace(camera_from_marker=measured) if visible else None
+    action.tool_processor = SimpleNamespace(process_marker=Mock(return_value=observation), last_status='missing')
+    action.tool_estimator = RelativePoseEKF(EKFConfig(enabled=False))
+    action.update()
+    assert action.tool_pose_source == expected
+    if source == 'fk':
+        s.interface.capture_rgbd.assert_not_called()
+    elif expected == 'tag':
+        assert s.interface.velocity[0] < 0
+        assert s.interface.require_camera_for_motion
+    elif expected == 'unavailable':
+        np.testing.assert_array_equal(s.interface.velocity, 0)
+        assert action.phase == 'transferring'
+
+
+def test_transfer_uses_tool_ekf_and_rejection_holds(monkeypatch):
+    action, s = make_action(monkeypatch)
+    s.controller_config.tool_pose_source = 'tag_only'
+    s.kinematics.tool_from_end_effector_marker = np.eye(4)
+    action.tool_processor = SimpleNamespace(last_status='valid')
+    filtered = pose(.4)
+    filtered[0, 3] = .02
+    action.tool_estimator = Mock(timestamp=None, config=SimpleNamespace(enabled=True), last_status='rejected')
+    action.tool_estimator.update.return_value = SimpleNamespace(measurement_accepted=True, camera_from_cube=filtered)
+    frame = SimpleNamespace(timestamp=100., world_from_camera=np.eye(4))
+    observation = SimpleNamespace(camera_from_marker=pose(.4))
+    result = action._transfer_pose(frame, observation, s.interface.read_state())
+    np.testing.assert_allclose(result, filtered)
+    action.tool_estimator.update.return_value.measurement_accepted = False
+    assert action._transfer_pose(frame, observation, s.interface.read_state()) is None
+    frame.timestamp = 99.
+    assert action._transfer_pose(frame, observation, s.interface.read_state()) is None
+    assert s.diagnostic == 'stale_transfer_tool_measurement'
+
+
+@pytest.mark.parametrize('phase', ['raising', 'descending', 'releasing', 'retreating'])
+def test_other_placement_phases_remain_fk(monkeypatch, phase):
+    action, s = make_action(monkeypatch)
+    action.phase = phase
+    s.controller_config.tool_pose_source = 'tag_only'
+    s.interface.capture_rgbd = Mock(side_effect=AssertionError('unexpected tool capture'))
+    assert action._transfer_observation() == (None, None)
+    np.testing.assert_allclose(action._transfer_pose(None, None, s.interface.read_state()), s.kinematics.tool_pose())
+
+
+def test_transfer_uses_same_pbvs_reference_as_approach(monkeypatch):
+    action, s = make_action(monkeypatch)
+    action.update()
+    action._phase('transferring')
+    target = s.kinematics.tool_pose().copy()
+    target[0, 3] += .005
+    action.targets = [target]
+    expected, _ = PBVS(np.eye(4), linear_speed=s.config.cartesian_speed_m_s,
+        angular_speed=s.config.angular_speed_rad_s).reference(
+            np.linalg.inv(s.kinematics.tool_pose()) @ target, np.eye(6))
+    with patch.object(action.transfer_pbvs, 'reference', wraps=action.transfer_pbvs.reference) as reference:
+        action.update()
+    reference.assert_called_once()
+    np.testing.assert_allclose(s.interface.velocity, expected)
+
+
+def test_transfer_mpc_selected_and_failure_holds(monkeypatch):
+    original, s = make_action(monkeypatch)
+    s.controller_config.mode = 'pbvs_mpc'
+    s.settings = MPCConfig()
+    with patch('common.placement.JointSpaceMPC') as factory:
+        action = PlaceAction(s, original.destination)
+    factory.assert_called_once_with(s.kinematics, s.settings)
+    action.phase = 'transferring'
+    target = pose(.4)
+    target[0, 3] = .1
+    action.targets = [target]
+    action.transfer_mpc.solve.return_value = MPCSolution(
+        np.zeros(6), np.zeros((1, 6)), False, 'solver_failed', .1)
+    assert not action.update()
+    action.transfer_mpc.solve.assert_called_once()
+    np.testing.assert_array_equal(s.interface.velocity, 0)
+    assert s.diagnostic == 'transfer_controller: solver_failed'
+    assert s.interface.open_count == 0
 
 
 def test_place_phases_release_once_then_retreat(monkeypatch):

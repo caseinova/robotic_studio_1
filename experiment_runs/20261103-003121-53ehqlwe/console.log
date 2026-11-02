@@ -1,0 +1,38 @@
+Run directory: /home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-003121-53ehqlwe
+Hardware configuration valid; no devices opened
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Backend running in READ-ONLY mode.
+UR3e RTDE connections closed.
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/tom/ur3_ws/robotic_studio_1/desktop/worker.py", line 42, in <module>
+    raise SystemExit(main())
+  File "/home/tom/ur3_ws/robotic_studio_1/desktop/worker.py", line 31, in main
+    return importlib.import_module(module).main(command)
+  File "/home/tom/ur3_ws/robotic_studio_1/run.py", line 69, in main
+    launch(settings, validate_only=args.validate)
+  File "/home/tom/ur3_ws/robotic_studio_1/run.py", line 24, in launch
+    return run_hardware(hardware, controller_config, estimator_config, task=settings.task,
+  File "/home/tom/ur3_ws/robotic_studio_1/hardware/hardware_runtime.py", line 144, in run_hardware
+    if key in (27, ord('q')) or cv2.getWindowProperty("Hardware RGB-D", cv2.WND_PROP_VISIBLE) < 1:
+cv2.error: OpenCV(5.0.0) /io/opencv/modules/highgui/src/window_QT.cpp:258: error: (-27:Null pointer) NULL guiReceiver (please create a window) in function 'cvGetPropVisible_QT'
+
+
+Failed (exit 1) | Verify robot state on pendant

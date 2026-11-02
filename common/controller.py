@@ -351,28 +351,28 @@ class ApproachController:
             return ControlResult(observation, reference, np.zeros(6), "reached",
                                  position_error, rotation_error, minimum, pose_estimate=self.pose_estimate,
                                  tool_observation=self.tool_observation, tool_pose_source=self.tool_pose_source)
-        if self.mpc is None:
-            # Direct PBVS: basic speed/joint bounds, with no collision optimizer.
-            limit = self.limits_config.velocity_limit
-            command = reference / max(1, np.max(np.abs(reference)) / limit)
-            lower, upper = self.kinematics.limits
-            if np.any(positions < lower) or np.any(positions > upper):
-                command = np.zeros(6)
-                status = "joint_limit_violation"
-            else:
-                command = np.clip(command, np.maximum(-limit, (lower - positions) / self.control_dt),
-                                  np.minimum(limit, (upper - positions) / self.control_dt))
-                status = "tracking"
-            self.interface.set_joint_velocities(command)
-            return ControlResult(observation, reference, command, status,
-                                 position_error, rotation_error, minimum, pose_estimate=self.pose_estimate,
-                                 tool_observation=self.tool_observation, tool_pose_source=self.tool_pose_source)
-        solution = self.mpc.solve(positions, state.joint_velocities, reference)
-        self.interface.set_joint_velocities(solution.velocity)
-        return ControlResult(observation, reference, solution.velocity, solution.status,
-                             position_error, rotation_error, solution.minimum_clearance,
+        command, status, minimum = pose_reference_command(self.kinematics, self.limits_config,
+            self.mpc, positions, state.joint_velocities, reference)
+        self.interface.set_joint_velocities(command)
+        return ControlResult(observation, reference, command, status,
+                             position_error, rotation_error, minimum,
                              pose_estimate=self.pose_estimate, tool_observation=self.tool_observation,
                              tool_pose_source=self.tool_pose_source)
+
+
+def pose_reference_command(kinematics, config, mpc, positions, velocities, reference):
+    """Shared PBVS joint command policy for approach and transfer."""
+    if mpc is not None:
+        solution = mpc.solve(positions, velocities, reference)
+        return solution.velocity, solution.status, solution.minimum_clearance
+    limit = config.velocity_limit
+    command = reference / max(1., np.max(np.abs(reference)) / limit)
+    lower, upper = kinematics.limits
+    if np.any(positions < lower) or np.any(positions > upper):
+        return np.zeros(6), 'joint_limit_violation', np.nan
+    command = np.clip(command, np.maximum(-limit, (lower - positions) / config.dt),
+                      np.minimum(limit, (upper - positions) / config.dt))
+    return command, 'tracking', np.nan
 
 
 class CubePickupController:

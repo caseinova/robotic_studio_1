@@ -1,0 +1,89 @@
+Run directory: /home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj/estimator_config.json
+Sequence configuration is valid. No devices opened; physical geometry is not certified.
+Configs: hardware=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj/hardware_config.json; controller=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj/controller_config.json; estimator=/home/tom/ur3_ws/robotic_studio_1/experiment_runs/20261103-012211-b9pqzqyj/estimator_config.json
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+QFontDatabase: Cannot find font directory /home/tom/ur3_ws/venv/lib/python3.10/site-packages/cv2/qt/fonts.
+Note that Qt no longer ships fonts. Deploy some (from https://dejavu-fonts.github.io/ for example) or switch to fontconfig.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Backend running in READ-ONLY mode.
+
+Connecting RTDE receive to 192.168.0.192...
+RTDE receive connected.
+
+Connecting RTDE control...
+RTDE control connected.
+Hardware: idle | 
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=0, capture_ms=5.5, processing_ms=90.5, frame_age_ms=144.5, frame_limit_ms=200.0, interval_ms=n/a, position_error_mm=12.0, rotation_error_deg=4.2
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: reapproaching | tool_not_centered_over_cube: dx=21.5 mm, dy=0.3 mm, distance=21.5 mm, limit=20.0 mm; frame=cube; grasp_xy_mm=[-122.8, -350.1], cube_xy_mm=[-102.0, -368.0]; returning to approach (1/3)
+Hardware: tracking | 
+Tracking: status=tracking, reason=none, tool=tag, source_switches=0, capture_ms=4.2, processing_ms=85.1, frame_age_ms=147.7, frame_limit_ms=200.0, interval_ms=91.4, position_error_mm=3.5, rotation_error_deg=1.7
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Hardware diagnostic: tag_metric_size_inconsistent
+Hardware: tracking | 
+Hardware: target_lost_or_stale | tag_metric_size_inconsistent
+Tracking: status=target_lost_or_stale, reason=tag_metric_size_inconsistent, tool=unavailable, source_switches=0, capture_ms=4.6, processing_ms=31.6, frame_age_ms=107.0, frame_limit_ms=200.0, interval_ms=50.1, position_error_mm=inf, rotation_error_deg=inf, expected_tag_mm=40.0, tolerance=10%, rejected_edges_mm=[(0, [39.6, 35.5, 39.7, 35.8]), (2, [40.9, 35.2, 40.8, 34.8]), (5, [34.1, 36.6, 41.2, 32.4])]
+Hardware: pickup_dwelling | frame=cube, xy_distance=19.4 mm, radius=20.0 mm, dwell=0.00/2.00 s
+Hardware diagnostic: frame=cube, xy_distance=19.4 mm, radius=20.0 mm, dwell=0.45/2.00 s
+Hardware diagnostic: frame=cube, xy_distance=19.4 mm, radius=20.0 mm, dwell=1.45/2.00 s
+Hardware: pickup_descending | 
+Hardware: pickup_closing | 
+Hardware diagnostic: gripper_width=100.1 mm, median=100.3 mm, expected=32.0..73.6 mm, settled=False
+Hardware diagnostic: gripper_width=63.4 mm, median=68.1 mm, expected=32.0..73.6 mm, settled=False
+Hardware: pickup_lifting | 
+ActionResult(action='pick', status='complete', holding_cube=True)
+Hardware: holding | 
+Hardware: placement_acquiring | 
+Hardware: placement_raising | phase=raising, tool=fk, elapsed_s=0.0, current_z_mm=323.9, target_z_mm=334.6, position_error_mm=10.7, xy_error_mm=0.0, z_error_mm=10.7, rotation_error_deg=0.00, measured_max_joint_speed_rad_s=0.0743, commanded_max_joint_speed_rad_s=0.0993, jacobian_sigma_min=0.107555, acceleration_clipped_joints=2, state_age_ms=12.3
+Hardware diagnostic: phase=raising, tool=fk, elapsed_s=0.0, current_z_mm=323.9, target_z_mm=334.6, position_error_mm=10.7, xy_error_mm=0.0, z_error_mm=10.7, rotation_error_deg=0.00, measured_max_joint_speed_rad_s=0.0743, commanded_max_joint_speed_rad_s=0.0993, jacobian_sigma_min=0.107555, acceleration_clipped_joints=2, state_age_ms=12.3
+Hardware: placement_transferring | 
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=0.5, current_z_mm=336.4, target_z_mm=334.6, position_error_mm=290.4, xy_error_mm=290.4, z_error_mm=-1.8, rotation_error_deg=38.08, measured_max_joint_speed_rad_s=0.1440, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.103733, acceleration_clipped_joints=0, state_age_ms=12.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=1.6, current_z_mm=336.5, target_z_mm=334.6, position_error_mm=268.3, xy_error_mm=268.3, z_error_mm=-1.9, rotation_error_deg=25.56, measured_max_joint_speed_rad_s=0.1440, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.103547, acceleration_clipped_joints=0, state_age_ms=13.1
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=2.5, current_z_mm=336.0, target_z_mm=334.6, position_error_mm=240.9, xy_error_mm=240.9, z_error_mm=-1.4, rotation_error_deg=14.09, measured_max_joint_speed_rad_s=0.1488, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.102158, acceleration_clipped_joints=0, state_age_ms=12.9
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=3.6, current_z_mm=337.0, target_z_mm=334.6, position_error_mm=215.5, xy_error_mm=215.5, z_error_mm=-2.4, rotation_error_deg=1.73, measured_max_joint_speed_rad_s=0.1179, commanded_max_joint_speed_rad_s=0.0929, jacobian_sigma_min=0.101105, acceleration_clipped_joints=1, state_age_ms=13.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=4.6, current_z_mm=337.6, target_z_mm=334.6, position_error_mm=191.4, xy_error_mm=191.4, z_error_mm=-3.0, rotation_error_deg=6.18, measured_max_joint_speed_rad_s=0.1543, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.104386, acceleration_clipped_joints=0, state_age_ms=13.4
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=5.7, current_z_mm=336.2, target_z_mm=334.6, position_error_mm=178.1, xy_error_mm=178.1, z_error_mm=-1.6, rotation_error_deg=2.54, measured_max_joint_speed_rad_s=0.1247, commanded_max_joint_speed_rad_s=0.1497, jacobian_sigma_min=0.103359, acceleration_clipped_joints=2, state_age_ms=12.8
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=6.7, current_z_mm=337.3, target_z_mm=334.6, position_error_mm=162.4, xy_error_mm=162.4, z_error_mm=-2.7, rotation_error_deg=3.49, measured_max_joint_speed_rad_s=0.1471, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.096557, acceleration_clipped_joints=2, state_age_ms=13.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=7.7, current_z_mm=336.6, target_z_mm=334.6, position_error_mm=139.9, xy_error_mm=139.9, z_error_mm=-2.0, rotation_error_deg=5.33, measured_max_joint_speed_rad_s=0.1500, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.101325, acceleration_clipped_joints=0, state_age_ms=12.4
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=8.7, current_z_mm=335.9, target_z_mm=334.6, position_error_mm=125.3, xy_error_mm=125.2, z_error_mm=-1.3, rotation_error_deg=3.73, measured_max_joint_speed_rad_s=0.1603, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.104918, acceleration_clipped_joints=0, state_age_ms=12.5
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=9.7, current_z_mm=335.9, target_z_mm=334.6, position_error_mm=105.8, xy_error_mm=105.8, z_error_mm=-1.3, rotation_error_deg=4.04, measured_max_joint_speed_rad_s=0.1527, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.101051, acceleration_clipped_joints=1, state_age_ms=12.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=10.7, current_z_mm=336.1, target_z_mm=334.6, position_error_mm=81.4, xy_error_mm=81.4, z_error_mm=-1.5, rotation_error_deg=1.16, measured_max_joint_speed_rad_s=0.0760, commanded_max_joint_speed_rad_s=0.0877, jacobian_sigma_min=0.097682, acceleration_clipped_joints=2, state_age_ms=13.5
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=11.7, current_z_mm=334.8, target_z_mm=334.6, position_error_mm=55.0, xy_error_mm=55.0, z_error_mm=-0.2, rotation_error_deg=6.77, measured_max_joint_speed_rad_s=0.1463, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.094851, acceleration_clipped_joints=0, state_age_ms=13.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=12.8, current_z_mm=335.4, target_z_mm=334.6, position_error_mm=40.4, xy_error_mm=40.4, z_error_mm=-0.8, rotation_error_deg=2.14, measured_max_joint_speed_rad_s=0.1456, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.094248, acceleration_clipped_joints=0, state_age_ms=12.9
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=13.8, current_z_mm=334.8, target_z_mm=334.6, position_error_mm=18.5, xy_error_mm=18.5, z_error_mm=-0.2, rotation_error_deg=3.19, measured_max_joint_speed_rad_s=0.1051, commanded_max_joint_speed_rad_s=0.1301, jacobian_sigma_min=0.092944, acceleration_clipped_joints=2, state_age_ms=12.5
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=14.8, current_z_mm=334.7, target_z_mm=334.6, position_error_mm=6.5, xy_error_mm=6.5, z_error_mm=-0.1, rotation_error_deg=2.31, measured_max_joint_speed_rad_s=0.1324, commanded_max_joint_speed_rad_s=0.1114, jacobian_sigma_min=0.088142, acceleration_clipped_joints=1, state_age_ms=13.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=15.8, current_z_mm=334.9, target_z_mm=334.6, position_error_mm=8.3, xy_error_mm=8.3, z_error_mm=-0.3, rotation_error_deg=4.35, measured_max_joint_speed_rad_s=0.1537, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.089015, acceleration_clipped_joints=0, state_age_ms=12.3
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=16.8, current_z_mm=334.8, target_z_mm=334.6, position_error_mm=5.8, xy_error_mm=5.8, z_error_mm=-0.2, rotation_error_deg=3.16, measured_max_joint_speed_rad_s=0.1522, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.090894, acceleration_clipped_joints=3, state_age_ms=12.5
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=17.8, current_z_mm=333.5, target_z_mm=334.6, position_error_mm=5.9, xy_error_mm=5.8, z_error_mm=1.1, rotation_error_deg=3.16, measured_max_joint_speed_rad_s=0.1502, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.097917, acceleration_clipped_joints=0, state_age_ms=12.8
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=18.9, current_z_mm=335.2, target_z_mm=334.6, position_error_mm=4.7, xy_error_mm=4.7, z_error_mm=-0.6, rotation_error_deg=1.43, measured_max_joint_speed_rad_s=0.1250, commanded_max_joint_speed_rad_s=0.1000, jacobian_sigma_min=0.088602, acceleration_clipped_joints=5, state_age_ms=13.4
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=19.9, current_z_mm=335.6, target_z_mm=334.6, position_error_mm=4.9, xy_error_mm=4.8, z_error_mm=-1.0, rotation_error_deg=2.94, measured_max_joint_speed_rad_s=0.1510, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.086277, acceleration_clipped_joints=0, state_age_ms=13.9
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=20.9, current_z_mm=334.1, target_z_mm=334.6, position_error_mm=4.8, xy_error_mm=4.8, z_error_mm=0.5, rotation_error_deg=2.95, measured_max_joint_speed_rad_s=0.1388, commanded_max_joint_speed_rad_s=0.1455, jacobian_sigma_min=0.092576, acceleration_clipped_joints=1, state_age_ms=12.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=21.9, current_z_mm=332.7, target_z_mm=334.6, position_error_mm=4.9, xy_error_mm=4.5, z_error_mm=1.9, rotation_error_deg=2.52, measured_max_joint_speed_rad_s=0.1229, commanded_max_joint_speed_rad_s=0.1399, jacobian_sigma_min=0.090498, acceleration_clipped_joints=2, state_age_ms=13.8
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=22.9, current_z_mm=335.0, target_z_mm=334.6, position_error_mm=3.0, xy_error_mm=3.0, z_error_mm=-0.4, rotation_error_deg=3.10, measured_max_joint_speed_rad_s=0.1482, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.087025, acceleration_clipped_joints=1, state_age_ms=13.3
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=24.0, current_z_mm=333.5, target_z_mm=334.6, position_error_mm=3.2, xy_error_mm=3.0, z_error_mm=1.1, rotation_error_deg=2.48, measured_max_joint_speed_rad_s=0.1491, commanded_max_joint_speed_rad_s=0.1341, jacobian_sigma_min=0.092302, acceleration_clipped_joints=2, state_age_ms=11.9
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=25.0, current_z_mm=335.1, target_z_mm=334.6, position_error_mm=3.5, xy_error_mm=3.5, z_error_mm=-0.5, rotation_error_deg=2.62, measured_max_joint_speed_rad_s=0.1525, commanded_max_joint_speed_rad_s=0.1347, jacobian_sigma_min=0.093456, acceleration_clipped_joints=0, state_age_ms=12.7
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=26.0, current_z_mm=333.8, target_z_mm=334.6, position_error_mm=5.5, xy_error_mm=5.4, z_error_mm=0.8, rotation_error_deg=3.69, measured_max_joint_speed_rad_s=0.1515, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.084940, acceleration_clipped_joints=0, state_age_ms=13.0
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=27.0, current_z_mm=337.1, target_z_mm=334.6, position_error_mm=5.5, xy_error_mm=4.9, z_error_mm=-2.5, rotation_error_deg=1.94, measured_max_joint_speed_rad_s=0.1190, commanded_max_joint_speed_rad_s=0.1422, jacobian_sigma_min=0.082879, acceleration_clipped_joints=2, state_age_ms=13.4
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=28.0, current_z_mm=338.2, target_z_mm=334.6, position_error_mm=4.0, xy_error_mm=1.8, z_error_mm=-3.6, rotation_error_deg=3.27, measured_max_joint_speed_rad_s=0.1460, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.094005, acceleration_clipped_joints=1, state_age_ms=13.5
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=29.1, current_z_mm=319.5, target_z_mm=334.6, position_error_mm=16.6, xy_error_mm=7.0, z_error_mm=15.1, rotation_error_deg=1.71, measured_max_joint_speed_rad_s=0.1491, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.092676, acceleration_clipped_joints=0, state_age_ms=13.1
+Hardware diagnostic: phase=transferring, tool=tag, elapsed_s=30.0, current_z_mm=325.1, target_z_mm=334.6, position_error_mm=9.8, xy_error_mm=2.5, z_error_mm=9.5, rotation_error_deg=3.13, measured_max_joint_speed_rad_s=0.1512, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.082894, acceleration_clipped_joints=2, state_age_ms=12.6
+UR3e RTDE connections closed.
+UR3e RTDE connections closed.
+Error: TimeoutError: placement phase_timeout: transferring; limit=30 s; last_sample: phase=transferring, tool=tag, elapsed_s=30.0, current_z_mm=325.1, target_z_mm=334.6, position_error_mm=9.8, xy_error_mm=2.5, z_error_mm=9.5, rotation_error_deg=3.13, measured_max_joint_speed_rad_s=0.1512, commanded_max_joint_speed_rad_s=0.1500, jacobian_sigma_min=0.082894, acceleration_clipped_joints=2, state_age_ms=12.6; joint_positions_rad=[-0.7821715513812464, -1.916861196557516, -0.9751062989234924, -1.9399267635741175, 1.5804256200790405, 0.4793913960456848]; additionally: hardware cleanup failed: UR command worker did not stop (phase=closing_control); stop completion unconfirmed; verify robot stopped on pendant
+
+Failed (exit 1) | Verify robot state on pendant
