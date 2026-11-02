@@ -4,6 +4,7 @@ from dataclasses import dataclass, fields, field
 import json
 import math
 from pathlib import Path
+from simulation.viewer import viewer_settings
 
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "simulation_config.json"
@@ -17,8 +18,10 @@ class SimulationConfig:
     cube_quaternion: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     # Horizontal destination tags on the floor, keyed by sequence destination name.
     destination_positions: dict = field(default_factory=lambda: {'drop_zone_b': (.12, .32, 0.)})
+    viewer: dict = field(default_factory=dict)
 
     def __post_init__(self):
+        object.__setattr__(self, 'viewer', viewer_settings(self.viewer))
         if not isinstance(self.destination_positions, dict):
             raise ValueError('destination_positions must be a name-to-XYZ object')
         positions = {}

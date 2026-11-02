@@ -237,8 +237,9 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
         session = stack.enter_context(SimulationSession(simulation, sequence_config))
         viewer = None
         if not runtime.headless:
-            import mujoco.viewer
-            viewer = stack.enter_context(mujoco.viewer.launch_passive(simulation.robot.model, simulation.robot.data))
+            from simulation.viewer import launch_viewer
+            viewer = stack.enter_context(launch_viewer(simulation.robot.model, simulation.robot.data,
+                                                       simulation.config.viewer))
         camera_view = runtime.camera and not runtime.headless
         if camera_view:
             cv2.namedWindow('Simulation pick and place', cv2.WINDOW_NORMAL)

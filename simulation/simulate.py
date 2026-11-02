@@ -10,6 +10,7 @@ import mujoco
 import numpy as np
 
 from simulation.interface import MujocoInterface
+from simulation.viewer import launch_viewer
 from simulation.robot_model import RobotModel
 from simulation.simulation_config import DEFAULT_CONFIG_PATH, SimulationConfig
 from common.controller_config import DEFAULT_CONTROLLER_CONFIG_PATH, ControllerConfig
@@ -191,7 +192,7 @@ class Simulation:
                     cube_size=self.robot.cube_size, marker_size=self.robot.cube_marker_size)
 
             viewer = stack.enter_context(
-                mujoco.viewer.launch_passive(self.robot.model, self.robot.data)
+                launch_viewer(self.robot.model, self.robot.data, self.config.viewer)
             )
             window_name = "UR3e " + self.robot.camera_name.replace("_", " ") + " - RGB"
             if camera:

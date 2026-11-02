@@ -4,6 +4,23 @@ Active JSON configuration files live here. Default loaders resolve this director
 relative to the application, independently of the current working directory.
 Explicit command-line config paths still work.
 
+`simulation_config.json` includes a `viewer` section. Both MuJoCo side panels
+start hidden. With `resize_window: true`, startup requests a normal, centered
+window covering `screen_fraction` (default `0.9`) of the desktop work area.
+Optional `width`, `height`, `x`, and `y` override size/position in desktop pixels;
+null values use fractional sizing and centering. These settings affect both
+simulation entry points, not the perception camera or its separate RGB window.
+They also appear under Simulation scene in the desktop launcher.
+
+Automatic geometry uses native Windows or Linux X11/XWayland window-manager
+requests and may be overridden by desktop policies. Native Wayland and macOS
+fall back to manual resizing with a warning; panel visibility still applies.
+Simulation prefers the GLFW X11 backend when `DISPLAY` is available, including
+XWayland sessions. An explicit `PYGLFW_LIBRARY_VARIANT` overrides that preference.
+Set `resize_window: false` to retain MuJoCo's geometry without a warning.
+On multi-monitor desktops, explicit dimensions/coordinates can select the desired
+area. Geometry requests are restricted to MuJoCo windows in the current process.
+
 `python run_experiments.py` opens the optional desktop configuration editor and
 experiment launcher. See [desktop setup and profiles](../DESKTOP.md). GUI runs
 use separate snapshots; editing a draft does not overwrite these files.
