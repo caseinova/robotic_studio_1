@@ -207,7 +207,8 @@ def test_exit_does_not_duplicate_same_action_failure(monkeypatch):
     assert robot.__exit__(type(error), error, None) is False
 
 
-def test_preview_renders_rgb_and_window_cancel(monkeypatch):
+@pytest.mark.parametrize('annotations', [True, False])
+def test_preview_renders_rgb_and_window_cancel(monkeypatch, annotations):
     import sys
     from unittest.mock import Mock
     from common.sequence_preview import SequencePreview
@@ -216,7 +217,7 @@ def test_preview_renders_rgb_and_window_cancel(monkeypatch):
     cv.getWindowProperty.return_value = 1
     cv.cvtColor.side_effect = lambda rgb, code: rgb.copy()
     monkeypatch.setitem(sys.modules, "cv2", cv)
-    view = SequencePreview({"width": 64, "height": 48})
+    view = SequencePreview({"width": 64, "height": 48}, annotations=annotations)
     frame = SimpleNamespace(rgb=np.zeros((48, 64, 3), dtype=np.uint8))
     robot = SimpleNamespace(latest_preview=lambda: frame, status="pickup_lifting")
     view.update(robot)
@@ -232,6 +233,7 @@ def test_preview_renders_rgb_and_window_cancel(monkeypatch):
     view.update(robot)
     assert cv.cvtColor.call_count == 2
     assert cv.aruco.mock_calls == []
+    assert bool(cv.putText.call_count) == annotations
     np.testing.assert_array_equal(frame.rgb, 0)
     cv.waitKey.return_value = ord('q')
     with pytest.raises(RuntimeError, match="cancelled"):

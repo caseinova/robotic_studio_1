@@ -21,7 +21,8 @@ from common.pickup import ActionResult, PickAction
 
 class RobotSession:
     def __init__(self, hardware, controller_config, estimator_config, sequence_config=None,
-                 *, interface_factory=open_hardware, clock=time.monotonic, camera_view=False):
+                 *, interface_factory=open_hardware, clock=time.monotonic, camera_view=False,
+                 annotations=True):
         hardware.validate_ready(controller_config, task="pick")
         self.hardware, self.controller_config = hardware, controller_config
         self.estimator_config = estimator_config
@@ -35,6 +36,7 @@ class RobotSession:
         self.tracking_report = ""
         self.interface = None
         self.camera_view = camera_view
+        self.annotations = annotations
         self._preview_lock = threading.Lock()
         self._preview = None
         self._factory, self._clock = interface_factory, clock

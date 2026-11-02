@@ -22,7 +22,8 @@ def launch(settings, *, validate_only=False):
         from hardware.hardware_runtime import run_hardware
 
         return run_hardware(hardware, controller_config, estimator_config, task=settings.task,
-                            steps=settings.steps, camera_view=settings.camera and not settings.headless)
+                            steps=settings.steps, camera_view=settings.camera and not settings.headless,
+                            annotations=settings.annotations)
     from simulation.simulation_config import SimulationConfig
     from simulation.noise_config import NoiseConfig
 
@@ -37,7 +38,8 @@ def launch(settings, *, validate_only=False):
         estimator_config=estimator_config, noise_config=noise, pickup=settings.task == "pick")
     try:
         if not settings.headless:
-            return simulation.launch_viewer(camera=settings.camera, servo=settings.task != "observe")
+            return simulation.launch_viewer(camera=settings.camera, servo=settings.task != "observe",
+                                            annotations=settings.annotations)
         if settings.task == "observe":
             return simulation.step(settings.steps)
         result = simulation.run_controlled(settings.steps)
@@ -56,13 +58,14 @@ def main(argv=None):
     parser.add_argument("--task", choices=("observe", "servo", "pick"), default=None)
     parser.add_argument("--hardware-config", type=Path, default=None)
     parser.add_argument("--headless", action="store_true", default=None)
+    parser.add_argument("--annotations", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--validate", action="store_true", help="validate configuration without opening any devices")
     args = parser.parse_args(argv)
     try:
         settings = RuntimeConfig.load(args.config).override(backend=args.backend, task=args.task,
             hardware_config=None if args.hardware_config is None else args.hardware_config.resolve(),
-            headless=args.headless, steps=args.steps)
+            headless=args.headless, steps=args.steps, annotations=args.annotations)
         launch(settings, validate_only=args.validate)
     except KeyboardInterrupt:
         print("Stopped")

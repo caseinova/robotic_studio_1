@@ -53,7 +53,7 @@ class PickAction:
             captured = s.interface.timestamp
             result = self.approach.update(frame)
             finished = s.interface.timestamp
-            if getattr(s, 'camera_view', False):
+            if getattr(s, 'camera_view', False) and getattr(s, 'annotations', True):
                 rgb = self.approach.processor.annotate(frame.rgb, result.observation, frame.intrinsics)
                 s.publish_preview(replace(frame, rgb=rgb))
             else:

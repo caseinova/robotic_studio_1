@@ -30,11 +30,13 @@ def test_destination_config_requires_floor_pose():
 
 
 @pytest.mark.parametrize('camera_view', [True, False])
-def test_pick_preview_reuses_control_observation(camera_view):
+@pytest.mark.parametrize('annotations', [True, False])
+def test_pick_preview_reuses_control_observation(camera_view, annotations):
     from common.pickup import PickAction
     from common.camera_processing import TaggedCubeProcessor
     with SimulationSession(Simulation(), settings()) as session:
         session.camera_view = camera_view
+        session.annotations = annotations
         processor = TaggedCubeProcessor(cube_size=.064, marker_size=.04)
         action = PickAction(session, processor=processor)
         frame = session.interface.capture_rgbd()
@@ -45,10 +47,10 @@ def test_pick_preview_reuses_control_observation(camera_view):
             action.update()
         capture.assert_called_once()
         detect.assert_called_once()
-        assert annotate.call_count == int(camera_view)
+        assert annotate.call_count == int(camera_view and annotations)
         preview = session.latest_preview()
         assert preview.timestamp == frame.timestamp
-        if camera_view:
+        if camera_view and annotations:
             assert preview is not frame
             assert np.any(preview.rgb != original)
         else:

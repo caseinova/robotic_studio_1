@@ -21,6 +21,7 @@ class RuntimeConfig:
     headless: bool
     camera: bool
     steps: int
+    annotations: bool = True
 
     def __post_init__(self):
         if self.backend not in ("simulation", "hardware"):
@@ -31,6 +32,8 @@ class RuntimeConfig:
             raise ValueError("steps must be a non-negative integer")
         if type(self.headless) is not bool or type(self.camera) is not bool:
             raise ValueError("headless/camera settings must be boolean")
+        if type(self.annotations) is not bool:
+            raise ValueError("annotations must be boolean")
 
     @classmethod
     def load(cls, path=DEFAULT_RUNTIME_CONFIG_PATH):
@@ -38,6 +41,7 @@ class RuntimeConfig:
         with path.open(encoding="utf-8") as source:
             values = json.load(source)
         object_settings(values, cls.__dataclass_fields__, "runtime")
+        values.setdefault("annotations", True)
         if set(values) != set(cls.__dataclass_fields__):
             raise ValueError("runtime config must specify all fields")
         for name in ("hardware_config", "simulation_config", "controller_config", "estimator_config", "noise_config"):

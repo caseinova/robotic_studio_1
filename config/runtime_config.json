@@ -8,5 +8,6 @@
   "noise_config": "noise_config.json",
   "headless": false,
   "camera": true,
+  "annotations": true,
   "steps": 6000
 }

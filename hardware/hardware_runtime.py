@@ -46,7 +46,7 @@ def open_hardware(config, *, clock=time.monotonic):
 from common.pickup import _pickup_target
 
 def run_hardware(config, controller_config, estimator_config, *, task="servo", steps=6000,
-                 camera_view=False, clock=time.monotonic, sleep=time.sleep,
+                 camera_view=False, annotations=True, clock=time.monotonic, sleep=time.sleep,
                  interface_factory=open_hardware):
     """Stop on completion, interruption, timing failure, or transport error.
 
@@ -133,7 +133,8 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                     frame_age_after_processing = clock() - frame.timestamp
                     display_start = clock()
                     if cv2 is not None:
-                        rgb = processor.annotate(frame.rgb, observation, frame.intrinsics)
+                        rgb = (processor.annotate(frame.rgb, observation, frame.intrinsics)
+                               if annotations else frame.rgb)
                         cv2.imshow("Hardware RGB-D", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
                     timings["display"] = clock() - display_start
                 if cv2 is not None:

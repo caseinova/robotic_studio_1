@@ -7,11 +7,12 @@ import numpy as np
 
 
 class SequencePreview:
-    def __init__(self, camera, *, name="Pick and place RGB-D"):
+    def __init__(self, camera, *, name="Pick and place RGB-D", annotations=True):
         import cv2
         self.cv2 = cv2
         self._bgr = None
         self.name = name
+        self.annotations = annotations
         fonts = Path("/usr/share/fonts/truetype/dejavu")
         if fonts.is_dir():
             os.environ.setdefault("QT_QPA_FONTDIR", str(fonts))
@@ -30,8 +31,9 @@ class SequencePreview:
             if frame is not self._last:
                 self._bgr = cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2BGR)
             bgr = self._bgr.copy()
-            cv2.putText(bgr, robot.status, (12, 48), cv2.FONT_HERSHEY_SIMPLEX,
-                        .65, (0, 255, 255), 2)
+            if self.annotations:
+                cv2.putText(bgr, robot.status, (12, 48), cv2.FONT_HERSHEY_SIMPLEX,
+                            .65, (0, 255, 255), 2)
             cv2.imshow(self.name, bgr)
             self._last, self._status = frame, robot.status
         key = cv2.waitKey(1) & 255

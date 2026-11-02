@@ -146,7 +146,8 @@ class Simulation:
         return result
 
     def launch_viewer(self, *, camera: bool = False, servo: bool = False,
-                      tool_clearance: float | None = None, plots: bool = False) -> None:
+                      tool_clearance: float | None = None, plots: bool = False,
+                      annotations: bool = True) -> None:
         """Show the model overview and optionally a separate fixed-camera RGB window.
 
         Close either window, or press Q/Escape in the camera window, to stop.
@@ -248,16 +249,19 @@ class Simulation:
                                        else last_control.observation)
                     else:
                         observation = processor.process(frame)
-                    rgb = processor.annotate(frame.rgb, observation, frame.intrinsics)
+                    rgb = (processor.annotate(frame.rgb, observation, frame.intrinsics)
+                           if annotations else frame.rgb)
                     # The calibration marker is distinct from the cube target.
-                    tag_corners, tag_ids, _ = processor.detector.detectMarkers(
-                        cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2GRAY))
+                    tag_corners, tag_ids = [], None
+                    if annotations:
+                        tag_corners, tag_ids, _ = processor.detector.detectMarkers(
+                            cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2GRAY))
                     if tag_ids is not None:
                         for corners, marker_id in zip(tag_corners, tag_ids.reshape(-1)):
                             if int(marker_id) == self.robot.end_effector_marker_id:
                                 cv2.aruco.drawDetectedMarkers(
                                     rgb, [corners], np.array([[int(marker_id)]], dtype=np.int32))
-                    if last_control is not None:
+                    if annotations and last_control is not None:
                         error = (f"{last_control.position_error:.3f} m"
                                  if math.isfinite(last_control.position_error) else "unavailable")
                         cv2.putText(rgb, f"{active_label}: {last_control.status} | error {error}",
@@ -265,7 +269,7 @@ class Simulation:
                         if last_control.tool_pose_source:
                             cv2.putText(rgb, f"Tool pose: {last_control.tool_pose_source}",
                                         (12, 94), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    else:
+                    elif annotations:
                         cv2.putText(rgb, "Controller OFF: restart with --servo", (12, 48),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 200, 80), 1)
                     cv2.imshow(window_name, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
@@ -289,6 +293,7 @@ def main() -> None:
     parser.add_argument("--no-noise", action="store_true", help="disable measurement noise for this run")
     parser.add_argument("--headless", action="store_true", help="run without a viewer")
     parser.add_argument("--camera", action="store_true", help="show the selected camera RGB window alongside the model viewer")
+    parser.add_argument("--annotations", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--camera-name", choices=RobotModel.camera_names, default=None,
                         help="fixed RGB-D camera for viewing/calibration")
     parser.add_argument("--plots", action="store_true", help="show live control plots in viewer mode and save PNG/CSV results")
@@ -357,7 +362,8 @@ def _run_simulation(simulation, args):
         print("Joint positions (radians):", simulation.interface.joint_positions)
     else:
         simulation.launch_viewer(camera=args.camera, servo=args.servo,
-                                 tool_clearance=args.tool_clearance, plots=args.plots)
+                                 tool_clearance=args.tool_clearance, plots=args.plots,
+                                 annotations=args.annotations)
 
 
 if __name__ == "__main__":

@@ -120,7 +120,7 @@ class SimulationPlacementGuard:
 class SimulationSession:
     """Blocking composable actions. Physics advances while each action runs."""
 
-    def __init__(self, simulation, sequence_config, *, on_update=None):
+    def __init__(self, simulation, sequence_config, *, on_update=None, annotations=True):
         self.simulation = simulation
         self.config = sequence_config
         self.controller_config = simulation.controller_config
@@ -131,6 +131,7 @@ class SimulationSession:
         self.tool_from_cube = None
         self.status, self.diagnostic, self.tracking_report = 'idle', '', ''
         self.camera_view = on_update is not None
+        self.annotations = annotations
         self.latest_frame = None
         self.on_update = on_update
         self.failed = False
@@ -237,7 +238,8 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
     simulation = Simulation(config=experiment, controller_config=controller,
                             estimator_config=estimator, noise_config=noise)
     with ExitStack() as stack:
-        session = stack.enter_context(SimulationSession(simulation, sequence_config))
+        session = stack.enter_context(SimulationSession(simulation, sequence_config,
+                                                       annotations=runtime.annotations))
         viewer = None
         if not runtime.headless:
             from simulation.viewer import launch_viewer
@@ -250,7 +252,7 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
             initial = session.interface.capture_rgbd()
             session.publish_preview(initial)
             preview = SequencePreview({'height': initial.rgb.shape[0], 'width': initial.rgb.shape[1]},
-                                      name='Simulation pick and place RGB-D')
+                                      name='Simulation pick and place RGB-D', annotations=runtime.annotations)
             stack.callback(preview.close)
         last = [None, -np.inf, time.monotonic()]
 

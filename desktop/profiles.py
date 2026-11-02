@@ -22,6 +22,7 @@ def read_profile(directory):
     runtime = parse_json((directory / 'runtime_config.json').read_text())
     if not isinstance(runtime, dict):
         raise ValueError('Runtime configuration must be a JSON object')
+    runtime.setdefault('annotations', True)
     documents = {'runtime': runtime}
     for name in FILES[1:]:
         path = directory / runtime.get(name + '_config', name + '_config.json')

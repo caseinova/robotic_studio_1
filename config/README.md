@@ -4,6 +4,13 @@ Active JSON configuration files live here. Default loaders resolve this director
 relative to the application, independently of the current working directory.
 Explicit command-line config paths still work.
 
+`runtime_config.json` controls camera overlays with `annotations` (default
+`true`). Set it to `false` for a clean camera feed, or use `--no-annotations`
+with `run.py` or `run_sequence.py`; `--annotations` turns overlays back on.
+The desktop launcher exposes the checkbox under Run settings. This applies to
+simulation and hardware, including pick-and-place. Detection, estimation and
+control remain active; only camera annotations and phase labels are hidden.
+
 `simulation_config.json` includes a `viewer` section. Both MuJoCo side panels
 start hidden. With `resize_window: true`, startup requests a normal, centered
 window covering `screen_fraction` (default `0.9`) of the desktop work area.

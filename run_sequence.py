@@ -21,11 +21,12 @@ def main(argv=None):
     parser.add_argument("--backend", choices=('hardware', 'simulation'), default='hardware')
     parser.add_argument("--validate", action="store_true", help="offline preflight only")
     parser.add_argument("--headless", action="store_true", default=None, help="disable the live camera window")
+    parser.add_argument("--annotations", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args(argv)
     preview = None
     try:
         runtime = RuntimeConfig.load(args.config).override(backend=args.backend, task="pick",
-            headless=args.headless,
+            headless=args.headless, annotations=args.annotations,
             hardware_config=None if args.hardware_config is None else args.hardware_config.resolve())
         camera_view = runtime.camera and not runtime.headless
         if runtime.backend == 'simulation':
@@ -35,7 +36,8 @@ def main(argv=None):
         robot = RobotSession(HardwareConfig.load(runtime.hardware_config),
                              ControllerConfig.load(runtime.controller_config),
                              EKFConfig.load(runtime.estimator_config),
-                             SequenceConfig.load(args.sequence_config), camera_view=camera_view)
+                             SequenceConfig.load(args.sequence_config), camera_view=camera_view,
+                             annotations=runtime.annotations)
         print(f"Configs: hardware={runtime.hardware_config}; controller={runtime.controller_config}; "
               f"estimator={runtime.estimator_config}", flush=True)
         robot.validate_destination(args.destination)
@@ -44,7 +46,7 @@ def main(argv=None):
             return 0
         if camera_view:
             from common.sequence_preview import SequencePreview
-            preview = SequencePreview(robot.hardware.camera)
+            preview = SequencePreview(robot.hardware.camera, annotations=runtime.annotations)
         with robot:
             def wait(action):
                 previous = None
