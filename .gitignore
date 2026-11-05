@@ -13,4 +13,7 @@ tools/*
 !tools/build_rg2_model.py
 !tools/render_rg2.py
 .pytest_cache/
-
+experiment_runs/
+camera_calibration_results.json
+camera_calibration_samples.json
+old_version/
