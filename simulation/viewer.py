@@ -41,6 +41,15 @@ def launch_viewer(model, data, settings):
     settings = viewer_settings(settings)
     viewer = mujoco.viewer.launch_passive(model, data,
         show_left_ui=settings['show_left_ui'], show_right_ui=settings['show_right_ui'])
+    try:
+        with viewer.lock():
+            viewer.cam.lookat[:] = (0., .16, .23)
+            viewer.cam.distance = 1.1
+            viewer.cam.azimuth = 225.
+            viewer.cam.elevation = -18.
+    except BaseException:
+        viewer.close()
+        raise
     if settings['resize_window']:
         try:
             deadline = time.monotonic() + 1.

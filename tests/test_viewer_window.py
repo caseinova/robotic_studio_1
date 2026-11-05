@@ -12,6 +12,15 @@ def test_defaults_are_centered_and_panels_hidden():
     assert window_rectangle(settings, (0, 30, 1920, 1000)) == (96, 80, 1728, 900)
 
 
+def test_scene_starts_on_opposite_side_without_moving_perception_camera():
+    import numpy as np
+    from simulation.robot_model import RobotModel
+    robot = RobotModel()
+    assert robot.model.vis.global_.azimuth == pytest.approx(225)
+    assert robot.model.vis.global_.elevation == pytest.approx(-18)
+    np.testing.assert_allclose(robot.model.cam_pos[robot.camera_id], [.5852, .8864, .45])
+
+
 def test_explicit_geometry_and_clamping():
     settings = viewer_settings(dict(width=1200, height=700, x=40, y=50))
     assert window_rectangle(settings, (0, 0, 1920, 1080)) == (40, 50, 1200, 700)
@@ -31,6 +40,10 @@ def test_launch_hides_panels_and_places_own_window():
         viewer = launch_viewer('model', 'data', {})
     launch.assert_called_once_with('model', 'data', show_left_ui=False, show_right_ui=False)
     assert viewer is launch.return_value
+    viewer.cam.lookat.__setitem__.assert_called_once_with(slice(None), (0., .16, .23))
+    assert viewer.cam.distance == 1.1
+    assert viewer.cam.azimuth == 225.
+    assert viewer.cam.elevation == -18.
     place.assert_called_once()
 
 
