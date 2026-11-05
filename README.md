@@ -1,5 +1,12 @@
 # Robotic Studio
 
+## Integrated project page
+
+The [project page](docs/index.html) presents the sensing, estimation and control
+pipeline against the integrated-project marking guide. See
+[page setup and GitHub Pages publishing](docs/README.md) for preview instructions
+and the evidence still needed before submission.
+
 Robotic Studio is an experimental UR3e and OnRobot RG2 workspace for visual
 servoing, cube pickup, and marker-guided placement. It provides a MuJoCo
 simulation and a real-hardware backend that use shared perception, control,
