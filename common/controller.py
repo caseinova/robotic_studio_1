@@ -211,6 +211,8 @@ class ControlResult:
     pose_estimate: RelativePoseEstimate | None = None
     tool_observation: MarkerObservation | None = None
     tool_pose_source: str = ""
+    tool_pose: np.ndarray | None = None
+    tool_pose_timestamp: float | None = None
 
 
 class ApproachController:
@@ -242,7 +244,10 @@ class ApproachController:
                                              marker_size=kinematics.end_effector_marker_size,
                                              cube_size=max(.1, kinematics.end_effector_marker_size))
         self.tool_observation = None
+        self.latest_tool_estimate = None
         self.tool_pose_source = ""
+        self.latest_tool_pose = None
+        self.latest_tool_pose_timestamp = None
         self.settings = controller_config or ControllerConfig()
         if tool_clearance is not None:
             self.settings = replace(self.settings, tool_clearance=tool_clearance)
@@ -271,7 +276,10 @@ class ApproachController:
             frame = self.interface.capture_rgbd()
         observation = self.processor.process(frame)
         self.tool_observation = None
+        self.latest_tool_estimate = None
         self.tool_pose_source = ""
+        self.latest_tool_pose = None
+        self.latest_tool_pose_timestamp = None
         if observation is not None and self.settings.tool_pose_source != "fk":
             self.tool_observation = self.tool_processor.process_marker(frame)
         state = self.interface.read_state()
@@ -340,6 +348,7 @@ class ApproachController:
             if self.tool_estimator.config.enabled:
                 tool_estimate = self.tool_estimator.update(
                     frame.timestamp, camera_from_tool, frame.world_from_camera)
+                self.latest_tool_estimate = tool_estimate
                 if tool_estimate is not None and tool_estimate.measurement_accepted:
                     # This generic rigid-body tracker retains cube-named pose
                     # fields for compatibility; here its tracked body is the tool.
@@ -361,6 +370,8 @@ class ApproachController:
         else:
             camera_from_tool = inverse_pose(frame.world_from_camera) @ self.kinematics.tool_pose()
             self.tool_pose_source = "fk" if self.settings.tool_pose_source == "fk" else "fk_fallback"
+        self.latest_tool_pose = frame.world_from_camera @ camera_from_tool
+        self.latest_tool_pose_timestamp = self.interface.timestamp
         tool_from_marker = inverse_pose(camera_from_tool) @ camera_from_marker
         reference, error = self.pbvs.reference(tool_from_marker, jacobian)
         position_error, rotation_error = np.linalg.norm(error[:3]), np.linalg.norm(error[3:])
@@ -370,14 +381,18 @@ class ApproachController:
                 self.mpc.reset()
             return ControlResult(observation, reference, np.zeros(6), "reached",
                                  position_error, rotation_error, minimum, pose_estimate=self.pose_estimate,
-                                 tool_observation=self.tool_observation, tool_pose_source=self.tool_pose_source)
+                                 tool_observation=self.tool_observation, tool_pose_source=self.tool_pose_source,
+                                 tool_pose=self.latest_tool_pose.copy(),
+                                 tool_pose_timestamp=self.latest_tool_pose_timestamp)
         command, status, minimum = pose_reference_command(self.kinematics, self.limits_config,
             self.mpc, positions, state.joint_velocities, reference)
         self.interface.set_joint_velocities(command)
         return ControlResult(observation, reference, command, status,
                              position_error, rotation_error, minimum,
                              pose_estimate=self.pose_estimate, tool_observation=self.tool_observation,
-                             tool_pose_source=self.tool_pose_source)
+                             tool_pose_source=self.tool_pose_source,
+                             tool_pose=self.latest_tool_pose.copy(),
+                             tool_pose_timestamp=self.latest_tool_pose_timestamp)
 
 
 def pose_reference_command(kinematics, config, mpc, positions, velocities, reference):
@@ -417,6 +432,8 @@ class CubePickupController:
                  pickup_dwell_seconds: float = 0.0, pickup_dwell_radius_m: float = 0.01,
                  tool_tracker=None):
         self.tool_tracker = tool_tracker
+        self.latest_tool_pose = None
+        self.latest_tool_pose_timestamp = None
         if cube_size is None:
             cube_size = getattr(kinematics, 'cube_size', .1)
         for name, value, positive in (("pickup_dwell_seconds", pickup_dwell_seconds, False),
@@ -513,6 +530,8 @@ class CubePickupController:
             self._fail('tool_lost_or_rejected')
             return
         self._entry_pose = self._tool_pose().copy()
+        self.latest_tool_pose = self._entry_pose.copy()
+        self.latest_tool_pose_timestamp = now
         self._descent_pose = self._entry_pose.copy()
         grasp_position = self._grasp_pose()[:3, 3]
         # Move along the latched cube normal, preserving local XY and the
@@ -555,6 +574,8 @@ class CubePickupController:
 
     def update(self) -> ControlResult:
         """Advance one phase with fresh tool feedback when fusion is enabled."""
+        self.latest_tool_pose = None
+        self.latest_tool_pose_timestamp = None
         tool_available = True
         if self.tool_tracker is not None and self.phase != 'idle' and not self.finished:
             tool_available = self.tool_tracker.refresh() is not None
@@ -595,6 +616,8 @@ class CubePickupController:
             self._pose_integral[:] = 0
             self.diagnostic = 'tool_lost_or_rejected: ' + self.tool_tracker.diagnostic
             return self._result()
+        self.latest_tool_pose = self._tool_pose().copy()
+        self.latest_tool_pose_timestamp = now
 
         if self.phase == "opening":
             self.interface.set_joint_velocities(np.zeros(6))

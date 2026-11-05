@@ -17,6 +17,7 @@ from common.controller_config import DEFAULT_CONTROLLER_CONFIG_PATH, ControllerC
 from simulation.noise_config import DEFAULT_NOISE_CONFIG_PATH, NoiseConfig
 from common.estimator import DEFAULT_ESTIMATOR_CONFIG_PATH, EKFConfig
 from simulation.plots import SimulationPlots
+from simulation.estimation_telemetry import EstimationTelemetry
 from common.controller import start_pickup_or_reapproach
 
 
@@ -48,6 +49,8 @@ class Simulation:
         self.config = config if config is not None else SimulationConfig()
         self.controller_config = controller_config or ControllerConfig(tool_clearance=.28)
         self.estimator_config = estimator_config or EKFConfig()
+        self._cube_ekf_enabled = self.estimator_config.for_target('cube').enabled
+        self._tool_ekf_enabled = self.estimator_config.for_target('tool').enabled
         # Preserve an explicitly supplied custom model unless settings are supplied.
         if robot is None or config is not None:
             cube_id = mujoco.mj_name2id(self.robot.model, mujoco.mjtObj.mjOBJ_BODY, "cube")
@@ -76,20 +79,75 @@ class Simulation:
             self.robot.reset()
         self.interface = MujocoInterface(self.robot, noise_config=noise_config)
         self.plots = SimulationPlots()
+        self.estimation = EstimationTelemetry()
         self._plot_kinematics = None
 
-    def _record_control(self, result):
+    def _record_control(self, result, controller=None, pickup=None):
         """Reconstruct measured motion in a separate telemetry workspace."""
         from simulation.kinematics import MujocoKinematics
 
         if self._plot_kinematics is None:
             self._plot_kinematics = MujocoKinematics(self.robot)
         self.plots.record(self.interface.read_state(), self._plot_kinematics, result)
+        self.record_estimates(result, controller, action=pickup)
+
+    def record_estimates(self, result=None, controller=None, tracker=None, action=None):
+        cube = None if result is None else getattr(result, 'pose_estimate', None)
+        if cube is None and controller is not None:
+            cube = getattr(controller, 'pose_estimate', None)
+        if cube is not None and abs(cube.timestamp - self.interface.timestamp) > 1e-6:
+            cube = None
+        cube_pose = None
+        cube_status = 'unavailable' if cube is None else cube.status
+        pickup = getattr(action, 'pickup', action)
+        picking = (pickup is not None and hasattr(pickup, '_world_from_cube')
+                   and getattr(pickup, 'phase', 'idle') not in ('idle', 'failed'))
+        if cube is None and not self._cube_ekf_enabled:
+            if picking and getattr(pickup, '_world_from_cube', None) is not None:
+                cube_pose = pickup._world_from_cube.copy()
+                cube_status = 'latched_pick_target'
+            elif result is not None and getattr(result, 'status', '') in ('tracking', 'reached'):
+                observation = getattr(result, 'observation', None)
+                if observation is not None and abs(observation.timestamp-self.interface.timestamp) <= 1e-6:
+                    cube_pose, cube_status = observation.world_from_cube, 'raw_cube_tag'
+        tracker = tracker or (getattr(controller, 'tool_tracker', None) if controller is not None else None)
+        pose = covariance = None
+        status = 'unavailable'
+        if tracker is not None:
+            ekf = tracker.increment_estimator
+            if tracker.pose is not None and ekf.timestamp is not None and abs(ekf.timestamp-self.interface.timestamp) <= 1e-6:
+                pose, covariance, status = tracker.pose, ekf.covariance, tracker.source
+        elif controller is not None and not picking:
+            estimate = getattr(controller, 'latest_tool_estimate', None)
+            if (estimate is not None and estimate.measurement_accepted
+                    and getattr(controller, 'tool_pose_source', '') == 'tag'
+                    and abs(estimate.timestamp-self.interface.timestamp) <= 1e-6):
+                pose, covariance, status = estimate.world_from_cube, estimate.covariance, estimate.status
+        if pose is None and not picking and result is not None:
+            result_pose = getattr(result, 'tool_pose', None)
+            timestamp = getattr(result, 'tool_pose_timestamp', None)
+            if result_pose is not None and timestamp is not None and abs(timestamp-self.interface.timestamp) <= 1e-6:
+                pose = result_pose
+                status = getattr(result, 'tool_pose_source', '') or 'unavailable'
+                if status == 'tag':
+                    status = 'filtered_tag' if self._tool_ekf_enabled else 'raw_tool_tag'
+        if pose is None:
+            source = pickup if picking else (action if hasattr(action, 'latest_tool_pose') else controller)
+            if (source is not None and getattr(source, 'latest_tool_pose', None) is not None
+                    and abs(source.latest_tool_pose_timestamp-self.interface.timestamp) <= 1e-6):
+                pose = source.latest_tool_pose
+                status = 'fk' if picking else getattr(source, 'tool_pose_source', 'fk') or 'fk'
+                if status == 'tag':
+                    status = 'filtered_tag' if self._tool_ekf_enabled else 'raw_tool_tag'
+        self.estimation.record(self.robot.data, cube_estimate=cube, cube_pose=cube_pose, tool_pose=pose,
+            tool_covariance=covariance, tool_status=status,
+            cube_status=cube_status)
 
     def reset(self) -> None:
         self.robot.reset()
         self.interface.reset_noise()
         self.plots.reset()
+        self.estimation = EstimationTelemetry()
         # Reset targets are model commands, not noisy measurements of home.
         targets = self.robot.model.key("home").ctrl[self.robot.actuator_ids].copy()
         self.interface.set_joint_positions(targets)
@@ -137,7 +195,7 @@ class Simulation:
                             if result.status == "reached" and pickup_controller is not None:
                                 result = start_pickup_or_reapproach(controller, pickup_controller,
                                                                    _pickup_observation(result))
-                        self._record_control(result)
+                        self._record_control(result, controller, pickup_controller)
                         next_update = self.interface.timestamp + controller.control_dt
                         if (result.status == "reached"
                                 or pickup_controller is not None and pickup_controller.finished):
@@ -220,6 +278,10 @@ class Simulation:
             while viewer.is_running():
                 start = time.perf_counter()
                 self.step(frame_steps)
+                if controller is None:
+                    self.record_estimates()
+                if self.config.viewer['show_estimates']:
+                    self.estimation.draw(viewer)
                 viewer.sync()
                 control_due = controller is not None and self.interface.timestamp + 1e-9 >= next_control_update
                 display_due = camera and start >= next_camera_frame
@@ -233,7 +295,7 @@ class Simulation:
                             if last_control.status == "reached" and pickup_controller is not None:
                                 last_control = start_pickup_or_reapproach(controller, pickup_controller,
                                                                          _pickup_observation(last_control))
-                        self._record_control(last_control)
+                        self._record_control(last_control, controller, pickup_controller)
                         if plots and time.perf_counter() >= next_plot_refresh:
                             self.plots.refresh()
                             next_plot_refresh = time.perf_counter() + 0.5
@@ -345,6 +407,8 @@ def main() -> None:
             paths = simulation.plots.save(args.plot_dir or "simulation_plots")
             if paths:
                 print(f"Saved control plots and CSV to {paths[0].parent.resolve()}", flush=True)
+        image, _ = simulation.estimation.save()
+        print(f"Saved estimation graph and CSV to {image.parent}", flush=True)
         simulation.plots.close()
 
 
@@ -363,7 +427,9 @@ def _run_simulation(simulation, args):
                 print(f"Controller: {result.status}; position error {position}; "
                       f"rotation error {rotation}; clearance {clearance}{details}")
         else:
+            simulation.record_estimates()
             simulation.step(args.steps)
+            simulation.record_estimates()
         print(f"Simulated {simulation.interface.timestamp:.3f} seconds")
         print("Joint positions (radians):", simulation.interface.joint_positions)
     else:

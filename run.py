@@ -41,13 +41,18 @@ def launch(settings, *, validate_only=False):
             return simulation.launch_viewer(camera=settings.camera, servo=settings.task != "observe",
                                             annotations=settings.annotations)
         if settings.task == "observe":
-            return simulation.step(settings.steps)
+            simulation.record_estimates()
+            simulation.step(settings.steps)
+            simulation.record_estimates()
+            return None
         result = simulation.run_controlled(settings.steps)
         if result is not None:
             print(f"Simulation: {result.status} | {result.diagnostic}")
         return result
     finally:
         simulation.interface.close()
+        image, _ = simulation.estimation.save()
+        print(f"Saved estimation graph and CSV to {image.parent}", flush=True)
         simulation.plots.close()
 
 

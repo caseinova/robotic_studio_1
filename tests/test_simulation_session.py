@@ -50,6 +50,38 @@ def test_fused_tool_tracker_is_shared_across_sequence_actions():
         assert tracker.kinematics is session.kinematics
 
 
+@pytest.mark.parametrize('marker_visible,expected', [(True, 'raw_tool_tag'), (False, 'fk_fallback')])
+def test_sequence_logs_control_result_pose_with_tool_ekf_off(marker_visible, expected):
+    from common.pickup import PickAction
+    from common.camera_processing import TaggedCubeProcessor
+    simulation = Simulation(controller_config=ControllerConfig(mode='pure_pbvs',
+        tool_pose_source='tag_with_fk_fallback'), estimator_config=EKFConfig(enabled=False),
+        noise_config=NoiseConfig(enabled=False))
+    with SimulationSession(simulation, settings()) as session:
+        action = PickAction(session, processor=TaggedCubeProcessor(
+            cube_size=session.cube_size, marker_size=simulation.robot.cube_marker_size))
+        marker = SimpleNamespace(camera_from_marker=np.eye(4)) if marker_visible else None
+        original_update = action.update
+        count = [0]
+
+        def update():
+            original_update()
+            count[0] += 1
+            # Telemetry must not depend on this mutable controller cache.
+            action.approach.latest_tool_pose = None
+            return count[0] == 3
+
+        with patch.object(action.approach.tool_processor, 'process_marker', return_value=marker), \
+             patch.object(action, 'update', side_effect=update):
+            session._run(action, 'test')
+        samples = simulation.estimation.samples
+        assert len(samples) == 3
+        assert [sample['tool'][3] for sample in samples] == [expected] * 3
+        assert all(np.isfinite(sample['tool'][1]).all() and np.isnan(sample['tool'][2]).all()
+                   for sample in samples)
+        assert action.last_approach_result.tool_pose is not None
+
+
 @pytest.mark.parametrize('camera_view', [True, False])
 @pytest.mark.parametrize('annotations', [True, False])
 def test_pick_preview_reuses_control_observation(camera_view, annotations):

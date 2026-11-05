@@ -177,6 +177,8 @@ class SimulationSession:
                 if self.interface.timestamp - started > self.config.action_timeout_s:
                     raise TimeoutError(f'{name} action_timeout')
                 done = action.update()
+                self.simulation.record_estimates(getattr(action, 'last_approach_result', None),
+                    getattr(action, 'approach', action), getattr(self, 'tool_tracker', None), action)
                 if self.on_update is not None:
                     self.on_update(self)
                 if done:
@@ -242,6 +244,10 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
     with ExitStack() as stack:
         session = stack.enter_context(SimulationSession(simulation, sequence_config,
                                                        annotations=runtime.annotations))
+        def save_estimation():
+            image, _ = simulation.estimation.save()
+            print(f'Saved estimation graph and CSV to {image.parent}', flush=True)
+        stack.callback(save_estimation)
         viewer = None
         if not runtime.headless:
             from simulation.viewer import launch_viewer
@@ -265,6 +271,8 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
             if viewer is not None:
                 if not viewer.is_running():
                     raise KeyboardInterrupt
+                if simulation.config.viewer['show_estimates']:
+                    simulation.estimation.draw(viewer)
                 viewer.sync()
             if camera_view:
                 frame = s.latest_frame

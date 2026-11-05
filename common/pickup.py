@@ -31,6 +31,7 @@ class PickAction:
         self._last_update = None
         self._last_source = None
         self._source_switches = 0
+        self.last_approach_result = None
         settings, c = session.settings, session.controller_config
         from common.tool_pose import ToolPoseTracker
         tool_config = session.estimator_config.for_target('tool')
@@ -63,6 +64,7 @@ class PickAction:
             frame = s.interface.capture_rgbd()
             captured = s.interface.timestamp
             result = self.approach.update(frame)
+            self.last_approach_result = result
             finished = s.interface.timestamp
             if getattr(s, 'camera_view', False) and getattr(s, 'annotations', True):
                 rgb = self.approach.processor.annotate(frame.rgb, result.observation, frame.intrinsics)
@@ -100,6 +102,7 @@ class PickAction:
             s.interface.require_camera_for_motion = False
             result = start_pickup_or_reapproach(self.approach, self.pickup, _pickup_target(result))
         else:
+            self.last_approach_result = None
             result = self.pickup.update()
             if self.tool_tracker is not None and self.tool_tracker.frame is not None:
                 s.publish_preview(self.tool_tracker.frame)

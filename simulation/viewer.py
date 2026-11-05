@@ -4,14 +4,15 @@ import time
 import warnings
 
 DEFAULT_VIEWER = dict(show_left_ui=False, show_right_ui=False, resize_window=True,
-                      screen_fraction=.9, width=None, height=None, x=None, y=None)
+                      screen_fraction=.9, width=None, height=None, x=None, y=None,
+                      show_estimates=False)
 
 
 def viewer_settings(values):
     if not isinstance(values, dict) or set(values) - set(DEFAULT_VIEWER):
         raise ValueError('viewer must contain only supported window settings')
     result = dict(DEFAULT_VIEWER, **values)
-    for key in ('show_left_ui', 'show_right_ui', 'resize_window'):
+    for key in ('show_left_ui', 'show_right_ui', 'resize_window', 'show_estimates'):
         if type(result[key]) is not bool:
             raise ValueError(f'viewer.{key} must be boolean')
     fraction = result['screen_fraction']

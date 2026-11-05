@@ -104,7 +104,10 @@ class PlaceAction:
         self._last_joint_positions = None
         self.tool_processor = None
         self.tool_estimator = None
+        self.latest_tool_estimate = None
         self.tool_pose_source = 'fk'
+        self.latest_tool_pose = None
+        self.latest_tool_pose_timestamp = None
         self.transfer_pbvs = PBVS(np.eye(4), linear_speed=session.config.cartesian_speed_m_s,
                                   angular_speed=session.config.angular_speed_rad_s)
         transfer_settings = (replace(session.settings, clearance=placement_clearance)
@@ -114,6 +117,7 @@ class PlaceAction:
 
     def _transfer_observation(self):
         s = self.s
+        self.latest_tool_estimate = None
         if self.phase != 'transferring' or s.controller_config.tool_pose_source == 'fk':
             return None, None
         if self.tool_processor is None:
@@ -152,6 +156,7 @@ class PlaceAction:
                 s.kinematics.tool_from_end_effector_marker)
             if estimator.config.enabled:
                 estimate = estimator.update(frame.timestamp, camera_from_tool, frame.world_from_camera)
+                self.latest_tool_estimate = estimate
                 if estimate is not None and estimate.measurement_accepted:
                     camera_from_tool = estimate.camera_from_cube
                 else:
@@ -193,6 +198,8 @@ class PlaceAction:
 
     def update(self):
         s, interface, k = self.s, self.s.interface, self.s.kinematics
+        self.latest_tool_pose = None
+        self.latest_tool_pose_timestamp = None
         interface.require_camera_for_motion = False
         phase_limit = (s.config.transfer_timeout_s
                        if self.phase == "transferring" and s.config.transfer_timeout_s is not None
@@ -234,6 +241,7 @@ class PlaceAction:
                 s.diagnostic = f"destination_acquisition_rejected: {error}; waiting for first valid target"
                 return False
             current = (tracked_tool if self.tool_tracker is not None else k.tool_pose()).copy()
+            self.latest_tool_pose, self.latest_tool_pose_timestamp = current.copy(), interface.timestamp
             self.placement_plane = placement_plane
             s.diagnostic = ""
             # Lift first, then translate/rotate above destination, then descend.
@@ -270,6 +278,7 @@ class PlaceAction:
             interface.set_joint_velocities(np.zeros(6))
             self._progress = s.diagnostic
             return False
+        self.latest_tool_pose, self.latest_tool_pose_timestamp = current.copy(), interface.timestamp
         self.guard.check(state.joint_positions)
         if self.phase == "releasing":
             interface.set_joint_velocities(np.zeros(6))

@@ -1,5 +1,25 @@
 # Configuration
 
+Simulation commands save `estimation.png`, `orientation_error.png`, and
+`estimation.csv` to a unique directory under `robotic_studio_1/simulation_plots`
+for each run, including headless and interrupted runs. The console prints the
+directory. Position plots compare simulated truth and EKF estimates with ±2σ
+filter covariance; orientation plots show world-axis rotation-vector error
+against the true pose and local-linear ±2σ. The CSV records status and errors;
+raw tag/FK poses used without an EKF are labeled by source and plotted without
+an uncertainty band. During pickup, `latched_pick_target` is the fixed handoff
+target, not a fresh measurement or an estimate of the carried cube's state.
+Missing/stale poses and unknown uncertainty are NaN, not ground truth or zero.
+The tracker is not run purely for visualization; observe-only runs or disabled
+EKFs may have no estimates. Truth is read only by simulation telemetry.
+
+Set `viewer.show_estimates: true` in this file to draw EKF cube (green) and
+tool (orange) positions, RGB orientation axes, and ±2σ position ellipsoids in MuJoCo. This option is
+also exposed in the desktop Simulation scene settings. Overlays use the MuJoCo
+user scene, not collision geometry, and are absent when an estimate is stale.
+Filter covariance and ellipsoids are not physical error guarantees or safety
+limits. Orientation uncertainty is plotted, not visualized as an ellipsoid.
+
 The optional tool `prediction_model` in `estimator_config.json` can be
 `constant_velocity` or `fk_increment`. The latter is active only when the tool
 EKF is enabled and `tool_pose_source` is `tag_with_fk_fallback`. It maintains
