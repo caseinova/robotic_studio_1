@@ -2,11 +2,13 @@
 from copy import deepcopy
 import codecs
 import json
+import math
+import re
 from pathlib import Path
 import sys
 
 from PySide6.QtCore import QCoreApplication, QEvent, QProcess, QProcessEnvironment, Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QFontDatabase, QTextCursor
+from PySide6.QtGui import QFont, QFontDatabase, QTextCursor, QValidator
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
     QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
@@ -29,6 +31,33 @@ ENUMS = {'mode': ('pure_pbvs', 'pbvs_mpc'),
 class RealInput(QDoubleSpinBox):
     def textFromValue(self, value):
         return format(value, '.12g')
+
+    def validate(self, text, pos):
+        text = text.strip()
+        if re.fullmatch(r'[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d*)?|\.)?', text):
+            try:
+                value = float(text)
+            except ValueError:
+                return QValidator.State.Intermediate, text, pos
+            if math.isfinite(value) and self.minimum() <= value <= self.maximum():
+                return QValidator.State.Acceptable, text, pos
+            return QValidator.State.Intermediate, text, pos
+        return QValidator.State.Invalid, text, pos
+
+    def valueFromText(self, text):
+        try:
+            return float(text.strip())
+        except ValueError:
+            return self.value()
+
+
+def committed_numeric_value(widget, original, initial, initial_text):
+    # Include text still being edited when a profile is saved or a run starts.
+    if widget.value() == initial and widget.text() == initial_text:
+        return original
+    widget.interpretText()
+    value = widget.value()
+    return original if value == initial else value
 
 
 def button(parent, text, icon, callback, tooltip=None):
@@ -136,10 +165,12 @@ class ConfigTree(QTreeWidget):
                 widget.setRange(-1e100, 1e100)
                 widget.setSingleStep(.01)
             widget.setValue(value)
+            widget.setKeyboardTracking(False)
             widget.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.PlusMinus)
             initial = widget.value()
-            self.getters[id(item)] = lambda w=widget, original=value, initial=initial: (
-                original if w.value() == initial else w.value())
+            initial_text = widget.text()
+            self.getters[id(item)] = lambda w=widget, original=value, initial=initial, text=initial_text: (
+                committed_numeric_value(w, original, initial, text))
             self.setItemWidget(item, 1, widget)
         else:
             if name in ENUMS and value in ENUMS[name]:

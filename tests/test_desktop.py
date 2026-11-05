@@ -122,6 +122,50 @@ def test_editor_roundtrip_and_nested_json(app, monkeypatch):
     tree.close()
 
 
+@pytest.mark.parametrize('field,text,expected', [
+    ('pickup_reapproach_attempts', '12', 12),
+    ('approach_linear_speed_m_s', '0.025', .025),
+    ('approach_linear_speed_m_s', '2.5e-2', .025),
+    ('grasp_height_offset_m', '-0.012', -.012),
+])
+def test_numeric_input_commits_typed_value_without_focus_change(app, field, text, expected):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from desktop.window import ConfigTree
+    tree = ConfigTree(read_profile(ROOT / 'config'), 'simulation')
+    tree.show()
+    app.processEvents()
+    group = tree.topLevelItem(1)
+    item = next(group.child(i) for i in range(group.childCount())
+                if group.child(i).data(0, Qt.ItemDataRole.UserRole) == field)
+    widget = tree.itemWidget(item, 1)
+    widget.setFocus()
+    widget.selectAll()
+    QTest.keyClicks(widget.lineEdit(), text)
+    assert tree.documents()['controller'][field] == pytest.approx(expected)
+    QTest.keyClick(widget.lineEdit(), Qt.Key.Key_Tab)
+    assert widget.value() == pytest.approx(expected)
+    tree.close()
+
+
+def test_numeric_step_buttons_still_work(app):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from desktop.window import ConfigTree
+    tree = ConfigTree(read_profile(ROOT / 'config'), 'simulation')
+    tree.show()
+    app.processEvents()
+    group = tree.topLevelItem(1)
+    item = next(group.child(i) for i in range(group.childCount())
+                if group.child(i).data(0, Qt.ItemDataRole.UserRole) == 'pickup_reapproach_attempts')
+    widget = tree.itemWidget(item, 1)
+    before = widget.value()
+    widget.setFocus()
+    QTest.keyClick(widget, Qt.Key.Key_Up)
+    assert tree.documents()['controller']['pickup_reapproach_attempts'] == before + 1
+    tree.close()
+
+
 def test_gui_validates_and_runs_without_blocking(app, tmp_path):
     from desktop.window import ExperimentWindow
     w = ExperimentWindow(tmp_path)
