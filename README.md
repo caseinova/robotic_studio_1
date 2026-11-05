@@ -63,6 +63,11 @@ needs compatible device SDKs, network/USB access, and robot-side setup. See [HAR
 
 ## Desktop launcher
 
+**Before running `run_experiments.py`, complete the [fresh-environment setup](#fresh-environment-setup)**:
+create and activate the virtual environment, then install `requirements-gui.txt`.
+To use the Hardware tab, also install `requirements-hardware.txt` and complete
+the [hardware setup and calibration](#hardware-from-a-fresh-installation).
+
 ```bash
 python run_experiments.py
 ```
@@ -160,7 +165,7 @@ gripper can be disabled, subject to the static-tool-geometry requirements in
 feedback. Camera, arm, and gripper are separate interfaces; do not assume a
 gripper host without checking the actual connection.
 
-### 2. Make and Mount the Markers
+### 2. Print and Mount the Markers
 
 The configured cube and tool markers use `DICT_4X4_50`. The default configured
 **black marker square**, including its black border, is 40 mm by 40 mm; the
@@ -179,90 +184,30 @@ position and orientation. See [CONTROLLER.md](CONTROLLER.md) and run
 configured top/side relationship. Do not assume that tags copied from another
 cube match your mounting transforms.
 
-`printables/` is Git-ignored, so previously generated PDFs may not be present
-in a fresh clone. To make an A4 sheet containing IDs 0-6 with 40 mm black
-squares, and a separate A4 sheet for each configured destination marker, run
-this from the application directory in a Bash-compatible shell after installing
-`requirements.txt` (on Windows, use a compatible shell such as Git Bash):
+The printable A4 sheets are included in the repository:
 
-```bash
-python - <<'PY'
-import cv2
-import json
-from pathlib import Path
-from matplotlib.backends.backend_pdf import FigureCanvasPdf
-from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
+- [Cube markers](printables/cube_aruco_40mm_A4.pdf): IDs 0 and 2-6, with
+  40 mm black squares and 5 mm white margins.
+- [Tool marker](printables/tool_aruco.pdf): ID 1, with a 40 mm black square
+  and 5 mm white margin.
+- [Destination marker](printables/destination_aruco.pdf): ID 7, with an 80 mm
+  black square and 5 mm white margin. This matches the supplied `drop_zone_b`
+  marker ID and size; verify your active sequence configuration before use.
 
-page_width, page_height = 210.0, 297.0  # A4, mm
-marker_size, margin = 40.0, 2.5        # black square and white margin, mm
-box_size = marker_size + 2 * margin
-output_dir = Path('printables')
-output_dir.mkdir(exist_ok=True)
-figure = Figure(figsize=(page_width / 25.4, page_height / 25.4), facecolor='white')
-FigureCanvasPdf(figure)
-dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+Print on A4 at **100% / actual size**, with fit-to-page disabled. Check the
+100 mm scale line and measure each black marker square with a ruler; the white
+margin and cutting outline are not part of the configured marker size. Mount
+markers flat and rigidly, preserving the white margin.
 
-for marker_id in range(7):
-    x = 15.0 + (marker_id % 3) * 60.0
-    top = 275.0 - (marker_id // 3) * 60.0
-    image = cv2.aruco.generateImageMarker(dictionary, marker_id, 400)
-    axes = figure.add_axes([(x + margin) / page_width,
-                            (top - margin - marker_size) / page_height,
-                            marker_size / page_width, marker_size / page_height])
-    axes.imshow(image, cmap='gray', vmin=0, vmax=255, interpolation='nearest')
-    axes.set_axis_off()
-    figure.add_artist(Rectangle((x / page_width, (top - box_size) / page_height),
-                                box_size / page_width, box_size / page_height,
-                                transform=figure.transFigure, fill=False,
-                                edgecolor='#777777', linewidth=0.5,
-                                linestyle=(0, (2, 4))))
-    figure.text(x / page_width, (top + 2.0) / page_height, f'ID {marker_id}', fontsize=9)
-
-figure.savefig(output_dir / 'markers_A4.pdf')
-print('Created', output_dir / 'markers_A4.pdf')
-
-# Destination sizes and IDs come from the active sequence configuration.
-with open('config/sequence_config.json', encoding='utf-8') as source:
-    destinations = json.load(source)['destinations']
-for name, destination in destinations.items():
-    marker_id = destination['marker_id']
-    size = destination['marker_size_m'] * 1000.0  # configured meters to mm
-    box = size + 2 * margin
-    if marker_id in range(7) or not 0 <= marker_id < 50:
-        raise ValueError(f'{name}: destination ID must be an unused DICT_4X4_50 ID')
-    if not 0 < size or box > min(page_width, page_height) - 20:
-        raise ValueError(f'{name}: destination marker does not fit on A4')
-    page = Figure(figsize=(page_width / 25.4, page_height / 25.4), facecolor='white')
-    FigureCanvasPdf(page)
-    x = (page_width - box) / 2
-    y = (page_height - box) / 2
-    axes = page.add_axes([(x + margin) / page_width, (y + margin) / page_height,
-                          size / page_width, size / page_height])
-    axes.imshow(cv2.aruco.generateImageMarker(dictionary, marker_id, 800),
-                cmap='gray', vmin=0, vmax=255, interpolation='nearest')
-    axes.set_axis_off()
-    page.add_artist(Rectangle((x / page_width, y / page_height),
-                              box / page_width, box / page_height,
-                              transform=page.transFigure, fill=False,
-                              edgecolor='#777777', linewidth=0.5,
-                              linestyle=(0, (2, 4))))
-    page.text(x / page_width, (y + box + 2.0) / page_height,
-              f'{name}: ID {marker_id}, black square {size:g} mm', fontsize=9)
-    filename = f'destination_ID{marker_id}_{size:g}mm_A4.pdf'
-    page.savefig(output_dir / filename)
-    print('Created', output_dir / filename)
-PY
-```
-
-Print on A4 at **100% / actual size**, with fit-to-page disabled, then measure
-the black square with a ruler before use. The script makes one copy of each
-cube/tool ID and uses the current sequence settings for destination IDs and
-sizes. For alternate configuration files, adjust the script's input path. It
-does not validate your physical cube/tag mounting. If a destination shares an
-ID with a cube/tool marker or is too large for the page, the script stops and
-the configuration must be corrected. PDFs are written to `printables/`, which
-is ignored by Git.
+**Destination sheet caveat:** The PDF calls ID 7 a table reference and mentions
+base-reference calibration. That older calibration mode is not supported; the
+current sequence can use ID 7 as a destination, with its pose and orientation
+specified in `config/sequence_config.json`. Its printed cutting outline can
+also be mistaken for the marker's outer boundary: in an uncut rasterized test,
+OpenCV detected the 90 mm outline instead of the 80 mm black square. Trim off
+the cutting line while retaining the white margin, then check the detected
+corners on the mounted tag before using its pose. Do not change the configured
+80 mm marker size to compensate for a misdetected outline.
 
 ### 3. Import and Check Camera Intrinsics
 
