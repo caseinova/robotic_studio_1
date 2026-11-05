@@ -110,10 +110,12 @@ class Simulation:
         if isinstance(steps, bool) or not isinstance(steps, int) or steps < 0:
             raise ValueError("steps must be a non-negative integer")
         controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
+                                        config=self.config.build_mpc_config(),
                                         controller_config=self.controller_config,
                                         estimator_config=self.estimator_config)
         self.plots.reset()
         pickup_controller = (CubePickupController(self.interface, controller.kinematics,
+                             clearance=self.config.pickup_collision_clearance_m,
                              cube_size=self.robot.cube_size,
                              speed=controller.settings.pickup_linear_speed_m_s,
                              angular_speed=controller.settings.pickup_angular_speed_rad_s,
@@ -165,10 +167,12 @@ class Simulation:
             from simulation.kinematics import MujocoKinematics
 
             controller = ApproachController(self.interface, MujocoKinematics(self.robot), tool_clearance=tool_clearance,
+                                            config=self.config.build_mpc_config(),
                                             controller_config=self.controller_config,
                                             estimator_config=self.estimator_config)
             if self.pickup:
                 pickup_controller = CubePickupController(self.interface, controller.kinematics,
+                    clearance=self.config.pickup_collision_clearance_m,
                     cube_size=self.robot.cube_size,
                     speed=controller.settings.pickup_linear_speed_m_s,
                     angular_speed=controller.settings.pickup_angular_speed_rad_s,

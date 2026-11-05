@@ -1,6 +1,7 @@
 """Conservative local Cartesian placement, not a global obstacle planner."""
 
 import cv2
+from dataclasses import replace
 import numpy as np
 
 from common.camera_processing import CameraProcessor
@@ -82,6 +83,7 @@ class PlaceAction:
     def __init__(self, session, destination, *, guard_factory=PlacementCollisionGuard,
                  frame_max_age=None, acceleration_limit=None):
         self.s, self.destination = session, destination
+        placement_clearance = getattr(session, 'placement_clearance', session.settings.clearance)
         self.processor = CameraProcessor(marker_id=destination.marker_id,
             marker_size=destination.marker_size_m, cube_size=destination.marker_size_m)
         self.phase = "acquiring"
@@ -90,7 +92,7 @@ class PlaceAction:
         self.acceleration_limit = (session.hardware.control["acceleration_limit"]
                                    if acceleration_limit is None else acceleration_limit)
         self.guard = guard_factory(session.kinematics, session.cube_size,
-            session.settings.clearance, session.tool_from_cube, destination.collision_support_plane)
+            placement_clearance, session.tool_from_cube, destination.collision_support_plane)
         self.collision_support = next(o for o in session.kinematics.obstacles if o.name == destination.collision_support_plane)
         self.placement_plane = None
         self.targets = []
@@ -102,7 +104,9 @@ class PlaceAction:
         self.tool_pose_source = 'fk'
         self.transfer_pbvs = PBVS(np.eye(4), linear_speed=session.config.cartesian_speed_m_s,
                                   angular_speed=session.config.angular_speed_rad_s)
-        self.transfer_mpc = (JointSpaceMPC(session.kinematics, session.settings)
+        transfer_settings = (replace(session.settings, clearance=placement_clearance)
+                             if hasattr(session, 'placement_clearance') else session.settings)
+        self.transfer_mpc = (JointSpaceMPC(session.kinematics, transfer_settings)
                              if session.controller_config.mode == 'pbvs_mpc' else None)
 
     def _transfer_observation(self):

@@ -19,8 +19,19 @@ class SimulationConfig:
     # Horizontal destination tags on the floor, keyed by sequence destination name.
     destination_positions: dict = field(default_factory=lambda: {'drop_zone_b': (.12, .32, 0.)})
     viewer: dict = field(default_factory=dict)
+    pickup_collision_clearance_m: float = 0.015
+    approach_collision_clearance_m: float = 0.015
+    placement_collision_clearance_m: float = 0.015
+    mpc_clearance_buffer_m: float = 0.003
 
     def __post_init__(self):
+        for name in ('pickup_collision_clearance_m', 'approach_collision_clearance_m',
+                     'placement_collision_clearance_m', 'mpc_clearance_buffer_m'):
+            value = getattr(self, name)
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0
+                    or (value == 0 and name != 'mpc_clearance_buffer_m')):
+                raise ValueError(f'{name} must be finite and positive (buffer may be zero)')
         object.__setattr__(self, 'viewer', viewer_settings(self.viewer))
         if not isinstance(self.destination_positions, dict):
             raise ValueError('destination_positions must be a name-to-XYZ object')
@@ -44,6 +55,11 @@ class SimulationConfig:
         if norm < 1e-12 or not math.isfinite(norm):
             raise ValueError("cube_quaternion must be a nonzero finite quaternion")
         object.__setattr__(self, "cube_quaternion", tuple(v / norm for v in self.cube_quaternion))
+
+    def build_mpc_config(self):
+        from common.controller import MPCConfig
+        return MPCConfig(clearance=self.approach_collision_clearance_m,
+                         clearance_buffer=self.mpc_clearance_buffer_m)
 
     @classmethod
     def load(cls, path: str | Path = DEFAULT_CONFIG_PATH) -> "SimulationConfig":

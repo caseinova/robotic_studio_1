@@ -1,7 +1,0 @@
-{
-  "mode": "pure_pbvs",
-  "tool_clearance": 0.18,
-  "tool_yaw_deg": 0.0,
-  "tool_pose_source": "tag_with_fk_fallback",
-  "frame_max_age_intervals": 4.0
-}

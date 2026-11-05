@@ -1,5 +1,0 @@
-{
-  "backend": "hardware",
-  "task": "pick",
-  "destination": "drop_zone_b"
-}

@@ -1,5 +1,25 @@
 # Configuration
 
+Simulation collision margins in `simulation_config.json` (all meters):
+- `approach_collision_clearance_m`: approach MPC minimum separation (default 0.015).
+- `pickup_collision_clearance_m`: pickup current/next-pose checks (default 0.015).
+- `placement_collision_clearance_m`: placement guard and transfer MPC minimum separation (default 0.015).
+- `mpc_clearance_buffer_m`: extra linearized MPC prediction margin for approach and transfer (default 0.003; zero allowed).
+
+These apply to standalone and sequence simulation and appear in the desktop
+Simulation scene editor. Pure PBVS approach does not perform MPC collision
+checks; configuring a margin does not enable MPC. Pickup and placement retain
+their explicit collision guards. Intentional contact exemptions are unchanged.
+`controller_config.tool_clearance` is the separate approach standoff, not a
+collision margin. Hardware configuration is unchanged.
+
+Simulation pickup collision clearance is `pickup_collision_clearance_m` in
+`simulation_config.json` (meters; default `0.015`). It applies to standalone
+pickup and the pickup portion of a sequence, in GUI and headless runs.
+It does not change approach/placement margins, arrival tolerance, or the
+allowed finger/cube contact pairs. Hardware retains `hardware_config.json`
+`mpc.clearance`. The desktop editor exposes this under Simulation scene.
+
 Active JSON configuration files live here. Default loaders resolve this directory
 relative to the application, independently of the current working directory.
 Explicit command-line config paths still work.

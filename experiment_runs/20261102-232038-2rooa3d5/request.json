@@ -1,5 +1,0 @@
-{
-  "backend": "hardware",
-  "task": "servo",
-  "destination": "drop_zone_b"
-}

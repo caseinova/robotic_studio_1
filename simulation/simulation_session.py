@@ -126,7 +126,9 @@ class SimulationSession:
         self.controller_config = simulation.controller_config
         self.estimator_config = simulation.estimator_config
         self.interface = simulation.interface
-        self.settings = MPCConfig()
+        self.settings = simulation.config.build_mpc_config()
+        self.pickup_clearance = simulation.config.pickup_collision_clearance_m
+        self.placement_clearance = simulation.config.placement_collision_clearance_m
         self.cube_size = simulation.robot.cube_size
         self.tool_from_cube = None
         self.status, self.diagnostic, self.tracking_report = 'idle', '', ''
