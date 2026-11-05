@@ -3,7 +3,6 @@ mujoco/
 MJMODEL.TXT
 __pycache__/
 simulation_plots/
-printables/
 tools/*
 !tools/derive_arm_capsules.py
 !tools/audit_arm_pose.py
