@@ -122,7 +122,8 @@ class Simulation:
                              frame_max_age_intervals=controller.settings.frame_max_age_intervals,
                              grasp_height_offset_m=controller.settings.grasp_height_offset_m,
                              pickup_dwell_seconds=controller.settings.pickup_dwell_seconds,
-                             pickup_dwell_radius_m=controller.settings.pickup_dwell_radius_m)
+                             pickup_dwell_radius_m=controller.settings.pickup_dwell_radius_m,
+                             tool_tracker=controller.tool_tracker)
                              if self.pickup else None)
         next_update, result = 0.0, None
         try:
@@ -179,7 +180,8 @@ class Simulation:
                     frame_max_age_intervals=controller.settings.frame_max_age_intervals,
                     grasp_height_offset_m=controller.settings.grasp_height_offset_m,
                     pickup_dwell_seconds=controller.settings.pickup_dwell_seconds,
-                    pickup_dwell_radius_m=controller.settings.pickup_dwell_radius_m)
+                    pickup_dwell_radius_m=controller.settings.pickup_dwell_radius_m,
+                    tool_tracker=controller.tool_tracker)
             camera = True
         label = "PBVS+MPC" if self.controller_config.mode == "pbvs_mpc" else "PBVS"
         print("Cube approach controller: " + (label if servo else "OFF (enable with --servo)"), flush=True)

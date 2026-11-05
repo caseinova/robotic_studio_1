@@ -21,7 +21,7 @@ class ToolPoseTracker:
         self.observation = None
         self.frame = None
 
-    def select(self, frame, observation):
+    def select(self, frame, observation, state_timestamp=None):
         self.frame, self.observation = frame, observation
         self.pose = None
         self.source = 'unavailable'
@@ -29,18 +29,32 @@ class ToolPoseTracker:
         if (self.estimator.config.enabled
                 and self.estimator.config.prediction_model == 'fk_increment'
                 and self.settings.tool_pose_source != 'fk'):
-            measured = None if observation is None else (
+            state_timestamp = self.interface.timestamp if state_timestamp is None else state_timestamp
+            if (not np.isfinite(state_timestamp) or not np.isfinite(frame.timestamp)
+                    or (self.increment_estimator.timestamp is not None
+                        and state_timestamp < self.increment_estimator.timestamp)):
+                self.diagnostic = 'invalid_or_out_of_order_tool_timestamp'
+                return None
+            synchronized = abs(state_timestamp - frame.timestamp) <= self.estimator.config.max_measurement_skew
+            measured = None if observation is None or not synchronized else (
                 frame.world_from_camera @ observation.camera_from_marker
                 @ np.linalg.inv(self.kinematics.tool_from_end_effector_marker))
-            self.pose = self.increment_estimator.step(self.interface.timestamp,
+            self.pose = self.increment_estimator.step(state_timestamp,
                 self.kinematics.tool_pose(), measured, frame.timestamp)
             self.diagnostic = self.increment_estimator.last_status
+            if observation is not None and not synchronized:
+                self.diagnostic += ': camera_state_skew'
             if not self.increment_estimator.measurement_accepted:
                 self.observation = None
                 if self.settings.tool_pose_source == 'tag_only':
                     self.pose = None
             if self.pose is not None:
-                self.source = 'tag' if self.increment_estimator.measurement_accepted else 'fk_predicted'
+                if self.increment_estimator.measurement_accepted:
+                    self.source = 'tag_fused'
+                elif self.increment_estimator.measurement_timestamp is None:
+                    self.source = 'fk_unverified'
+                else:
+                    self.source = 'fk_predicted'
             return self.pose
         if self.estimator.timestamp is not None and self.interface.timestamp < self.estimator.timestamp:
             self.estimator.reset()
@@ -80,8 +94,8 @@ class ToolPoseTracker:
             self.pose, self.source = None, 'unavailable'
             self.diagnostic = 'stale_tool_pose_measurement'
         else:
-            self.select(frame, observation)
-        self.interface.require_camera_for_motion = self.source in ('tag', 'fk_predicted')
+            self.select(frame, observation, state.timestamp)
+        self.interface.require_camera_for_motion = self.source in ('tag', 'tag_fused', 'fk_unverified', 'fk_predicted')
         return self.pose
 
     def grasp_pose(self, width=None):

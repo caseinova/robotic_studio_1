@@ -83,6 +83,9 @@ class PlaceAction:
     def __init__(self, session, destination, *, guard_factory=PlacementCollisionGuard,
                  frame_max_age=None, acceleration_limit=None):
         self.s, self.destination = session, destination
+        self.tool_tracker = getattr(session, 'tool_tracker', None)
+        if self.tool_tracker is not None:
+            self.tool_tracker.kinematics = session.kinematics
         placement_clearance = getattr(session, 'placement_clearance', session.settings.clearance)
         self.processor = CameraProcessor(marker_id=destination.marker_id,
             marker_size=destination.marker_size_m, cube_size=destination.marker_size_m)
@@ -205,6 +208,7 @@ class PlaceAction:
             if getattr(s, "camera_view", False):
                 s.publish_preview(frame)
             observation = self.processor.process_marker(frame)
+            tracked_tool = self.tool_tracker.refresh(frame) if self.tool_tracker is not None else None
             # Read feedback AFTER perception, as in the approach controller.
             state = interface.read_state()
             if not s.cube_size * .5 <= state.gripper_width <= s.cube_size * 1.15:
@@ -218,6 +222,9 @@ class PlaceAction:
                 s.diagnostic = "destination_acquisition_waiting: stale observation"
                 return False
             k.synchronize(state)
+            if self.tool_tracker is not None and tracked_tool is None:
+                s.diagnostic = 'tool_lost_or_rejected: ' + self.tool_tracker.diagnostic
+                return False
             tag = frame.world_from_camera @ observation.camera_from_marker
             # The tag's local +Z is the placement surface normal. Keep this
             # local reference separate from the configured collision map.
@@ -226,7 +233,7 @@ class PlaceAction:
             except ValueError as error:
                 s.diagnostic = f"destination_acquisition_rejected: {error}; waiting for first valid target"
                 return False
-            current = k.tool_pose().copy()
+            current = (tracked_tool if self.tool_tracker is not None else k.tool_pose()).copy()
             self.placement_plane = placement_plane
             s.diagnostic = ""
             # Lift first, then translate/rotate above destination, then descend.
@@ -237,13 +244,26 @@ class PlaceAction:
             self._phase("raising")
             return False
 
-        frame, tool_observation = self._transfer_observation()
+        if self.tool_tracker is not None:
+            tracked_tool = self.tool_tracker.refresh()
+            if getattr(s, 'camera_view', False) and self.tool_tracker.frame is not None:
+                s.publish_preview(self.tool_tracker.frame)
+            frame, tool_observation = None, None
+        else:
+            tracked_tool = None
+            frame, tool_observation = self._transfer_observation()
         state = interface.read_state()
         k.synchronize(state)
         self._last_joint_positions = state.joint_positions.tolist()
         if not self.released and not s.cube_size * .5 <= state.gripper_width <= s.cube_size * 1.15:
             raise RuntimeError("grasp_lost during placement")
-        current = self._transfer_pose(frame, tool_observation, state)
+        if self.tool_tracker is not None:
+            current = tracked_tool
+            self.tool_pose_source = self.tool_tracker.source
+            if current is None:
+                s.diagnostic = 'tool_lost_or_rejected: ' + self.tool_tracker.diagnostic
+        else:
+            current = self._transfer_pose(frame, tool_observation, state)
         if current is None:
             if self.transfer_mpc is not None:
                 self.transfer_mpc.reset()

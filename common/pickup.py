@@ -32,8 +32,18 @@ class PickAction:
         self._last_source = None
         self._source_switches = 0
         settings, c = session.settings, session.controller_config
+        from common.tool_pose import ToolPoseTracker
+        tool_config = session.estimator_config.for_target('tool')
+        self.tool_tracker = getattr(session, 'tool_tracker', None)
+        if (self.tool_tracker is None and tool_config.enabled
+                and tool_config.prediction_model == 'fk_increment'
+                and c.tool_pose_source == 'tag_with_fk_fallback'):
+            self.tool_tracker = ToolPoseTracker(session.interface, session.kinematics,
+                                                c, session.estimator_config, settings.dt)
+            session.tool_tracker = self.tool_tracker
         self.approach = ApproachController(session.interface, session.kinematics,
             config=settings, controller_config=c, estimator_config=session.estimator_config,
+            tool_tracker=self.tool_tracker,
             processor=session.hardware.build_processor() if processor is None else processor)
         self.pickup = CubePickupController(session.interface, session.kinematics,
             speed=c.pickup_linear_speed_m_s, angular_speed=c.pickup_angular_speed_rad_s,
@@ -43,7 +53,7 @@ class PickAction:
             frame_max_age_intervals=c.frame_max_age_intervals,
             grasp_height_offset_m=c.grasp_height_offset_m,
             pickup_dwell_seconds=c.pickup_dwell_seconds,
-            pickup_dwell_radius_m=c.pickup_dwell_radius_m)
+            pickup_dwell_radius_m=c.pickup_dwell_radius_m, tool_tracker=self.tool_tracker)
 
     def update(self):
         s = self.session
@@ -60,7 +70,7 @@ class PickAction:
             else:
                 s.publish_preview(frame)
             source = result.tool_pose_source or "unavailable"
-            if source in ("tag", "fk", "fk_fallback"):
+            if source in ("tag", "fk", "fk_fallback", "tag_fused", "fk_predicted", "fk_unverified"):
                 if self._last_source is not None and source != self._last_source:
                     self._source_switches += 1
                 self._last_source = source
@@ -91,6 +101,8 @@ class PickAction:
             result = start_pickup_or_reapproach(self.approach, self.pickup, _pickup_target(result))
         else:
             result = self.pickup.update()
+            if self.tool_tracker is not None and self.tool_tracker.frame is not None:
+                s.publish_preview(self.tool_tracker.frame)
         s.tracking_report = ""
         s.status = result.status
         s.diagnostic = result.diagnostic

@@ -92,7 +92,8 @@ def run_hardware(config, controller_config, estimator_config, *, task="servo", s
                                            frame_max_age_intervals=controller_config.frame_max_age_intervals,
                                            grasp_height_offset_m=controller_config.grasp_height_offset_m,
                                            pickup_dwell_seconds=controller_config.pickup_dwell_seconds,
-                                           pickup_dwell_radius_m=controller_config.pickup_dwell_radius_m)
+                                           pickup_dwell_radius_m=controller_config.pickup_dwell_radius_m,
+                                           tool_tracker=controller.tool_tracker)
                       if task == "pick" else None)
             started = deadline = clock()
             last_status = None

@@ -12,6 +12,14 @@
     "max_prediction_age": 0.3
   },
   "tool": {
+    "prediction_model": "fk_increment",
+    "fk_position_noise": 0.002,
+    "fk_orientation_noise": 0.02,
+    "max_position_std": 0.1,
+    "max_orientation_std": 0.15,
+    "max_measurement_skew": 0.05,
+    "max_position_correction": 0.003,
+    "max_rotation_correction": 0.02,
     "position_measurement_std": 0.08,
     "orientation_measurement_std": 0.1,
     "linear_acceleration_noise": 0.05,

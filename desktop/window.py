@@ -25,7 +25,8 @@ TITLES = {
     'hardware': 'Hardware installation',
 }
 ENUMS = {'mode': ('pure_pbvs', 'pbvs_mpc'),
-         'tool_pose_source': ('tag_only', 'tag_with_fk_fallback', 'fk')}
+         'tool_pose_source': ('tag_only', 'tag_with_fk_fallback', 'fk'),
+         'prediction_model': ('constant_velocity', 'fk_increment')}
 
 
 class RealInput(QDoubleSpinBox):

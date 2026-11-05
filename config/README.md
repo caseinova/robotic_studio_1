@@ -1,5 +1,30 @@
 # Configuration
 
+The optional tool `prediction_model` in `estimator_config.json` can be
+`constant_velocity` or `fk_increment`. The latter is active only when the tool
+EKF is enabled and `tool_pose_source` is `tag_with_fk_fallback`. It maintains
+one six-dimensional pose-error covariance: FK increments predict, accepted tag
+poses correct. It initializes from FK when a tag is unavailable. `fk_unverified`
+means no visual correction has yet been accepted; `tag_fused` means the current
+tag was accepted; `fk_predicted` means prediction without a new accepted tag.
+
+`fk_position_noise` (m/sqrt(s)) and `fk_orientation_noise` (rad/sqrt(s)) set
+process noise. `max_position_std` (m), `max_orientation_std` (rad), and
+`max_prediction_age` (seconds since initialization or last accepted tag) are
+hold limits, not collision margins or guarantees of physical accuracy.
+`max_position_correction` (m) and `max_rotation_correction` (rad) limit a
+single accepted tag correction. `max_measurement_skew` (seconds) rejects tag
+updates when camera and robot-state timestamps are too far apart. This is a
+bounded-skew approximation, not motion-compensated timestamp interpolation.
+Expiry or excess uncertainty latches a hold; restart the session to reset it.
+Configured measurement noise and bounds require experimental validation.
+
+Approach and pickup share this state with placement in a sequence; standalone
+pick also uses it. Cube estimation and encoder-based collision checks are
+unchanged. `fk` and `tag_only`, disabled tool EKF, and `constant_velocity`
+retain their existing behavior. A tool EKF is not a safety-rated function and
+does not estimate camera-to-base calibration bias.
+
 Simulation collision margins in `simulation_config.json` (all meters):
 - `approach_collision_clearance_m`: approach MPC minimum separation (default 0.015).
 - `pickup_collision_clearance_m`: pickup current/next-pose checks (default 0.015).

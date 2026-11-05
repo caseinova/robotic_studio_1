@@ -29,6 +29,27 @@ def test_destination_config_requires_floor_pose():
             SimulationConfig(destination_positions=positions)
 
 
+def test_fused_tool_tracker_is_shared_across_sequence_actions():
+    from common.pickup import PickAction
+    from common.placement import PlaceAction
+    from common.camera_processing import TaggedCubeProcessor
+    config = EKFConfig(tool_enabled=True, tool={'prediction_model': 'fk_increment'})
+    simulation = Simulation(estimator_config=config,
+                            controller_config=ControllerConfig(tool_pose_source='tag_with_fk_fallback'))
+    with SimulationSession(simulation, settings()) as session:
+        pick = PickAction(session, processor=TaggedCubeProcessor())
+        tracker = pick.approach.tool_tracker
+        assert tracker is not None
+        assert pick.pickup.tool_tracker is tracker
+        session.tool_from_cube = np.eye(4)
+        session.kinematics = SimulationPlacementKinematics(simulation.robot, 'table')
+        place = PlaceAction(session, settings().destinations['drop_zone_b'],
+                            guard_factory=SimulationPlacementGuard,
+                            frame_max_age=.2, acceleration_limit=.5)
+        assert place.tool_tracker is tracker
+        assert tracker.kinematics is session.kinematics
+
+
 @pytest.mark.parametrize('camera_view', [True, False])
 @pytest.mark.parametrize('annotations', [True, False])
 def test_pick_preview_reuses_control_observation(camera_view, annotations):

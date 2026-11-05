@@ -218,7 +218,7 @@ class ApproachController:
 
     def __init__(self, interface: "RobotInterface", kinematics: Kinematics, *,
                  tool_clearance: float | None = None, config: MPCConfig | None = None,
-                 controller_config: ControllerConfig | None = None,
+                 controller_config: ControllerConfig | None = None, tool_tracker=None,
                  estimator_config: EKFConfig | None = None, processor: TaggedCubeProcessor | None = None):
         self.interface = interface
         self.processor = processor if processor is not None else TaggedCubeProcessor(
@@ -229,6 +229,13 @@ class ApproachController:
         # A separate tracker smooths the moving tool measured by its tag.
         # Its tuning and state are independent of the cube tracker.
         self.tool_estimator = RelativePoseEKF(estimator_config.for_target("tool"))
+        self.tool_tracker = tool_tracker
+        if (self.tool_tracker is None and self.tool_estimator.config.enabled
+                and self.tool_estimator.config.prediction_model == 'fk_increment'
+                and (controller_config or ControllerConfig()).tool_pose_source == 'tag_with_fk_fallback'):
+            from common.tool_pose import ToolPoseTracker
+            self.tool_tracker = ToolPoseTracker(interface, kinematics,
+                controller_config or ControllerConfig(), estimator_config, (config or MPCConfig()).dt)
         self.pose_estimate = None
         self.kinematics = kinematics
         self.tool_processor = CameraProcessor(marker_id=kinematics.end_effector_marker_id,
@@ -316,7 +323,18 @@ class ApproachController:
         # cancels camera-to-world extrinsics; the rigid tool-tag mounting
         # calibration converts the tool tag frame into the flange frame.
         tool_diagnostic = self.tool_processor.last_status
-        if self.tool_observation is not None and self.settings.tool_pose_source != "fk":
+        if self.tool_tracker is not None:
+            world_from_tool = self.tool_tracker.select(frame, self.tool_observation, state.timestamp)
+            self.tool_pose_source = self.tool_tracker.source
+            if world_from_tool is None:
+                self.interface.set_joint_velocities(np.zeros(6))
+                if self.mpc is not None:
+                    self.mpc.reset()
+                return ControlResult(observation, np.zeros(6), np.zeros(6), 'tool_lost_or_rejected',
+                    np.inf, np.inf, minimum, diagnostic=self.tool_tracker.diagnostic,
+                    pose_estimate=self.pose_estimate, tool_pose_source='unavailable')
+            camera_from_tool = inverse_pose(frame.world_from_camera) @ world_from_tool
+        elif self.tool_observation is not None and self.settings.tool_pose_source != "fk":
             camera_from_tool = (self.tool_observation.camera_from_marker
                                 @ inverse_pose(self.kinematics.tool_from_end_effector_marker))
             if self.tool_estimator.config.enabled:
@@ -329,7 +347,9 @@ class ApproachController:
                 else:
                     self.tool_observation = None
                     tool_diagnostic = "tool_ekf_" + self.tool_estimator.last_status
-        if self.tool_observation is not None and self.settings.tool_pose_source != "fk":
+        if self.tool_tracker is not None:
+            pass
+        elif self.tool_observation is not None and self.settings.tool_pose_source != "fk":
             self.tool_pose_source = "tag"
         elif self.settings.tool_pose_source == "tag_only":
             self.interface.set_joint_velocities(np.zeros(6))
@@ -394,7 +414,9 @@ class CubePickupController:
                  control_dt: float = 0.05, phase_timeout: float = 20.0,
                  velocity_limit: float = 0.35, clearance: float = 0.015,
                  frame_max_age_intervals: float = 2.0, grasp_height_offset_m: float = 0.0,
-                 pickup_dwell_seconds: float = 0.0, pickup_dwell_radius_m: float = 0.01):
+                 pickup_dwell_seconds: float = 0.0, pickup_dwell_radius_m: float = 0.01,
+                 tool_tracker=None):
+        self.tool_tracker = tool_tracker
         if cube_size is None:
             cube_size = getattr(kinematics, 'cube_size', .1)
         for name, value, positive in (("pickup_dwell_seconds", pickup_dwell_seconds, False),
@@ -487,9 +509,12 @@ class CubePickupController:
             self._fail("invalid_pickup_target_or_state")
             return
         self.kinematics.synchronize(state)
-        self._entry_pose = self.kinematics.tool_pose().copy()
+        if self.tool_tracker is not None and self.tool_tracker.pose is None:
+            self._fail('tool_lost_or_rejected')
+            return
+        self._entry_pose = self._tool_pose().copy()
         self._descent_pose = self._entry_pose.copy()
-        grasp_position = self.kinematics.grasp_pose()[:3, 3]
+        grasp_position = self._grasp_pose()[:3, 3]
         # Move along the latched cube normal, preserving local XY and the
         # entry tool orientation. The grasp offset is measured along cube +Z.
         cube_center = cube_pose[:3, 3]
@@ -500,7 +525,8 @@ class CubePickupController:
         # Articulated simulated fingers change pad depth as they close.
         width_pose = getattr(type(self.kinematics), 'grasp_pose_at_width', None)
         if width_pose is not None:
-            target_grasp = self.kinematics.grasp_pose_at_width(self.cube_size)[:3, 3]
+            target_grasp = (self.tool_tracker.grasp_pose(self.cube_size) if self.tool_tracker is not None
+                            else self.kinematics.grasp_pose_at_width(self.cube_size))[:3, 3]
         target_grasp_z = (cube_pose[:3, :3].T @ (target_grasp - cube_center))[2]
         self._descent_pose[:3, 3] += cube_pose[:3, 2] * (self.grasp_height_offset_m - target_grasp_z)
         horizontal_error = grasp_in_cube[:2]
@@ -528,7 +554,10 @@ class CubePickupController:
         self._change_phase("opening", now)
 
     def update(self) -> ControlResult:
-        """Advance one phase without blocking, sleeping, or acquiring images."""
+        """Advance one phase with fresh tool feedback when fusion is enabled."""
+        tool_available = True
+        if self.tool_tracker is not None and self.phase != 'idle' and not self.finished:
+            tool_available = self.tool_tracker.refresh() is not None
         state = self.interface.read_state()
         now = self.interface.timestamp
         if self.phase == "idle":
@@ -557,6 +586,16 @@ class CubePickupController:
             return self._result()
         self.kinematics.synchronize(state)
 
+        if self.phase == 'lifting' and state.gripper_width < self.cube_size * 0.5:
+            self._fail('grasp_lost')
+            return self._result()
+        if not tool_available:
+            self.interface.set_joint_velocities(np.zeros(6))
+            self._dwell_since = None
+            self._pose_integral[:] = 0
+            self.diagnostic = 'tool_lost_or_rejected: ' + self.tool_tracker.diagnostic
+            return self._result()
+
         if self.phase == "opening":
             self.interface.set_joint_velocities(np.zeros(6))
             self.diagnostic = self._opening_diagnostic(state.gripper_width)
@@ -566,7 +605,7 @@ class CubePickupController:
 
         if self.phase == "dwelling":
             self.interface.set_joint_velocities(np.zeros(6))
-            grasp = self.kinematics.grasp_pose()[:3, 3]
+            grasp = self._grasp_pose()[:3, 3]
             grasp_in_cube = self._world_from_cube[:3, :3].T @ (grasp - self._cube_center)
             distance = np.linalg.norm(grasp_in_cube[:2])
             if grasp_in_cube[2] <= self.grasp_height_offset_m:
@@ -594,16 +633,12 @@ class CubePickupController:
                 if width < self.cube_size * 0.5:
                     self._fail("empty_grasp")
                 elif width <= self.cube_size * 1.15 and settled:
-                    self.tool_from_cube = np.linalg.inv(self.kinematics.tool_pose()) @ self._world_from_cube
+                    self.tool_from_cube = np.linalg.inv(self._tool_pose()) @ self._world_from_cube
                     self._change_phase("lifting", now)
             return self._result()
 
-        if self.phase == "lifting" and state.gripper_width < self.cube_size * 0.5:
-            self._fail("grasp_lost")
-            return self._result()
-
         target = self._descent_pose if self.phase == "descending" else self._entry_pose
-        current = self.kinematics.tool_pose()
+        current = self._tool_pose()
         error = target[:3, 3] - current[:3, 3]
         rotation_error = cv2.Rodrigues(target[:3, :3] @ current[:3, :3].T)[0].reshape(3)
         if np.linalg.norm(error) < 0.0015 and np.linalg.norm(rotation_error) < 0.02:
@@ -665,6 +700,12 @@ class CubePickupController:
             return self._result(minimum_clearance=minimum)
         self.interface.set_joint_velocities(command)
         return self._result(command, np.linalg.norm(error), minimum)
+
+    def _tool_pose(self):
+        return self.kinematics.tool_pose() if self.tool_tracker is None else self.tool_tracker.pose
+
+    def _grasp_pose(self):
+        return self.kinematics.grasp_pose() if self.tool_tracker is None else self.tool_tracker.grasp_pose()
 
     def _clearance(self, positions) -> tuple[float, int | None]:
         distances = self.kinematics.distances(positions)

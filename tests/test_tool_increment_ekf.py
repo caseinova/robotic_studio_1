@@ -56,7 +56,7 @@ def test_duplicate_measurement_does_not_correct_again():
 
 
 def test_uncertainty_limit_holds():
-    e = ToolIncrementEKF(EKFConfig(fk_position_noise=.5))
+    e = ToolIncrementEKF(EKFConfig(fk_position_noise=.5, max_position_std=.02))
     e.step(0., pose(), pose(), 0.)
     assert e.step(.05, pose()) is None
     assert e.last_status == 'uncertain_reset_required'
@@ -121,6 +121,30 @@ def test_first_tag_outlier_does_not_reset_fk_seed():
     assert not e.measurement_accepted
 
 
+def test_visual_correction_is_bounded():
+    c = EKFConfig(position_measurement_std=.08, innovation_gate=25.,
+                  max_position_correction=.003)
+    e = ToolIncrementEKF(c)
+    e.step(0., pose())
+    result = e.step(.05, pose(), pose(.1), .05)
+    assert e.measurement_accepted
+    assert 0 < result[0, 3] <= .003 + 1e-12
+
+
+def test_skewed_tag_is_not_fused():
+    t = tracker(enabled=True)
+    c = replace(t.estimator.config, prediction_model='fk_increment', max_measurement_skew=.05)
+    t.estimator.config = c
+    t.increment_estimator = ToolIncrementEKF(c)
+    frame = t.interface.capture_rgbd.return_value
+    frame.timestamp = 9.9
+    t.interface.timestamp = 10.
+    result = t.select(frame, t.processor.process_marker(frame), 10.)
+    assert np.isclose(result[0, 3], .1)
+    assert t.source == 'fk_unverified'
+    assert 'camera_state_skew' in t.diagnostic
+
+
 def test_tracker_fk_initialization_respects_tag_only():
     for source in ('tag_with_fk_fallback', 'tag_only'):
         t = tracker(source, enabled=True)
@@ -133,4 +157,4 @@ def test_tracker_fk_initialization_respects_tag_only():
             assert result is None
         else:
             assert np.isclose(result[0, 3], .1)
-            assert t.source == 'fk_predicted'
+            assert t.source == 'fk_unverified'

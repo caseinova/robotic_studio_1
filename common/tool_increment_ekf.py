@@ -76,6 +76,10 @@ class ToolIncrementEKF:
                 if distance <= c.innovation_gate:
                     gain = np.linalg.solve(innovation, self.covariance).T
                     correction = gain @ residual
+                    scale = min(1., c.max_position_correction / max(np.linalg.norm(correction[:3]), 1e-12),
+                                c.max_rotation_correction / max(np.linalg.norm(correction[3:]), 1e-12))
+                    gain *= scale
+                    correction *= scale
                     self.pose[:3, 3] += correction[:3]
                     self.pose[:3, :3] = Rotation.from_rotvec(correction[3:]).as_matrix() @ self.pose[:3, :3]
                     remaining = np.eye(6) - gain

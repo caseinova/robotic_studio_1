@@ -20,6 +20,9 @@ TUNING_FIELDS = (
     "initial_linear_velocity_std", "initial_angular_velocity_std",
     "innovation_gate", "max_prediction_age",
 )
+TOOL_FUSION_FIELDS = ('fk_position_noise', 'fk_orientation_noise', 'max_position_std',
+                      'max_orientation_std', 'max_measurement_skew',
+                      'max_position_correction', 'max_rotation_correction')
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,14 @@ class EKFConfig:
     initial_angular_velocity_std: float = 0.5  # rad/s
     innovation_gate: float = 25.0  # squared Mahalanobis distance
     max_prediction_age: float = 0.3  # seconds since last accepted measurement
+    prediction_model: str = 'constant_velocity'
+    fk_position_noise: float = 0.002
+    fk_orientation_noise: float = 0.02
+    max_position_std: float = 0.2
+    max_orientation_std: float = 0.3
+    max_measurement_skew: float = 0.05
+    max_position_correction: float = 0.003
+    max_rotation_correction: float = 0.02
     # Target-specific tuning overrides legacy flat fields, which remain defaults.
     cube: dict | None = None
     tool: dict | None = None
@@ -46,7 +57,9 @@ class EKFConfig:
         for name in ("cube_enabled", "tool_enabled"):
             if getattr(self, name) is not None and not isinstance(getattr(self, name), bool):
                 raise ValueError(f"EKF {name} must be boolean or null")
-        for name in TUNING_FIELDS:
+        if self.prediction_model not in ('constant_velocity', 'fk_increment'):
+            raise ValueError('invalid prediction_model')
+        for name in TUNING_FIELDS + TOOL_FUSION_FIELDS:
             value = getattr(self, name)
             if (isinstance(value, bool) or not isinstance(value, (int, float))
                     or not np.isfinite(value) or value <= 0):
@@ -57,10 +70,15 @@ class EKFConfig:
                 continue
             if not isinstance(tuning, dict):
                 raise ValueError(f"EKF {target} tuning must be a JSON object")
-            unknown = set(tuning) - set(TUNING_FIELDS)
+            allowed = TUNING_FIELDS + (TOOL_FUSION_FIELDS + ('prediction_model',) if target == 'tool' else ())
+            unknown = set(tuning) - set(allowed)
             if unknown:
                 raise ValueError(f"unknown {target} EKF settings: " + ", ".join(sorted(map(str, unknown))))
             for name, value in tuning.items():
+                if name == 'prediction_model':
+                    if value not in ('constant_velocity', 'fk_increment'):
+                        raise ValueError('invalid tool.prediction_model')
+                    continue
                 if (isinstance(value, bool) or not isinstance(value, (int, float))
                         or not np.isfinite(value) or value <= 0):
                     raise ValueError(f"{target}.{name} must be a finite positive number")
@@ -70,9 +88,12 @@ class EKFConfig:
         if target not in ("cube", "tool"):
             raise ValueError("EKF target must be cube or tool")
         override = getattr(self, target + "_enabled")
+        tuning = dict(getattr(self, target) or {})
+        if target == 'cube':
+            tuning['prediction_model'] = 'constant_velocity'
         return replace(self, enabled=self.enabled if override is None else override,
                        cube_enabled=None, tool_enabled=None, cube=None, tool=None,
-                       **(getattr(self, target) or {}))
+                       **tuning)
 
     @classmethod
     def load(cls, path=DEFAULT_ESTIMATOR_CONFIG_PATH):
