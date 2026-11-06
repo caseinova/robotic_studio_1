@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import mujoco
 import numpy as np
+import pytest
 
 from simulation.estimation_telemetry import EstimationTelemetry
 from simulation.simulate import Simulation
@@ -48,12 +49,50 @@ def test_mujoco_overlay_draws_both_and_clears_missing():
     cube = SimpleNamespace(world_from_cube=pose, covariance=np.eye(12)*.0001)
     telemetry.record(data, cube_estimate=cube, tool_pose=pose, tool_covariance=np.eye(6)*.0001)
     telemetry.draw(viewer)
-    assert scene.ngeom == 10
+    assert scene.ngeom == 12
     assert scene.geoms[0].type == mujoco.mjtGeom.mjGEOM_ELLIPSOID
     np.testing.assert_allclose(scene.geoms[0].size, [.02, .02, .02], atol=1e-6)
+    telemetry.draw(viewer, uncertainty_scale=10.0)
+    for index in (0, 6):
+        np.testing.assert_allclose(scene.geoms[index].size, [.2, .2, .2], atol=1e-6)
+        np.testing.assert_allclose(scene.geoms[index].pos, pose[:3, 3])
+        assert '2 sigma x 10 (display only)' in scene.geoms[index + 1].label
+    for kind in ('cube', 'tool'):
+        np.testing.assert_allclose(telemetry.latest[kind][1], np.eye(6)*.0001)
+        np.testing.assert_allclose(telemetry.samples[-1][kind][2], .01)
     telemetry.record(data)
     telemetry.draw(viewer)
     assert scene.ngeom == 0
+
+
+def test_uncertainty_text_tracks_pose_scale_and_clears_without_covariance():
+    sim = Simulation()
+    viewer = SimpleNamespace(user_scn=mujoco.MjvScene(sim.robot.model, maxgeom=20),
+                             lock=lambda: nullcontext())
+    telemetry = EstimationTelemetry()
+    pose = np.eye(4)
+    for scale in (10.0, 2.5, 1.0):
+        pose[:3, 3] += [.1, -.02, .03]
+        telemetry.record(sim.robot.data, tool_pose=pose, tool_covariance=np.eye(6)*.0001)
+        telemetry.draw(viewer, uncertainty_scale=scale)
+        text = viewer.user_scn.geoms[1]
+        assert text.type == mujoco.mjtGeom.mjGEOM_LABEL
+        assert text.label == f'tool: 2 sigma x {scale:g} (display only)'
+        np.testing.assert_allclose(text.pos, pose[:3, 3] + [0, 0, .02*scale + .012])
+        assert not viewer.user_scn.geoms[0].label
+    telemetry.record(sim.robot.data, tool_pose=np.eye(4), tool_status='fk')
+    telemetry.draw(viewer)
+    assert viewer.user_scn.ngeom == 4
+    assert all(not viewer.user_scn.geoms[i].label for i in range(4))
+    telemetry.record(sim.robot.data)
+    telemetry.draw(viewer)
+    assert viewer.user_scn.ngeom == 0
+
+
+@pytest.mark.parametrize('scale', [0, -1, True, '10', None, float('nan'), float('inf')])
+def test_overlay_rejects_invalid_scale(scale):
+    with pytest.raises(ValueError, match='uncertainty_scale'):
+        EstimationTelemetry().draw(None, uncertainty_scale=scale)
 
 
 def test_stale_tool_estimate_is_not_reused():

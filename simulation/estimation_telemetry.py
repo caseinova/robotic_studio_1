@@ -142,8 +142,13 @@ class EstimationTelemetry:
                 writer.writerow(row)
         return image, csv_path
 
-    def draw(self, viewer):
-        """Draw estimated pose axes and world-frame ±2σ position ellipsoids."""
+    def draw(self, viewer, *, uncertainty_scale=1.0):
+        """Draw pose axes and display-scaled ellipsoids without changing covariance."""
+        if (isinstance(uncertainty_scale, bool)
+                or not isinstance(uncertainty_scale, (int, float))
+                or not np.isfinite(uncertainty_scale) or uncertainty_scale <= 0):
+            raise ValueError('uncertainty_scale must be finite and positive')
+        label = f'2 sigma x {uncertainty_scale:g} (display only)'
         with viewer.lock():
             scene = viewer.user_scn
             scene.ngeom = 0
@@ -151,15 +156,24 @@ class EstimationTelemetry:
                 if kind not in self.latest:
                     continue
                 pose, covariance = self.latest[kind]
-                if scene.ngeom + (5 if covariance is not None else 4) > scene.maxgeom:
+                if scene.ngeom + (6 if covariance is not None else 4) > scene.maxgeom:
                     continue
                 if covariance is not None:
                     values, vectors = np.linalg.eigh((covariance[:3, :3] + covariance[:3, :3].T) / 2)
                     if np.linalg.det(vectors) < 0:
                         vectors[:, 0] *= -1
+                    radii = np.maximum(uncertainty_scale*2*np.sqrt(np.maximum(values, 0)), 1e-5)
                     geom = scene.geoms[scene.ngeom]
                     mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_ELLIPSOID,
-                        np.maximum(2*np.sqrt(np.maximum(values, 0)), 1e-5), pose[:3, 3], vectors.ravel(), np.array(rgba, dtype=np.float32))
+                        radii, pose[:3, 3], vectors.ravel(), np.array(rgba, dtype=np.float32))
+                    scene.ngeom += 1
+                    # Anchor text above the rotated ellipsoid's world-Z extent.
+                    label_position = pose[:3, 3].copy()
+                    label_position[2] += np.linalg.norm(vectors[2, :] * radii) + .012
+                    geom = scene.geoms[scene.ngeom]
+                    mujoco.mjv_initGeom(geom, mujoco.mjtGeom.mjGEOM_LABEL, np.zeros(3),
+                        label_position, np.eye(3).ravel(), np.ones(4, dtype=np.float32))
+                    geom.label = f'{kind}: {label}'
                     scene.ngeom += 1
                 for axis, color in enumerate(([.95, .2, .2, 1.], [.15, .9, .25, 1.], [.2, .45, 1., 1.])):
                     geom = scene.geoms[scene.ngeom]

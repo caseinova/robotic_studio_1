@@ -13,12 +13,28 @@ Missing/stale poses and unknown uncertainty are NaN, not ground truth or zero.
 The tracker is not run purely for visualization; observe-only runs or disabled
 EKFs may have no estimates. Truth is read only by simulation telemetry.
 
-Set `viewer.show_estimates: true` in this file to draw EKF cube (green) and
+Set `viewer.show_estimates: true` in `simulation_config.json` to draw EKF cube (green) and
 tool (orange) positions, RGB orientation axes, and ±2σ position ellipsoids in MuJoCo. This option is
 also exposed in the desktop Simulation scene settings. Overlays use the MuJoCo
 user scene, not collision geometry, and are absent when an estimate is stale.
 Filter covariance and ellipsoids are not physical error guarantees or safety
 limits. Orientation uncertainty is plotted, not visualized as an ellipsoid.
+
+`viewer.estimate_uncertainty_scale` magnifies the position ellipsoid radii for
+visibility when the physical uncertainty is hidden inside the robot or cube.
+The checked-in value is `10.0`; `1.0` shows the unscaled two-sigma radii and is
+the default when the setting is omitted. The scale must be finite and positive.
+Radii still follow the current covariance automatically. This is display-only:
+it does not change estimation, control, CSV values or the saved plot bands.
+While an uncertainty ellipsoid is visible, the viewer labels it with
+`cube: 2 sigma x <scale> (display only)` or the corresponding tool label.
+Each label follows its bubble, anchored 12 mm above the displayed ellipsoid's
+world-Z extent. Its position adjusts to changes in pose, covariance and scale,
+and it disappears when no covariance is available. There is no fixed corner text.
+
+The tuned measurement standard deviations in `estimator_config.json` are
+0.004 m / 0.02 rad for the cube and 0.008 m / 0.04 rad for the tool. These
+simulation-tuned assumptions are not measured hardware-noise specifications.
 
 The optional tool `prediction_model` in `estimator_config.json` can be
 `constant_velocity` or `fk_increment`. The latter is active only when the tool

@@ -5,7 +5,7 @@ import warnings
 
 DEFAULT_VIEWER = dict(show_left_ui=False, show_right_ui=False, resize_window=True,
                       screen_fraction=.9, width=None, height=None, x=None, y=None,
-                      show_estimates=False)
+                      show_estimates=False, estimate_uncertainty_scale=1.0)
 
 
 def viewer_settings(values):
@@ -16,6 +16,10 @@ def viewer_settings(values):
         if type(result[key]) is not bool:
             raise ValueError(f'viewer.{key} must be boolean')
     fraction = result['screen_fraction']
+    scale = result['estimate_uncertainty_scale']
+    if (isinstance(scale, bool) or not isinstance(scale, (int, float))
+            or not math.isfinite(scale) or scale <= 0):
+        raise ValueError('viewer.estimate_uncertainty_scale must be finite and positive')
     if (isinstance(fraction, bool) or not isinstance(fraction, (int, float))
             or not math.isfinite(fraction) or not 0 < fraction <= 1):
         raise ValueError('viewer.screen_fraction must be in (0, 1]')

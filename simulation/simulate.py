@@ -281,7 +281,8 @@ class Simulation:
                 if controller is None:
                     self.record_estimates()
                 if self.config.viewer['show_estimates']:
-                    self.estimation.draw(viewer)
+                    self.estimation.draw(viewer,
+                        uncertainty_scale=self.config.viewer['estimate_uncertainty_scale'])
                 viewer.sync()
                 control_due = controller is not None and self.interface.timestamp + 1e-9 >= next_control_update
                 display_due = camera and start >= next_camera_frame

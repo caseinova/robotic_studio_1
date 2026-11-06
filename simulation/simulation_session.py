@@ -272,7 +272,8 @@ def run_simulation_sequence(runtime, sequence_config, destination, *, validate_o
                 if not viewer.is_running():
                     raise KeyboardInterrupt
                 if simulation.config.viewer['show_estimates']:
-                    simulation.estimation.draw(viewer)
+                    simulation.estimation.draw(viewer,
+                        uncertainty_scale=simulation.config.viewer['estimate_uncertainty_scale'])
                 viewer.sync()
             if camera_view:
                 frame = s.latest_frame

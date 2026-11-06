@@ -9,6 +9,7 @@ from simulation.viewer import launch_viewer, viewer_settings, window_rectangle
 def test_defaults_are_centered_and_panels_hidden():
     settings = SimulationConfig().viewer
     assert not settings['show_left_ui'] and not settings['show_right_ui']
+    assert settings['estimate_uncertainty_scale'] == 1.0
     assert window_rectangle(settings, (0, 30, 1920, 1000)) == (96, 80, 1728, 900)
 
 
@@ -25,6 +26,17 @@ def test_explicit_geometry_and_clamping():
     settings = viewer_settings(dict(width=1200, height=700, x=40, y=50))
     assert window_rectangle(settings, (0, 0, 1920, 1080)) == (40, 50, 1200, 700)
     assert window_rectangle(settings, (0, 0, 800, 600)) == (40, 50, 800, 600)
+
+
+def test_uncertainty_scale_survives_config_loading():
+    assert SimulationConfig(viewer={'estimate_uncertainty_scale': 10.0}).viewer['estimate_uncertainty_scale'] == 10.0
+    assert SimulationConfig.load().viewer['estimate_uncertainty_scale'] == 10.0
+
+
+@pytest.mark.parametrize('scale', [0, -1, True, '10', None, float('nan'), float('inf')])
+def test_invalid_uncertainty_scale(scale):
+    with pytest.raises(ValueError, match='estimate_uncertainty_scale'):
+        viewer_settings({'estimate_uncertainty_scale': scale})
 
 
 @pytest.mark.parametrize('settings', [None, {'unknown': 1}, {'width': False},
