@@ -1,6 +1,8 @@
 # Project page
 
-This static site maps the integrated-project brief to repository evidence. It intentionally labels missing results and submission details rather than inventing evidence.
+This static site describes the project's implementation using repository source,
+configuration snapshots and installation details reported by the team. It labels
+unpublished results rather than treating local experiment files as public evidence.
 
 Preview from the repository root:
 
@@ -12,6 +14,40 @@ Open http://localhost:8000. To publish with GitHub Pages, push this branch, then
 
 The JSON files in `docs/data/` are snapshots of the active configuration. Refresh them from `config/controller_config.json` and `config/estimator_config.json` whenever updating the page. Static prose also records noise and MPC defaults; review it after configuration changes. Run-specific evidence must record its own exact configuration and commit.
 
-Before submission, replace the explicitly marked gaps: team/group, video, calibration measurements, model analysis, parameter rationale, repeated randomised/disturbed trial results, figures, individual contributions and acknowledgements. Confirm the fixed-camera departure from the wrist-camera brief with the teaching team.
+The published simulation evidence lives in `docs/results/`, including original
+plots, CSVs, a provenance manifest and available configuration snapshots. See
+[the archive notes](results/README.md) for metric definitions and reproduction.
+Run `python docs/analyze_results.py` from the repository root to regenerate the
+summary JSON and comparison plot. Review the static results table and prose if
+the archive changes; they are not automatically regenerated.
 
-The page is based on `Sensors_Control_Integrated_Project v2.pdf` supplied alongside the checkout, the repository Markdown guides and checked-in controller/estimator configuration and source. It is a project-page scaffold, not a completed assessment report.
+Only cite material readers can access through the published site or linked
+repository. Do not cite ignored `experiment_runs/` or `simulation_plots/` files,
+local assessment documents, or unpublished logs. Before adding a numerical
+result, publish its data, exact configuration and source commit together, and
+distinguish controller-feedback errors from independently measured truth errors.
+Check every `data-src` target is tracked, and every relative asset is included
+in the deployed `docs/` directory. Commit and push the page, JSON snapshots,
+math scripts and bundled KaTeX assets together before publishing.
+
+Equations use LaTeX rendered by the locally bundled KaTeX 0.16.22 in
+`vendor/katex/`. Visitors do not need to install anything, and rendering does
+not require a CDN. Keep its stylesheet, JavaScript, fonts and license together.
+Write display equations inside `<div class="equation">` and inline expressions
+inside `<span class="math-inline">`, without dollar-sign delimiters. Escape
+HTML characters in the source: use `&amp;` for LaTeX alignment separators and
+`&lt;` for less-than signs. `math.js` renders these elements and leaves code
+blocks untouched. Wide equations scroll horizontally, including with keyboard
+focus. KaTeX also supplies MathML for assistive technology. Browser-console
+errors or elements with the `math-error` class indicate invalid expressions.
+
+The overview links to the notation table at the bottom of the page. Keep that
+table synchronized when changing equations, including units and any symbols
+with context-dependent meanings. Introduce each component through its purpose,
+design trade-off and assumptions before describing its implementation.
+
+The current results are descriptive simulation traces. Public calibration
+validation, controlled repeated trials and complete source-commit provenance
+remain necessary for stronger accuracy or reliability claims.
+Team details, contributions and a demonstration video also remain to be added.
+The PBVS/MPC table compares implementations, not measured performance.

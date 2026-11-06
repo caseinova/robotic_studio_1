@@ -1,0 +1,1317 @@
+{
+  "method": "Sample-weighted RMS of 3D translation-error norm and rotation-vector norm. Finite live rows only; latched targets excluded. No interpolation or pooling across runs. Coverage is marginal per axis on finite covariance rows, not joint coverage or a safety bound. Durations are simulation-time recording spans, not wall-clock completion times. Recording fractions are not detector success rates.",
+  "runs": [
+    {
+      "id": "1",
+      "label": "Run 1",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null,
+      "csv_sha256": "7a0f4cfc7aa3147ed23639942ccacd8c1a7634a984480abc54be86a16d8389aa",
+      "samples": 426,
+      "duration_s": 21.19999999999913,
+      "cube_start_xyz_m": [
+        -0.074,
+        0.32,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        0.11915557090371312,
+        0.3197530441470268,
+        0.03189224457978387
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 65,
+          "unavailable": 360
+        },
+        "finite_samples": 66,
+        "live_samples": 66,
+        "live_recording_fraction": 0.15492957746478872,
+        "live_first_s": 0.0,
+        "live_last_s": 3.2499999999998637,
+        "live_metrics": {
+          "samples": 66,
+          "position_rmse_mm": 0.2730950865839906,
+          "rotation_rmse_deg": 0.5530055140931989,
+          "position_p95_mm": 0.30108575777222296,
+          "position_max_mm": 0.3295974258274817,
+          "mean_position_error_mm": [
+            -0.0720929427262233,
+            -0.20382735243929645,
+            0.16334449349917368
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.3027851393882548,
+            "rotation_rmse_deg": 0.7712239494830129,
+            "position_p95_mm": 0.3027851393882548,
+            "position_max_mm": 0.3027851393882548,
+            "mean_position_error_mm": [
+              -0.059824243357889384,
+              -0.14714036836566136,
+              0.25777822355319
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 65,
+            "position_rmse_mm": 0.27261306183060097,
+            "rotation_rmse_deg": 0.5489712074346637,
+            "position_p95_mm": 0.2987145798434757,
+            "position_max_mm": 0.3295974258274817,
+            "mean_position_error_mm": [
+              -0.07228169194727459,
+              -0.20469945988658317,
+              0.16189166688295806
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 66,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 18.902095820926828,
+          "median_rotation_sigma_deg": 1.2513597703289057,
+          "position_axis_rmse_mm": [
+            0.07303720417319072,
+            0.2049698477869105,
+            0.16502683000376558
+          ],
+          "rotation_axis_rmse_deg": [
+            0.3171274903745365,
+            0.4519586600357093,
+            0.03128295198598966
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 421,
+          "fk_predicted": 5
+        },
+        "finite_samples": 426,
+        "live_samples": 426,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 21.19999999999913,
+        "live_metrics": {
+          "samples": 426,
+          "position_rmse_mm": 0.28418176840544834,
+          "rotation_rmse_deg": 0.14399334299663807,
+          "position_p95_mm": 0.4651519288460149,
+          "position_max_mm": 0.6100215851199657,
+          "mean_position_error_mm": [
+            0.01141789091532039,
+            0.06471637966406128,
+            0.10292319863481679
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 5,
+            "position_rmse_mm": 0.26503863412254464,
+            "rotation_rmse_deg": 0.17665261768472632,
+            "position_p95_mm": 0.3848602505958774,
+            "position_max_mm": 0.40323178281995536,
+            "mean_position_error_mm": [
+              0.01957233621022493,
+              0.16660088861865097,
+              -0.01898249684028075
+            ]
+          },
+          "tag_fused": {
+            "samples": 421,
+            "position_rmse_mm": 0.2844013791746256,
+            "rotation_rmse_deg": 0.14356082862294514,
+            "position_p95_mm": 0.466303776294461,
+            "position_max_mm": 0.6100215851199657,
+            "mean_position_error_mm": [
+              0.011321044771675443,
+              0.06350634986650083,
+              0.10437100974497236
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 426,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.6047419783169365,
+          "median_rotation_sigma_deg": 1.198280976060852,
+          "position_axis_rmse_mm": [
+            0.09820814183697432,
+            0.19947524563597385,
+            0.1769860580651611
+          ],
+          "rotation_axis_rmse_deg": [
+            0.13836202628583052,
+            0.026631452036109744,
+            0.0296782457681549
+          ]
+        }
+      }
+    },
+    {
+      "id": "2",
+      "label": "Run 2",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null,
+      "csv_sha256": "d6340dd2c69a6c796175a23ff4604527a19e7dfcf20f59031496e6cacb3a33ac",
+      "samples": 431,
+      "duration_s": 21.44999999999899,
+      "cube_start_xyz_m": [
+        -0.084,
+        0.25,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        0.11930524384683795,
+        0.31935304011143534,
+        0.031892244579783804
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 54,
+          "unavailable": 376
+        },
+        "finite_samples": 55,
+        "live_samples": 55,
+        "live_recording_fraction": 0.12761020881670534,
+        "live_first_s": 0.0,
+        "live_last_s": 2.6999999999999242,
+        "live_metrics": {
+          "samples": 55,
+          "position_rmse_mm": 0.37815623540902393,
+          "rotation_rmse_deg": 0.16732830792458317,
+          "position_p95_mm": 0.4088008826533053,
+          "position_max_mm": 0.4151116618761873,
+          "mean_position_error_mm": [
+            -0.2197311764911745,
+            0.21515045426068696,
+            0.21713890953649478
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.32471476173212205,
+            "rotation_rmse_deg": 0.23136826259350982,
+            "position_p95_mm": 0.32471476173212205,
+            "position_max_mm": 0.32471476173212205,
+            "mean_position_error_mm": [
+              -0.1785178620839628,
+              0.23899580994601877,
+              0.12826555356745817
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 54,
+            "position_rmse_mm": 0.3790748468638784,
+            "rotation_rmse_deg": 0.16590942820720136,
+            "position_p95_mm": 0.4088073583376501,
+            "position_max_mm": 0.4151116618761873,
+            "mean_position_error_mm": [
+              -0.22049438601723395,
+              0.21470887359984747,
+              0.2187847124248103
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 55,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 19.25834249929624,
+          "median_rotation_sigma_deg": 1.2559901269300615,
+          "position_axis_rmse_mm": [
+            0.22036291195606275,
+            0.21583913747009936,
+            0.21875966755582074
+          ],
+          "rotation_axis_rmse_deg": [
+            0.0884952982449073,
+            0.13353382479724255,
+            0.048332830006822
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 428,
+          "fk_predicted": 3
+        },
+        "finite_samples": 431,
+        "live_samples": 431,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 21.44999999999899,
+        "live_metrics": {
+          "samples": 431,
+          "position_rmse_mm": 0.2580653863686475,
+          "rotation_rmse_deg": 0.22175827662296166,
+          "position_p95_mm": 0.48469754948849925,
+          "position_max_mm": 0.757913834981413,
+          "mean_position_error_mm": [
+            -0.005621256321922249,
+            0.08256484027594212,
+            0.07230479991042697
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 3,
+            "position_rmse_mm": 0.24973160935472433,
+            "rotation_rmse_deg": 0.10621228368114041,
+            "position_p95_mm": 0.29554350581579486,
+            "position_max_mm": 0.2977774293105728,
+            "mean_position_error_mm": [
+              0.029783738212607602,
+              0.14568616358900943,
+              0.08318972257187474
+            ]
+          },
+          "tag_fused": {
+            "samples": 428,
+            "position_rmse_mm": 0.25812285110054173,
+            "rotation_rmse_deg": 0.2223563743281933,
+            "position_p95_mm": 0.48705413827676114,
+            "position_max_mm": 0.757913834981413,
+            "mean_position_error_mm": [
+              -0.005869422171463346,
+              0.08212240109384118,
+              0.07222850372354767
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 431,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.586115380473281,
+          "median_rotation_sigma_deg": 1.19815699011074,
+          "position_axis_rmse_mm": [
+            0.08904829251949713,
+            0.18853993201035868,
+            0.1520553822739948
+          ],
+          "rotation_axis_rmse_deg": [
+            0.21778260081494163,
+            0.026661737922233704,
+            0.03219664212354986
+          ]
+        }
+      }
+    },
+    {
+      "id": "3",
+      "label": "Run 3",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null,
+      "csv_sha256": "d5097f2005ee4345f496a1d87e7eb53f904768746a4c6ab8b1839851432d43c5",
+      "samples": 404,
+      "duration_s": 20.09999999999974,
+      "cube_start_xyz_m": [
+        -0.065,
+        0.45,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        -0.00036210724670167414,
+        0.3986955700436731,
+        0.031892244579783846
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 102,
+          "unavailable": 301
+        },
+        "finite_samples": 103,
+        "live_samples": 103,
+        "live_recording_fraction": 0.25495049504950495,
+        "live_first_s": 0.0,
+        "live_last_s": 5.09999999999966,
+        "live_metrics": {
+          "samples": 103,
+          "position_rmse_mm": 0.1575920851851385,
+          "rotation_rmse_deg": 0.28905118459103585,
+          "position_p95_mm": 0.17154566902209156,
+          "position_max_mm": 0.19804114218025823,
+          "mean_position_error_mm": [
+            0.03670205095291594,
+            -0.13735603951375908,
+            0.06351122321447648
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.1229521851903925,
+            "rotation_rmse_deg": 0.2080908927292147,
+            "position_p95_mm": 0.1229521851903925,
+            "position_max_mm": 0.1229521851903925,
+            "mean_position_error_mm": [
+              0.034084510698695336,
+              -0.08661268461784832,
+              0.08033510339081062
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 102,
+            "position_rmse_mm": 0.15789407864929214,
+            "rotation_rmse_deg": 0.2897329513103692,
+            "position_p95_mm": 0.17155658933483411,
+            "position_max_mm": 0.19804114218025823,
+            "mean_position_error_mm": [
+              0.03672771311227105,
+              -0.13785352338528759,
+              0.06334628321274771
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 103,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 18.636083319820806,
+          "median_rotation_sigma_deg": 1.2507993668144786,
+          "position_axis_rmse_mm": [
+            0.03885786835034361,
+            0.13774896383991142,
+            0.06595873210802411
+          ],
+          "rotation_axis_rmse_deg": [
+            0.21456964176965412,
+            0.11304942956159908,
+            0.15725864879274667
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 402,
+          "fk_predicted": 2
+        },
+        "finite_samples": 404,
+        "live_samples": 404,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 20.09999999999974,
+        "live_metrics": {
+          "samples": 404,
+          "position_rmse_mm": 0.32697010531751414,
+          "rotation_rmse_deg": 0.11805153051459652,
+          "position_p95_mm": 0.5295285856842794,
+          "position_max_mm": 0.7303039945797917,
+          "mean_position_error_mm": [
+            -0.021712798176148948,
+            -0.13084230693313742,
+            0.18895895357439252
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 2,
+            "position_rmse_mm": 0.21083611853932369,
+            "rotation_rmse_deg": 0.05121195019556981,
+            "position_p95_mm": 0.2585943257139705,
+            "position_max_mm": 0.2650126802649433,
+            "mean_position_error_mm": [
+              -0.08053480092766463,
+              -0.09990998200767875,
+              0.1307548712954354
+            ]
+          },
+          "tag_fused": {
+            "samples": 402,
+            "position_rmse_mm": 0.32744493278203735,
+            "rotation_rmse_deg": 0.11828968647587217,
+            "position_p95_mm": 0.5295343433368161,
+            "position_max_mm": 0.7303039945797917,
+            "mean_position_error_mm": [
+              -0.021420151396290665,
+              -0.13099619909694565,
+              0.18924852612304405
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 404,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.6543272862785825,
+          "median_rotation_sigma_deg": 1.1981571991502031,
+          "position_axis_rmse_mm": [
+            0.12476502868137337,
+            0.1673595212736928,
+            0.2516623293791162
+          ],
+          "rotation_axis_rmse_deg": [
+            0.1112305765502309,
+            0.023481569016814995,
+            0.03182041190258988
+          ]
+        }
+      }
+    },
+    {
+      "id": "4",
+      "label": "Run 4",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null,
+      "csv_sha256": "34da52648287db51a25a70d6fa17824883d4c42eed4422acaf540983c0442e34",
+      "samples": 639,
+      "duration_s": 31.849999999993226,
+      "cube_start_xyz_m": [
+        -0.3,
+        0.1,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        0.0003358363509657793,
+        0.40039609199194487,
+        0.03189224457978384
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 111,
+          "unavailable": 527
+        },
+        "finite_samples": 112,
+        "live_samples": 112,
+        "live_recording_fraction": 0.1752738654147105,
+        "live_first_s": 0.0,
+        "live_last_s": 5.549999999999611,
+        "live_metrics": {
+          "samples": 112,
+          "position_rmse_mm": 0.37769609225811734,
+          "rotation_rmse_deg": 0.3074310869669161,
+          "position_p95_mm": 0.47423274953565286,
+          "position_max_mm": 0.9816498822439964,
+          "mean_position_error_mm": [
+            0.28993690811337475,
+            0.04643349677846644,
+            0.21813583302082104
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.9816498822439964,
+            "rotation_rmse_deg": 0.9707704271809593,
+            "position_p95_mm": 0.9816498822439964,
+            "position_max_mm": 0.9816498822439964,
+            "mean_position_error_mm": [
+              0.9403315895074038,
+              0.01793057600360526,
+              0.28123208836886016
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 111,
+            "position_rmse_mm": 0.3677745267043579,
+            "rotation_rmse_deg": 0.29474616625403005,
+            "position_p95_mm": 0.46540916279615463,
+            "position_max_mm": 0.6357473816426221,
+            "mean_position_error_mm": [
+              0.2840774965692844,
+              0.046690279848510235,
+              0.21756739828795582
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 112,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 18.635938979747593,
+          "median_rotation_sigma_deg": 1.250750195583786,
+          "position_axis_rmse_mm": [
+            0.302259714303104,
+            0.0505726415533034,
+            0.2207618878855211
+          ],
+          "rotation_axis_rmse_deg": [
+            0.08234273772372218,
+            0.2650063318247238,
+            0.13230718374535155
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 635,
+          "fk_predicted": 4
+        },
+        "finite_samples": 639,
+        "live_samples": 639,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 31.849999999993226,
+        "live_metrics": {
+          "samples": 639,
+          "position_rmse_mm": 0.2188277385690674,
+          "rotation_rmse_deg": 0.15877060352078848,
+          "position_p95_mm": 0.3751211971156914,
+          "position_max_mm": 0.5108348288859553,
+          "mean_position_error_mm": [
+            -0.009324366544999428,
+            -0.03017318770746624,
+            0.03692356070780417
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 4,
+            "position_rmse_mm": 0.1987517336146754,
+            "rotation_rmse_deg": 0.12068068209804844,
+            "position_p95_mm": 0.24370034061732446,
+            "position_max_mm": 0.24839859961290092,
+            "mean_position_error_mm": [
+              0.08565236161787657,
+              0.06378015544305712,
+              0.009890096222278655
+            ]
+          },
+          "tag_fused": {
+            "samples": 635,
+            "position_rmse_mm": 0.21894836726905956,
+            "rotation_rmse_deg": 0.15898161877824737,
+            "position_p95_mm": 0.3751514462567099,
+            "position_max_mm": 0.5108348288859553,
+            "mean_position_error_mm": [
+              -0.009922645147600223,
+              -0.03076501979030418,
+              0.03709385024787047
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 639,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.213688251428217,
+          "median_rotation_sigma_deg": 1.1980970051415372,
+          "position_axis_rmse_mm": [
+            0.0899798074656876,
+            0.11887065164644257,
+            0.16018421143433578
+          ],
+          "rotation_axis_rmse_deg": [
+            0.15086975697565955,
+            0.033429251877794955,
+            0.03645416425254866
+          ]
+        }
+      }
+    },
+    {
+      "id": "without_ekf",
+      "label": "No EKF",
+      "condition": "Unfiltered run; confirmed by raw/FK status labels and absent covariance. Exact settings unavailable.",
+      "configuration_available": false,
+      "source_commit": null,
+      "csv_sha256": "56554ddab77574bad40b4709a38188c8debdab4e85c35dfafbb409160acd5ca7",
+      "samples": 428,
+      "duration_s": 21.299999999999073,
+      "cube_start_xyz_m": [
+        -0.074,
+        0.32,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        0.12002798605645064,
+        0.3204637497653557,
+        0.031892244579783825
+      ],
+      "cube": {
+        "status_counts": {
+          "raw_cube_tag": 58,
+          "latched_pick_target": 110,
+          "unavailable": 260
+        },
+        "finite_samples": 168,
+        "live_samples": 58,
+        "live_recording_fraction": 0.13551401869158877,
+        "live_first_s": 0.0,
+        "live_last_s": 2.8499999999999077,
+        "live_metrics": {
+          "samples": 58,
+          "position_rmse_mm": 0.25197362837381126,
+          "rotation_rmse_deg": 0.4907533927768297,
+          "position_p95_mm": 0.3787162272320195,
+          "position_max_mm": 0.470324236651976,
+          "mean_position_error_mm": [
+            -0.030761655435650515,
+            -0.1545106153704198,
+            0.14379395810198659
+          ]
+        },
+        "by_status": {
+          "latched_pick_target": {
+            "samples": 110,
+            "position_rmse_mm": 17.161355756516134,
+            "rotation_rmse_deg": 0.27964995443793395,
+            "position_p95_mm": 43.1366003734028,
+            "position_max_mm": 50.66518545626959,
+            "mean_position_error_mm": [
+              -0.05762600776721378,
+              -0.16685618362910493,
+              -8.50160845471718
+            ]
+          },
+          "raw_cube_tag": {
+            "samples": 58,
+            "position_rmse_mm": 0.25197362837381126,
+            "rotation_rmse_deg": 0.4907533927768297,
+            "position_p95_mm": 0.3787162272320195,
+            "position_max_mm": 0.470324236651976,
+            "mean_position_error_mm": [
+              -0.030761655435650515,
+              -0.1545106153704198,
+              0.14379395810198659
+            ]
+          },
+          "unavailable": null
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "raw_tool_tag": 230,
+          "fk_fallback": 1,
+          "fk": 197
+        },
+        "finite_samples": 428,
+        "live_samples": 428,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 21.299999999999073,
+        "live_metrics": {
+          "samples": 428,
+          "position_rmse_mm": 1.453392345545461,
+          "rotation_rmse_deg": 0.5297799351528295,
+          "position_p95_mm": 2.817359576191475,
+          "position_max_mm": 3.6617113632558427,
+          "mean_position_error_mm": [
+            0.008742827792641997,
+            0.011313142122264447,
+            0.027857377588776214
+          ]
+        },
+        "by_status": {
+          "fk": {
+            "samples": 197,
+            "position_rmse_mm": 1.8787099657725883,
+            "rotation_rmse_deg": 0.4299811584809874,
+            "position_p95_mm": 3.057864828651344,
+            "position_max_mm": 3.6617113632558427,
+            "mean_position_error_mm": [
+              0.017932469819590565,
+              -0.03500464094225337,
+              -0.04757408696898112
+            ]
+          },
+          "fk_fallback": {
+            "samples": 1,
+            "position_rmse_mm": 2.1248053098470443,
+            "rotation_rmse_deg": 0.4864728017295521,
+            "position_p95_mm": 2.1248053098470443,
+            "position_max_mm": 2.1248053098470443,
+            "mean_position_error_mm": [
+              -1.5007681732889382,
+              -0.16061639888376167,
+              -1.4955583797387484
+            ]
+          },
+          "raw_tool_tag": {
+            "samples": 230,
+            "position_rmse_mm": 0.9423585891415953,
+            "rotation_rmse_deg": 0.6024104406860624,
+            "position_p95_mm": 1.8390274681231336,
+            "position_max_mm": 3.561652900968036,
+            "mean_position_error_mm": [
+              0.007434790930784227,
+              0.05173284996885591,
+              0.09908961356793151
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "5",
+      "label": "Run 5",
+      "condition": "Filtered run; exact noise settings and intended comparison not documented.",
+      "configuration_available": false,
+      "source_commit": null,
+      "csv_sha256": "6ca1b3b9b4c2fd1568862018d3bcd5cca0f567672e6573af01a91cf4b93aaf94",
+      "samples": 360,
+      "duration_s": 17.900000000000958,
+      "cube_start_xyz_m": [
+        -0.074,
+        0.32,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        0.0008297712340856024,
+        0.39858952158637634,
+        0.031892244579783846
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 54,
+          "unavailable": 305
+        },
+        "finite_samples": 55,
+        "live_samples": 55,
+        "live_recording_fraction": 0.1527777777777778,
+        "live_first_s": 0.0,
+        "live_last_s": 2.6999999999999242,
+        "live_metrics": {
+          "samples": 55,
+          "position_rmse_mm": 0.23154753970060338,
+          "rotation_rmse_deg": 0.4185622763703006,
+          "position_p95_mm": 0.2660970304114133,
+          "position_max_mm": 0.2745799170987373,
+          "mean_position_error_mm": [
+            -0.019761430293623417,
+            -0.15343255017019508,
+            0.16755863852187916
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.19148921651176545,
+            "rotation_rmse_deg": 0.7251168428506812,
+            "position_p95_mm": 0.19148921651176545,
+            "position_max_mm": 0.19148921651176545,
+            "mean_position_error_mm": [
+              -0.06366332299696797,
+              -0.09335475904331814,
+              0.15459621699523418
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 54,
+            "position_rmse_mm": 0.2322242033170486,
+            "rotation_rmse_deg": 0.410733229188748,
+            "position_p95_mm": 0.2661232970708236,
+            "position_max_mm": 0.2745799170987373,
+            "mean_position_error_mm": [
+              -0.018948432280598518,
+              -0.15454510185772982,
+              0.16779868336496517
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 55,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 19.25834249929624,
+          "median_rotation_sigma_deg": 1.255989832916633,
+          "position_axis_rmse_mm": [
+            0.031321132828314904,
+            0.1546857555347504,
+            0.16942717259754114
+          ],
+          "rotation_axis_rmse_deg": [
+            0.25531909393702074,
+            0.3300056086467669,
+            0.033209000785081565
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 358,
+          "fk_predicted": 2
+        },
+        "finite_samples": 360,
+        "live_samples": 360,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 17.900000000000958,
+        "live_metrics": {
+          "samples": 360,
+          "position_rmse_mm": 1.8690901210181812,
+          "rotation_rmse_deg": 0.4320027921173578,
+          "position_p95_mm": 3.3378967113195066,
+          "position_max_mm": 4.324140421441166,
+          "mean_position_error_mm": [
+            -0.03459247951589976,
+            0.05454758156440759,
+            -0.014742530296607086
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 2,
+            "position_rmse_mm": 2.5883071836822147,
+            "rotation_rmse_deg": 0.3679058060780983,
+            "position_p95_mm": 3.3076625727247837,
+            "position_max_mm": 3.411985467967322,
+            "mean_position_error_mm": [
+              1.822583022793825,
+              1.1550640178939475,
+              -0.5098199983986085
+            ]
+          },
+          "tag_fused": {
+            "samples": 358,
+            "position_rmse_mm": 1.8642929440046,
+            "rotation_rmse_deg": 0.4323341839878112,
+            "position_p95_mm": 3.3147815921590706,
+            "position_max_mm": 4.324140421441166,
+            "mean_position_error_mm": [
+              -0.04496776165170829,
+              0.04839944504860011,
+              -0.01197673438542272
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 360,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.857043496266665,
+          "median_rotation_sigma_deg": 1.1981362352892908,
+          "position_axis_rmse_mm": [
+            1.0476124018638924,
+            0.6178679135743669,
+            1.4192411272662528
+          ],
+          "rotation_axis_rmse_deg": [
+            0.3219435409055055,
+            0.172694939633922,
+            0.23055417300767772
+          ]
+        }
+      }
+    },
+    {
+      "id": "20261106-090124-207623-2f3a609f",
+      "label": "H1",
+      "condition": "Higher recorded noise; pure PBVS, both EKFs, seed 42.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-090004-pc3c20ix",
+      "csv_sha256": "da7d0a1e72d27f06048328da377ee9cb8ff18ff837722cd4e0100a8e4d904b70",
+      "samples": 398,
+      "duration_s": 19.799999999999905,
+      "cube_start_xyz_m": [
+        -0.084,
+        0.25,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        -0.0017194762959926693,
+        0.398229845324644,
+        0.03189224457978384
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 53,
+          "predicted": 1,
+          "unavailable": 343
+        },
+        "finite_samples": 55,
+        "live_samples": 55,
+        "live_recording_fraction": 0.13819095477386933,
+        "live_first_s": 0.0,
+        "live_last_s": 2.6999999999999242,
+        "live_metrics": {
+          "samples": 55,
+          "position_rmse_mm": 0.2986002115572334,
+          "rotation_rmse_deg": 0.2008845494604451,
+          "position_p95_mm": 0.35954865292216653,
+          "position_max_mm": 0.3687458332520656,
+          "mean_position_error_mm": [
+            -0.16126655663514283,
+            0.18165001876206652,
+            0.15309947620513187
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.2783429195678368,
+            "rotation_rmse_deg": 0.20478887345659877,
+            "position_p95_mm": 0.2783429195678368,
+            "position_max_mm": 0.2783429195678368,
+            "mean_position_error_mm": [
+              -0.23133268288029474,
+              0.13464364713577925,
+              0.07636137106500906
+            ]
+          },
+          "predicted": {
+            "samples": 1,
+            "position_rmse_mm": 0.34833808508545155,
+            "rotation_rmse_deg": 0.1999984885693672,
+            "position_p95_mm": 0.34833808508545155,
+            "position_max_mm": 0.34833808508545155,
+            "mean_position_error_mm": [
+              -0.17467897126219323,
+              0.22097647274257892,
+              0.2049294439899485
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 53,
+            "position_rmse_mm": 0.29795214717780477,
+            "rotation_rmse_deg": 0.2008268400620942,
+            "position_p95_mm": 0.360134540915311,
+            "position_max_mm": 0.3687458332520656,
+            "mean_position_error_mm": [
+              -0.15969148982623338,
+              0.18179492286859056,
+              0.15356944106089238
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 55,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 19.462102427128002,
+          "median_rotation_sigma_deg": 1.284304275830599,
+          "position_axis_rmse_mm": [
+            0.16623393595618233,
+            0.18959640860622717,
+            0.15994238563358043
+          ],
+          "rotation_axis_rmse_deg": [
+            0.16030904742472696,
+            0.11695168456638484,
+            0.03127163255711938
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 394,
+          "unavailable": 1,
+          "fk_predicted": 3
+        },
+        "finite_samples": 397,
+        "live_samples": 397,
+        "live_recording_fraction": 0.9974874371859297,
+        "live_first_s": 0.0,
+        "live_last_s": 19.799999999999905,
+        "live_metrics": {
+          "samples": 397,
+          "position_rmse_mm": 1.7739988146575365,
+          "rotation_rmse_deg": 0.44606264907304893,
+          "position_p95_mm": 3.167506867701106,
+          "position_max_mm": 4.43444243079239,
+          "mean_position_error_mm": [
+            -0.007097344025752694,
+            0.07952593373111563,
+            -0.057436280866586066
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 3,
+            "position_rmse_mm": 1.9124385622805473,
+            "rotation_rmse_deg": 0.32371861150750003,
+            "position_p95_mm": 2.70545930546559,
+            "position_max_mm": 2.8736668232290885,
+            "mean_position_error_mm": [
+              0.7423376972508638,
+              0.77835579014048,
+              -0.5232464293426867
+            ]
+          },
+          "tag_fused": {
+            "samples": 394,
+            "position_rmse_mm": 1.77290323616709,
+            "rotation_rmse_deg": 0.44686572859353335,
+            "position_p95_mm": 3.167570802788663,
+            "position_max_mm": 4.43444243079239,
+            "mean_position_error_mm": [
+              -0.012803702208061965,
+              0.07420489421530828,
+              -0.053889503086311186
+            ]
+          },
+          "unavailable": null
+        },
+        "uncertainty": {
+          "samples": 397,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.702388401801057,
+          "median_rotation_sigma_deg": 1.1981732063424555,
+          "position_axis_rmse_mm": [
+            0.9314629347146933,
+            0.6307485505684421,
+            1.3717160280520326
+          ],
+          "rotation_axis_rmse_deg": [
+            0.3415119909127383,
+            0.1782907969536396,
+            0.2248418081285592
+          ]
+        }
+      }
+    },
+    {
+      "id": "20261106-091006-234883-c19fec7c",
+      "label": "H2",
+      "condition": "Higher recorded noise; pure PBVS, both EKFs, seed 42.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-090912-ziqb60n1",
+      "csv_sha256": "c3b5a57b1062a782aef2ede1eb8354bec66fbea7af557fe87dc456a085fc9f48",
+      "samples": 413,
+      "duration_s": 20.54999999999949,
+      "cube_start_xyz_m": [
+        -0.074,
+        0.32,
+        0.032
+      ],
+      "cube_end_xyz_m": [
+        0.12044818989252977,
+        0.3180724287105195,
+        0.03189224457978381
+      ],
+      "cube": {
+        "status_counts": {
+          "initialized": 1,
+          "updated": 54,
+          "unavailable": 358
+        },
+        "finite_samples": 55,
+        "live_samples": 55,
+        "live_recording_fraction": 0.13317191283292978,
+        "live_first_s": 0.0,
+        "live_last_s": 2.6999999999999242,
+        "live_metrics": {
+          "samples": 55,
+          "position_rmse_mm": 0.22405812972343972,
+          "rotation_rmse_deg": 0.39444777008316656,
+          "position_p95_mm": 0.25854672143492907,
+          "position_max_mm": 0.28368990806833216,
+          "mean_position_error_mm": [
+            -0.030525485182026055,
+            -0.15292886600941333,
+            0.1537442122228678
+          ]
+        },
+        "by_status": {
+          "initialized": {
+            "samples": 1,
+            "position_rmse_mm": 0.1744331719999618,
+            "rotation_rmse_deg": 0.7256771854161459,
+            "position_p95_mm": 0.1744331719999618,
+            "position_max_mm": 0.1744331719999618,
+            "mean_position_error_mm": [
+              -0.058936047837090944,
+              -0.022698805611398587,
+              0.16259839477414384
+            ]
+          },
+          "unavailable": null,
+          "updated": {
+            "samples": 54,
+            "position_rmse_mm": 0.2248738564395664,
+            "rotation_rmse_deg": 0.3856401605547045,
+            "position_p95_mm": 0.25857640376123764,
+            "position_max_mm": 0.28368990806833216,
+            "mean_position_error_mm": [
+              -0.029999363651376704,
+              -0.15534053379456172,
+              0.15358024587932564
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 55,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 19.25834249929624,
+          "median_rotation_sigma_deg": 1.2559897768653008,
+          "position_axis_rmse_mm": [
+            0.03783984670124762,
+            0.15603485734525252,
+            0.15627960452355422
+          ],
+          "rotation_axis_rmse_deg": [
+            0.2461366296464497,
+            0.3039274997733657,
+            0.051321318683173724
+          ]
+        }
+      },
+      "tool": {
+        "status_counts": {
+          "tag_fused": 410,
+          "fk_predicted": 3
+        },
+        "finite_samples": 413,
+        "live_samples": 413,
+        "live_recording_fraction": 1.0,
+        "live_first_s": 0.0,
+        "live_last_s": 20.54999999999949,
+        "live_metrics": {
+          "samples": 413,
+          "position_rmse_mm": 1.7809043965082543,
+          "rotation_rmse_deg": 0.4504560670970289,
+          "position_p95_mm": 3.057776634135803,
+          "position_max_mm": 4.039295563964704,
+          "mean_position_error_mm": [
+            -0.013094910955748147,
+            0.15924455946480137,
+            0.03906194437112949
+          ]
+        },
+        "by_status": {
+          "fk_predicted": {
+            "samples": 3,
+            "position_rmse_mm": 2.2618504901100316,
+            "rotation_rmse_deg": 0.3031244621729078,
+            "position_p95_mm": 3.141438210632844,
+            "position_max_mm": 3.31593796708305,
+            "mean_position_error_mm": [
+              0.9355186057137163,
+              0.7059357688642409,
+              0.1323549465597207
+            ]
+          },
+          "tag_fused": {
+            "samples": 410,
+            "position_rmse_mm": 1.7769056077882808,
+            "rotation_rmse_deg": 0.4513569047047433,
+            "position_p95_mm": 3.054343539321682,
+            "position_max_mm": 4.039295563964704,
+            "mean_position_error_mm": [
+              -0.020035985467963743,
+              0.15524437988382986,
+              0.038379312647798335
+            ]
+          }
+        },
+        "uncertainty": {
+          "samples": 413,
+          "marginal_2sigma_coverage_xyz_rxyz": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "median_position_sigma_mm": 6.62959373785021,
+          "median_rotation_sigma_deg": 1.1981861564176395,
+          "position_axis_rmse_mm": [
+            0.960585817287913,
+            0.623059474383866,
+            1.3640719367057739
+          ],
+          "rotation_axis_rmse_deg": [
+            0.33409587013559655,
+            0.20021890958248795,
+            0.22628081268296082
+          ]
+        }
+      }
+    }
+  ]
+}

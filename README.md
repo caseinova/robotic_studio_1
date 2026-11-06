@@ -3,7 +3,7 @@
 ## Integrated project page
 
 The [project page](docs/index.html) presents the sensing, estimation and control
-pipeline against the integrated-project marking guide. See
+pipeline with links to its implementation and configuration. See
 [page setup and GitHub Pages publishing](docs/README.md) for preview instructions
 and the evidence still needed before submission.
 

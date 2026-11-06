@@ -1,0 +1,63 @@
+{
+  "description": "All eight estimation CSV sets present in simulation_plots at publication. Original PNG/CSV files copied unchanged. Numbered run labels are not a claim of identical settings. No run source commit was recorded.",
+  "runs": [
+    {
+      "id": "1",
+      "label": "Run 1",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null
+    },
+    {
+      "id": "2",
+      "label": "Run 2",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null
+    },
+    {
+      "id": "3",
+      "label": "Run 3",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null
+    },
+    {
+      "id": "4",
+      "label": "Run 4",
+      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
+      "configuration_available": false,
+      "source_commit": null
+    },
+    {
+      "id": "without_ekf",
+      "label": "No EKF",
+      "condition": "Unfiltered run; confirmed by raw/FK status labels and absent covariance. Exact settings unavailable.",
+      "configuration_available": false,
+      "source_commit": null
+    },
+    {
+      "id": "5",
+      "label": "Run 5",
+      "condition": "Filtered run; exact noise settings and intended comparison not documented.",
+      "configuration_available": false,
+      "source_commit": null
+    },
+    {
+      "id": "20261106-090124-207623-2f3a609f",
+      "label": "H1",
+      "condition": "Higher recorded noise; pure PBVS, both EKFs, seed 42.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-090004-pc3c20ix"
+    },
+    {
+      "id": "20261106-091006-234883-c19fec7c",
+      "label": "H2",
+      "condition": "Higher recorded noise; pure PBVS, both EKFs, seed 42.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-090912-ziqb60n1"
+    }
+  ]
+}
