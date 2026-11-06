@@ -1,63 +1,159 @@
 {
-  "description": "All eight estimation CSV sets present in simulation_plots at publication. Original PNG/CSV files copied unchanged. Numbered run labels are not a claim of identical settings. No run source commit was recorded.",
+  "description": "Twelve selected trials: L1-L4 use low noise with both EKFs, H1-H4 use high noise with both EKFs, and O1-O4 use high noise with both EKFs disabled. Each H/O pair has identical noise, controller, sequence and scene settings; estimator settings differ only in the enable switches. PNG/CSV files are copied unchanged. Only entries in runs contribute to the analysis. No source commit was recorded.",
+  "excluded": [
+    {
+      "id": "new_dest_1",
+      "reason": "Video demonstration only; excluded from all quantitative analysis and plots at the experimenter's request."
+    },
+    {
+      "id": "new_dest_2",
+      "reason": "Video demonstration only; excluded from all quantitative analysis and plots at the experimenter's request."
+    },
+    {
+      "id": "20261106-223439-500806-5bb5ad1b",
+      "reason": "Superseded by the latest four EKF-off trials."
+    },
+    {
+      "id": "20261106-225013-504042-a1b158f3",
+      "reason": "Earlier trial, not one of the latest four requested trials."
+    },
+    {
+      "id": "20261106-225133-751042-d2e90777",
+      "reason": "Superseded: distance-dependent depth noise did not match the EKF-on trials."
+    },
+    {
+      "id": "20261106-225333-811285-db2d2751",
+      "reason": "Superseded: distance-dependent depth noise did not match the EKF-on trials."
+    },
+    {
+      "id": "20261106-225514-987711-28f3b95b",
+      "reason": "Superseded: distance-dependent depth noise did not match the EKF-on trials."
+    },
+    {
+      "id": "20261106-225727-355524-bbc4cc7c",
+      "reason": "Superseded: distance-dependent depth noise did not match the EKF-on trials."
+    }
+  ],
   "runs": [
     {
-      "id": "1",
-      "label": "Run 1",
-      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
-      "configuration_available": false,
-      "source_commit": null
+      "id": "20261106-220357-227202-ec383438",
+      "label": "L1",
+      "group": "low_noise",
+      "layout": 1,
+      "condition": "Low noise, cube position 1, both EKFs enabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-220304-7l8ngnkv"
     },
     {
-      "id": "2",
-      "label": "Run 2",
-      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
-      "configuration_available": false,
-      "source_commit": null
+      "id": "20261106-220506-931120-08636fa5",
+      "label": "L2",
+      "group": "low_noise",
+      "layout": 2,
+      "condition": "Low noise, cube position 2, both EKFs enabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-220414-ljt2hc9y"
     },
     {
-      "id": "3",
-      "label": "Run 3",
-      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
-      "configuration_available": false,
-      "source_commit": null
+      "id": "20261106-220625-087996-2b13b26e",
+      "label": "L3",
+      "group": "low_noise",
+      "layout": 3,
+      "condition": "Low noise, cube position 3, both EKFs enabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-220521-v7qrwwo2"
     },
     {
-      "id": "4",
-      "label": "Run 4",
-      "condition": "Low noise; varied cube and destination positions (reported by experimenter).",
-      "configuration_available": false,
-      "source_commit": null
+      "id": "20261106-220800-152532-a2c76341",
+      "label": "L4",
+      "group": "low_noise",
+      "layout": 4,
+      "condition": "Low noise, cube position 4, both EKFs enabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-220640-zfxlf129"
     },
     {
-      "id": "without_ekf",
-      "label": "No EKF",
-      "condition": "Unfiltered run; confirmed by raw/FK status labels and absent covariance. Exact settings unavailable.",
-      "configuration_available": false,
-      "source_commit": null
-    },
-    {
-      "id": "5",
-      "label": "Run 5",
-      "condition": "Filtered run; exact noise settings and intended comparison not documented.",
-      "configuration_available": false,
-      "source_commit": null
-    },
-    {
-      "id": "20261106-090124-207623-2f3a609f",
+      "id": "20261106-221048-444601-532fb743",
       "label": "H1",
-      "condition": "Higher recorded noise; pure PBVS, both EKFs, seed 42.",
+      "group": "high_noise",
+      "layout": 1,
+      "condition": "High noise, cube position 1, both EKFs enabled.",
       "configuration_available": true,
       "source_commit": null,
-      "experiment_id": "20261106-090004-pc3c20ix"
+      "experiment_id": "20261106-220922-6ie8ub12"
     },
     {
-      "id": "20261106-091006-234883-c19fec7c",
+      "id": "20261106-221233-825604-df6d4651",
       "label": "H2",
-      "condition": "Higher recorded noise; pure PBVS, both EKFs, seed 42.",
+      "group": "high_noise",
+      "layout": 2,
+      "condition": "High noise, cube position 2, both EKFs enabled.",
       "configuration_available": true,
       "source_commit": null,
-      "experiment_id": "20261106-090912-ziqb60n1"
+      "experiment_id": "20261106-221104-0hk2sd5j"
+    },
+    {
+      "id": "20261106-221936-586982-95bb7d0a",
+      "label": "H3",
+      "group": "high_noise",
+      "layout": 3,
+      "condition": "High noise, cube position 3, both EKFs enabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-221832-b7u0522o"
+    },
+    {
+      "id": "20261106-222114-866214-2389a9c6",
+      "label": "H4",
+      "group": "high_noise",
+      "layout": 4,
+      "condition": "High noise, cube position 4, both EKFs enabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-221955-vaqn6ovw"
+    },
+    {
+      "id": "20261106-231506-780620-91f63f2b",
+      "label": "O1",
+      "group": "high_noise_no_ekf",
+      "layout": 1,
+      "condition": "High noise, cube position 1, both EKFs disabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-231400-roniagat"
+    },
+    {
+      "id": "20261106-231628-349459-c74733c0",
+      "label": "O2",
+      "group": "high_noise_no_ekf",
+      "layout": 2,
+      "condition": "High noise, cube position 2, both EKFs disabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-231520-yfuc8ega"
+    },
+    {
+      "id": "20261106-231806-773120-47705bd5",
+      "label": "O3",
+      "group": "high_noise_no_ekf",
+      "layout": 3,
+      "condition": "High noise, cube position 3, both EKFs disabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-231645-edbmrqp1"
+    },
+    {
+      "id": "20261106-232021-602378-0843680e",
+      "label": "O4",
+      "group": "high_noise_no_ekf",
+      "layout": 4,
+      "condition": "High noise, cube position 4, both EKFs disabled.",
+      "configuration_available": true,
+      "source_commit": null,
+      "experiment_id": "20261106-231826-k9_9bme5"
     }
   ]
 }

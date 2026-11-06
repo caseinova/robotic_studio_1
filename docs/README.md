@@ -18,7 +18,7 @@ The published simulation evidence lives in `docs/results/`, including original
 plots, CSVs, a provenance manifest and available configuration snapshots. See
 [the archive notes](results/README.md) for metric definitions and reproduction.
 Run `python docs/analyze_results.py` from the repository root to regenerate the
-summary JSON and comparison plot. Review the static results table and prose if
+summary JSON, RMSE comparison and XY trajectory plot. Review the static results table and prose if
 the archive changes; they are not automatically regenerated.
 
 Only cite material readers can access through the published site or linked
@@ -46,7 +46,15 @@ table synchronized when changing equations, including units and any symbols
 with context-dependent meanings. Introduce each component through its purpose,
 design trade-off and assumptions before describing its implementation.
 
-The current results are descriptive simulation traces. Public calibration
+The current results cover four low-noise layouts, their high-noise counterparts,
+and the latest four high-noise EKF-off trials with matching initial conditions.
+The EKF-off snapshots now match the high-noise EKF-on settings, including the
+distance-dependent depth-noise coefficient. The `new_dest_1` and
+`new_dest_2` recordings are video-only and excluded from quantitative analysis.
+The manifest, rather than a directory glob, selects which archives are analyzed.
+Superseded archives have been removed from `docs/results/`; only the twelve
+selected trial directories and shared analysis files remain.
+Public calibration
 validation, controlled repeated trials and complete source-commit provenance
 remain necessary for stronger accuracy or reliability claims.
 Team details, contributions and a demonstration video also remain to be added.

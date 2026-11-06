@@ -1,0 +1,36 @@
+Experiment: 20261106-220414-ljt2hc9y
+Original export: 20261106-220506-931120-08636fa5
+Published directory: 20261106-220506-931120-08636fa5
+
+Simulation: tracking | 
+Simulation: tracking | 
+Simulation: tracking | 
+Simulation: pickup_dwelling | 
+Simulation: pickup_dwelling | frame=cube, xy_distance=3.2 mm, radius=30.0 mm, dwell=1.00/1.00 s
+Simulation: pickup_descending | 
+Simulation: pickup_descending | 
+Simulation: pickup_closing | 
+Simulation: pickup_lifting | 
+Simulation: pickup_lifting | 
+Simulation: pickup_complete | 
+ActionResult(action='pick', status='complete', holding_cube=True)
+Simulation: placement_acquiring | 
+Simulation: placement_raising | phase=raising, tool=tag_fused, elapsed_s=0.1, current_z_mm=315.1, target_z_mm=323.6, position_error_mm=8.5, xy_error_mm=0.1, z_error_mm=8.5, rotation_error_deg=0.07, measured_max_joint_speed_rad_s=0.0017, commanded_max_joint_speed_rad_s=0.0765, jacobian_sigma_min=0.126445, acceleration_clipped_joints=2, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=0.1, current_z_mm=322.0, target_z_mm=323.6, position_error_mm=214.5, xy_error_mm=214.5, z_error_mm=1.6, rotation_error_deg=0.39, measured_max_joint_speed_rad_s=0.0037, commanded_max_joint_speed_rad_s=0.0770, jacobian_sigma_min=0.125605, acceleration_clipped_joints=2, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=1.1, current_z_mm=321.3, target_z_mm=323.6, position_error_mm=185.2, xy_error_mm=185.2, z_error_mm=2.3, rotation_error_deg=0.25, measured_max_joint_speed_rad_s=0.1062, commanded_max_joint_speed_rad_s=0.1039, jacobian_sigma_min=0.125659, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=2.1, current_z_mm=320.6, target_z_mm=323.6, position_error_mm=155.6, xy_error_mm=155.6, z_error_mm=3.0, rotation_error_deg=0.37, measured_max_joint_speed_rad_s=0.0954, commanded_max_joint_speed_rad_s=0.0947, jacobian_sigma_min=0.125780, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=3.1, current_z_mm=320.1, target_z_mm=323.6, position_error_mm=126.1, xy_error_mm=126.0, z_error_mm=3.6, rotation_error_deg=0.26, measured_max_joint_speed_rad_s=0.0833, commanded_max_joint_speed_rad_s=0.0830, jacobian_sigma_min=0.125480, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=4.1, current_z_mm=319.9, target_z_mm=323.6, position_error_mm=96.6, xy_error_mm=96.6, z_error_mm=3.7, rotation_error_deg=0.19, measured_max_joint_speed_rad_s=0.0733, commanded_max_joint_speed_rad_s=0.0717, jacobian_sigma_min=0.124324, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=5.1, current_z_mm=319.9, target_z_mm=323.6, position_error_mm=66.8, xy_error_mm=66.7, z_error_mm=3.7, rotation_error_deg=0.33, measured_max_joint_speed_rad_s=0.0645, commanded_max_joint_speed_rad_s=0.0641, jacobian_sigma_min=0.122186, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=6.1, current_z_mm=320.2, target_z_mm=323.6, position_error_mm=37.3, xy_error_mm=37.2, z_error_mm=3.4, rotation_error_deg=0.32, measured_max_joint_speed_rad_s=0.0731, commanded_max_joint_speed_rad_s=0.0784, jacobian_sigma_min=0.119006, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=7.1, current_z_mm=321.6, target_z_mm=323.6, position_error_mm=12.4, xy_error_mm=12.3, z_error_mm=2.0, rotation_error_deg=0.27, measured_max_joint_speed_rad_s=0.0491, commanded_max_joint_speed_rad_s=0.0475, jacobian_sigma_min=0.114986, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | phase=transferring, tool=tag_fused, elapsed_s=8.1, current_z_mm=322.3, target_z_mm=323.6, position_error_mm=3.7, xy_error_mm=3.4, z_error_mm=1.4, rotation_error_deg=0.23, measured_max_joint_speed_rad_s=0.0149, commanded_max_joint_speed_rad_s=0.0169, jacobian_sigma_min=0.113226, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_transferring | 
+Simulation: placement_descending | phase=descending, tool=tag_fused, elapsed_s=0.0, current_z_mm=322.3, target_z_mm=273.6, position_error_mm=48.7, xy_error_mm=1.0, z_error_mm=-48.7, rotation_error_deg=0.31, measured_max_joint_speed_rad_s=0.0035, commanded_max_joint_speed_rad_s=0.0754, jacobian_sigma_min=0.112823, acceleration_clipped_joints=2, state_age_ms=0.0
+Simulation: placement_descending | phase=descending, tool=tag_fused, elapsed_s=1.1, current_z_mm=290.5, target_z_mm=273.6, position_error_mm=16.9, xy_error_mm=0.3, z_error_mm=-16.9, rotation_error_deg=0.12, measured_max_joint_speed_rad_s=0.1477, commanded_max_joint_speed_rad_s=0.1507, jacobian_sigma_min=0.121286, acceleration_clipped_joints=0, state_age_ms=0.0
+Simulation: placement_releasing | 
+Simulation: placement_retreating | phase=retreating, tool=tag_fused, elapsed_s=0.0, current_z_mm=274.9, target_z_mm=324.8, position_error_mm=49.9, xy_error_mm=0.1, z_error_mm=49.9, rotation_error_deg=0.04, measured_max_joint_speed_rad_s=0.0025, commanded_max_joint_speed_rad_s=0.0753, jacobian_sigma_min=0.124418, acceleration_clipped_joints=2, state_age_ms=0.0
+Simulation: placement_retreating | phase=retreating, tool=tag_fused, elapsed_s=1.1, current_z_mm=305.9, target_z_mm=324.8, position_error_mm=18.9, xy_error_mm=0.1, z_error_mm=18.9, rotation_error_deg=0.03, measured_max_joint_speed_rad_s=0.1514, commanded_max_joint_speed_rad_s=0.1426, jacobian_sigma_min=0.117530, acceleration_clipped_joints=0, state_age_ms=0.0
+ActionResult(action='place', status='complete', holding_cube=False)
+Simulation: place_complete | phase=retreating, tool=tag_fused, elapsed_s=1.8, current_z_mm=323.4, target_z_mm=324.8, position_error_mm=1.4, xy_error_mm=0.2, z_error_mm=1.4, rotation_error_deg=0.09, measured_max_joint_speed_rad_s=0.0296
+Completed
