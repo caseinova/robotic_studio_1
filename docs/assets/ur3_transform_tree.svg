@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" baseProfile="full" height="1630" version="1.1" width="2200" viewBox="0 0 2200 1630" role="img" aria-labelledby="diagram-title diagram-description">
+  <title id="diagram-title">UR3e fixed-camera transform and measurement graph</title>
+  <desc id="diagram-description">World coincides with the robot base. Forward kinematics leads to the flange, then the tool, its marker and grasp point. Camera calibration connects world to the camera. Dashed camera observations locate the tool marker, cube-face marker and destination marker. Inverse cube mounting gives a per-face cube pose, and the destination offset gives the desired cube pose. Arrows show parent-to-child relationships; parent_from_child maps child coordinates into the parent.</desc>
+  <defs>
+    <marker id="arrow" markerHeight="10" markerUnits="strokeWidth" markerWidth="12" orient="auto" refX="11" refY="5">
+      <path d="M0,0 L11,5 L0,10 Z" fill="#5e6d80" />
+    </marker>
+    <marker id="arrowo" markerHeight="10" markerUnits="strokeWidth" markerWidth="12" orient="auto" refX="11" refY="5">
+      <path d="M0,0 L11,5 L0,10 Z" fill="#e78c18" />
+    </marker>
+  </defs>
+  <rect fill="#f7fafc" height="1630" width="2200" x="0" y="0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="50" font-style="normal" font-weight="bold" text-anchor="start" x="90" y="87">UR3e transform and measurement graph</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-style="normal" font-weight="normal" text-anchor="start" x="92" y="133">Fixed-camera eye-to-hand installation | frame relationships, not ROS TF publication</text>
+  <rect fill="#ffffff" height="118" rx="8" ry="8" stroke="#172033" stroke-width="3" width="650" x="775.0" y="179.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="37" font-style="normal" font-weight="bold" text-anchor="middle" x="1100" y="234">World {W} = robot base</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="1100" y="270">world_from_base = identity</text>
+  <rect fill="#eff6ff" fill-opacity="0.75" height="810" rx="8" stroke="#8bb6f1" stroke-dasharray="12,9" stroke-width="3" width="981" x="67" y="350" ry="8" />
+  <rect fill="#effaf3" fill-opacity="0.7" height="810" rx="8" stroke="#85cfb1" stroke-dasharray="12,9" stroke-width="3" width="1045" x="1090" y="350" ry="8" />
+  <text fill="#2563eb" font-family="DejaVu Sans, Arial, sans-serif" font-size="29" font-style="normal" font-weight="bold" text-anchor="start" x="112" y="402">KINEMATIC PATH</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-style="normal" font-weight="normal" text-anchor="start" x="112" y="436">Robot model and fixed mounting transforms</text>
+  <text fill="#188657" font-family="DejaVu Sans, Arial, sans-serif" font-size="29" font-style="normal" font-weight="bold" text-anchor="start" x="1135" y="402">VISUAL PATH</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-style="normal" font-weight="normal" text-anchor="start" x="1135" y="436">Fixed-camera calibration and RGB-D observations</text>
+  <path d="M 950,297 V 334 H 490 V 510" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <path d="M 1250,297 V 334 H 1610 V 510" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <rect fill="#fff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="340" x="321.0" y="461.5" />
+  <text fill="#2563eb" font-family="DejaVu Sans Mono, monospace" font-size="22" font-style="normal" font-weight="bold" text-anchor="middle" x="491" y="492">base_from_flange(q)</text>
+  <rect fill="#fff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="330" x="1445.0" y="461.5" />
+  <text fill="#188657" font-family="DejaVu Sans Mono, monospace" font-size="22" font-style="normal" font-weight="bold" text-anchor="middle" x="1610" y="492">world_from_camera</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#2563eb" stroke-width="3" width="380" x="300.0" y="510.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-style="normal" font-weight="bold" text-anchor="middle" x="490" y="561">Flange {F}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="490" y="597">UR3e nominal flange</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#2563eb" stroke-width="3" width="380" x="300.0" y="733.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-style="normal" font-weight="bold" text-anchor="middle" x="490" y="784">Tool {T}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-style="normal" font-weight="normal" text-anchor="middle" x="490" y="820">Reference frame (not grasp TCP)</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#2563eb" stroke-width="3" width="375" x="89.5" y="988.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="27" font-style="normal" font-weight="bold" text-anchor="middle" x="277" y="1039">Tool marker {MT}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="277" y="1075">ArUco on gripper</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#2563eb" stroke-width="3" width="355" x="572.5" y="988.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-style="normal" font-weight="bold" text-anchor="middle" x="750" y="1039">Grasp {G}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="750" y="1075">Grasp TCP between fingers</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#188657" stroke-width="3" width="420" x="1400.0" y="510.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-style="normal" font-weight="bold" text-anchor="middle" x="1610" y="561">Camera {C}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="1610" y="597">Fixed optical frame</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#188657" stroke-width="3" width="430" x="1157.0" y="733.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="27" font-style="normal" font-weight="bold" text-anchor="middle" x="1372" y="784">Cube-face marker {Mi}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="1372" y="820">One visible cube marker</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#188657" stroke-width="3" width="405" x="1669.5" y="733.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" font-style="normal" font-weight="bold" text-anchor="middle" x="1872" y="784">Destination marker {D}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="1872" y="820">Placement reference</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#8053bf" stroke-width="3" width="420" x="1162.0" y="988.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-style="normal" font-weight="bold" text-anchor="middle" x="1372" y="1039">Cube centre {B}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="1372" y="1075">Per-face pose before fusion</text>
+  <rect fill="#ffffff" height="110" rx="8" ry="8" stroke="#8053bf" stroke-width="3" width="420" x="1662.0" y="988.0" />
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="27" font-style="normal" font-weight="bold" text-anchor="middle" x="1872" y="1039">Desired cube pose {B*}</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-style="normal" font-weight="normal" text-anchor="middle" x="1872" y="1075">Placement target</text>
+  <path d="M 490,620 V 732" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <rect fill="#ffffff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="316" x="332.0" y="652.5" />
+  <text fill="#2563eb" font-family="DejaVu Sans Mono, monospace" font-size="23" font-style="normal" font-weight="bold" text-anchor="middle" x="490" y="683">flange_from_tool</text>
+  <path d="M 490,843 V 917 H 277 V 988" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <path d="M 490,843 V 917 H 750 V 988" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <rect fill="#ffffff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="302" x="109.0" y="910.5" />
+  <text fill="#2563eb" font-family="DejaVu Sans Mono, monospace" font-size="21" font-style="normal" font-weight="bold" text-anchor="middle" x="260" y="941">tool_from_marker</text>
+  <rect fill="#ffffff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="295" x="618.5" y="910.5" />
+  <text fill="#2563eb" font-family="DejaVu Sans Mono, monospace" font-size="21" font-style="normal" font-weight="bold" text-anchor="middle" x="766" y="941">tool_from_grasp</text>
+  <path d="M 1610,620 V 683 H 1372 V 733" fill="none" marker-end="url(#arrowo)" stroke="#e78c18" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" stroke-dasharray="12,10" />
+  <path d="M 1610,620 V 683 H 1872 V 733" fill="none" marker-end="url(#arrowo)" stroke="#e78c18" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" stroke-dasharray="12,10" />
+  <rect fill="#fff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="423" x="1160.5" y="674.5" />
+  <text fill="#a95d00" font-family="DejaVu Sans Mono, monospace" font-size="18" font-style="normal" font-weight="bold" text-anchor="middle" x="1372" y="705">camera_from_cube_marker_i</text>
+  <rect fill="#fff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="440" x="1652.0" y="674.5" />
+  <text fill="#a95d00" font-family="DejaVu Sans Mono, monospace" font-size="17" font-style="normal" font-weight="bold" text-anchor="middle" x="1872" y="705">camera_from_destination_marker</text>
+  <path d="M 1372,843 V 987" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <path d="M 1872,843 V 987" fill="none" marker-end="url(#arrow)" stroke="#6b7a8d" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <rect fill="#fff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="410" x="1167.0" y="906.5" />
+  <text fill="#8053bf" font-family="DejaVu Sans Mono, monospace" font-size="19" font-style="normal" font-weight="bold" text-anchor="middle" x="1372" y="937">inverse(cube_from_marker_i)</text>
+  <rect fill="#fff" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="312" x="1716.0" y="906.5" />
+  <text fill="#8053bf" font-family="DejaVu Sans Mono, monospace" font-size="21" font-style="normal" font-weight="bold" text-anchor="middle" x="1872" y="937">marker_from_cube</text>
+  <path d="M 1400,565 H 1070 V 1197 H 277 V 1098" fill="none" marker-end="url(#arrowo)" stroke="#e78c18" stroke-dasharray="12,10" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5" />
+  <rect fill="#fff8ee" height="45" rx="8" ry="8" stroke="#dce4ee" stroke-width="1.4" width="665" x="322.5" y="1164.5" />
+  <text fill="#e78c18" font-family="DejaVu Sans Mono, monospace" font-size="20" font-style="normal" font-weight="bold" text-anchor="middle" x="655" y="1195">camera_from_tool_marker  [measurement]</text>
+  <rect fill="#fff9ee" height="325" rx="8" stroke="#eed4a5" stroke-width="2" width="2050" x="75" y="1250" ry="8" />
+  <text fill="#955b05" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-style="normal" font-weight="bold" text-anchor="start" x="105" y="1300">Frame and measurement conventions</text>
+  <text fill="#172033" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-style="normal" font-weight="normal" text-anchor="start" x="105" y="1347">{MT} is one physical frame. Its camera observation is not a second TF parent.</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-style="normal" font-weight="normal" text-anchor="start" x="105" y="1392">Multiple cube-face observations are fused into one cube pose, not published as multiple parents.</text>
+  <text fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-style="normal" font-weight="normal" text-anchor="start" x="105" y="1490">Solid: kinematic, calibrated or configured relation. Dashed orange: RGB-D measurement.</text>
+  <text x="105" y="1436" fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="24">Arrows: parent to child. Label parent_from_child maps child coordinates into the parent.</text>
+  <text x="105" y="1538" fill="#58667c" font-family="DejaVu Sans, Arial, sans-serif" font-size="24">Tool T is distinct from grasp G. Hardware tool_from_grasp is rigid; simulation varies with opening.</text>
+</svg>

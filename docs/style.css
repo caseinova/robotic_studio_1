@@ -17,6 +17,10 @@
 .result-figure figcaption{font-size:13px;color:var(--muted);margin-top:10px}
 .hardware-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .hardware-pair .result-figure{margin:12px 0;min-width:0}
+.frame-diagram{margin:28px 0;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.frame-image{max-width:100%}
+.frame-image img{display:block;width:100%;max-width:100%;height:auto}
+.frame-diagram figcaption{font-size:13px;color:var(--muted);margin-top:24px}
 @media(max-width:600px){.hardware-pair{grid-template-columns:1fr}}
 .results-scroll{max-width:100%;overflow-x:auto}
 .results-scroll:focus-visible{outline:2px solid #749831;outline-offset:4px}

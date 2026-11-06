@@ -4,6 +4,7 @@ import json
 import re
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,29 @@ from analyze_results import AXES, ROOT, analyze, destination_metrics, metrics
 
 
 class ResultsTests(unittest.TestCase):
+    def test_frame_diagram_and_authorship_declaration(self):
+        page = (ROOT.parent / 'index.html').read_text()
+        diagram = page.split('id="frame-diagram"', 1)[1].split('</figure>', 1)[0]
+        self.assertIn('assets/ur3_transform_tree.svg', diagram)
+        svg = ET.parse(ROOT.parent / 'assets' / 'ur3_transform_tree.svg').getroot()
+        diagram_text = ' '.join(svg.itertext())
+        for label in ('world_from_base', 'world_from_camera', 'base_from_flange(q)',
+                      'flange_from_tool', 'tool_from_marker', 'tool_from_grasp',
+                      'inverse(cube_from_marker_i)', 'marker_from_cube'):
+            self.assertIn(label, diagram_text)
+        self.assertNotIn('UR3/UR5', diagram_text)
+        self.assertNotIn('TCP / gripper', diagram_text)
+        self.assertIn('parent_from_child maps child coordinates into the parent', diagram_text)
+        paths = svg.findall('{http://www.w3.org/2000/svg}path')
+        observations = [path for path in paths if path.get('stroke-dasharray')]
+        self.assertEqual(len(observations), 3)
+        self.assertTrue(all(path.get('marker-end') == 'url(#arrowo)' for path in observations))
+        self.assertIn('id="authorship-table"', page)
+        self.assertIn('[Full name]', page)
+        self.assertIn('recommended by my tutor', page)
+        self.assertIn('drafting and editing code', page)
+        self.assertNotIn('Tutor-directed camera-to-hand work', page)
+
     def test_documented_local_rank_analysis(self):
         dt = .05
         controllability = np.hstack([dt * np.eye(6)] * 6)
