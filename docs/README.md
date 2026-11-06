@@ -57,5 +57,6 @@ selected trial directories and shared analysis files remain.
 Public calibration
 validation, controlled repeated trials and complete source-commit provenance
 remain necessary for stronger accuracy or reliability claims.
-Team details, contributions and a demonstration video also remain to be added.
+The project demonstration video is embedded from `project_video.mp4`.
+The authorship section records the sole author, group details, contribution and AI assistance.
 The PBVS/MPC table compares implementations, not measured performance.

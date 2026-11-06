@@ -13,7 +13,7 @@
 .notation-table th[scope="row"]{width:32%;background:transparent;font-weight:400}
 .notation-table td:last-child{width:22%}
 .result-figure{margin:28px 0}
-.result-figure img{display:block;width:100%;height:auto;border:1px solid var(--line)}
+.result-figure img,.result-figure video{display:block;width:100%;height:auto;border:1px solid var(--line)}
 .result-figure figcaption{font-size:13px;color:var(--muted);margin-top:10px}
 .hardware-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .hardware-pair .result-figure{margin:12px 0;min-width:0}

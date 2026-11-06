@@ -31,8 +31,11 @@ class ResultsTests(unittest.TestCase):
         self.assertEqual(len(observations), 3)
         self.assertTrue(all(path.get('marker-end') == 'url(#arrowo)' for path in observations))
         self.assertIn('id="authorship-table"', page)
-        self.assertIn('[Full name]', page)
-        self.assertIn('recommended by my tutor', page)
+        authorship = page.split('id="authorship-table"', 1)[1].split('</table>', 1)[0]
+        for detail in ('Vinh Anh Nguyen', '25629813', '42043 - Group 97', 'sole member'):
+            self.assertIn(detail, authorship)
+        self.assertNotIn('[Full name]', page)
+        self.assertIn("Following my tutor's recommendation", page)
         self.assertIn('drafting and editing code', page)
         self.assertNotIn('Tutor-directed camera-to-hand work', page)
 
