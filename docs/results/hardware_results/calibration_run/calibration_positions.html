@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camera-to-base calibration positions</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #182b31; font-family: Arial, sans-serif; }
+    main { padding: 40px; max-width: 2400px; margin: auto; }
+    header { border-bottom: 2px solid #182b31; padding-bottom: 24px; margin-bottom: 24px; }
+    h1 { margin: 0 0 12px; font-size: 44px; font-weight: 600; }
+    header p { margin: 0; font-size: 22px; color: #53646b; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 16px; }
+    figure { margin: 0; min-width: 0; }
+    .viewport { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: #e9edef; }
+    /* Original camera viewport: x=100, y=306, w=1280, h=960 in a 2880x1800 screenshot. */
+    img { position: absolute; width: 225%; max-width: none; left: -7.8125%; top: -31.875%; }
+    figcaption { display: flex; justify-content: space-between; padding-top: 10px; font-size: 20px; }
+    time { color: #53646b; }
+    footer { margin-top: 28px; border-top: 1px solid #cbd4d7; padding-top: 18px; font-size: 18px; color: #53646b; line-height: 1.5; }
+    @media (max-width: 800px) {
+      main { padding: 20px; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      h1 { font-size: 28px; }
+      header p { font-size: 16px; }
+      figcaption { font-size: 14px; }
+      footer { font-size: 14px; }
+    }
+    @media print { main { padding: 12px; } figure { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Camera-to-base calibration</h1>
+      <p>Tool-marker positions and orientations across 19 screenshots</p>
+    </header>
+    <div class="grid" id="views"></div>
+    <footer>Views are ordered by screenshot filename. Labels are view numbers, not saved calibration sample IDs.<br>Original camera content and detection overlays are retained. Desktop and window controls are excluded from the layout.</footer>
+  </main>
+  <script>
+    const times = [
+      '13-40-23', '13-40-30', '13-40-41', '13-40-51',
+      '13-41-17', '13-41-25', '13-41-32', '13-41-38',
+      '13-41-47', '13-41-55', '13-41-59', '13-42-05',
+      '13-42-13', '13-42-18', '13-42-22', '13-42-28',
+      '13-42-39', '13-42-52', '13-43-00'
+    ];
+    for (const [index, time] of times.entries()) {
+      const figure = document.createElement('figure');
+      const viewport = document.createElement('div');
+      viewport.className = 'viewport';
+      const image = document.createElement('img');
+      image.src = `calibration_${String(index + 1).padStart(2, '0')}_2026-11-06_${time}.png`;
+      image.alt = `Calibration view ${index + 1}, screenshot ${time.replaceAll('-', ':')}`;
+      viewport.append(image);
+      const caption = document.createElement('figcaption');
+      const label = document.createElement('strong');
+      label.textContent = `View ${String(index + 1).padStart(2, '0')}`;
+      const timestamp = document.createElement('time');
+      timestamp.textContent = time.replaceAll('-', ':');
+      caption.append(label, timestamp);
+      figure.append(viewport, caption);
+      document.querySelector('#views').append(figure);
+    }
+  </script>
+</body>
+</html>

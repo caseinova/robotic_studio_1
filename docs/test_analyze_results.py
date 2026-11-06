@@ -1,6 +1,7 @@
 """Offline checks for the published metric definitions."""
 import csv
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,38 @@ from analyze_results import AXES, ROOT, analyze, destination_metrics, metrics
 
 
 class ResultsTests(unittest.TestCase):
+    def test_documented_local_rank_analysis(self):
+        dt = .05
+        controllability = np.hstack([dt * np.eye(6)] * 6)
+        observability = np.vstack([np.eye(6)] * 6)
+        self.assertEqual(np.linalg.matrix_rank(controllability), 6)
+        self.assertEqual(np.linalg.matrix_rank(observability), 6)
+        np.testing.assert_allclose(np.linalg.svd(controllability, compute_uv=False),
+                                   np.sqrt(6) * dt)
+        np.testing.assert_allclose(np.linalg.svd(observability, compute_uv=False), np.sqrt(6))
+        for step, rank in ((dt, 12), (0., 6)):
+            transition = np.eye(12)
+            transition[:6, 6:] = step * np.eye(6)
+            measurement = np.eye(12)[:6]
+            self.assertEqual(np.linalg.matrix_rank(np.vstack(
+                [measurement, measurement @ transition])), rank)
+
+    def test_published_transfer_samples_match_diagnostics(self):
+        log = (ROOT / '20261106-221048-444601-532fb743' / 'diagnostics.txt').read_text()
+        page = (ROOT.parent / 'index.html').read_text()
+        table = page.split('id="transfer-response"', 1)[1].split('</table>', 1)[0]
+        rows = re.findall(r'<tr><td>([\d.]+)</td><td>([\d.]+)</td>'
+                          r'<td>([\d.]+)</td><td>([\d.]+)</td></tr>', table)
+        self.assertEqual(len(rows), 3)
+        for elapsed, position, rotation, command in rows:
+            samples = [line for line in log.splitlines()
+                       if f'phase=transferring, tool=tag_fused, elapsed_s={elapsed},' in line]
+            self.assertEqual(len(samples), 1)
+            for field, value in (('position_error_mm', position),
+                                 ('rotation_error_deg', rotation),
+                                 ('commanded_max_joint_speed_rad_s', command)):
+                self.assertIn(f'{field}={value},', samples[0])
+
     def test_archived_comparison_settings_match_reported_design(self):
         manifest = json.loads((ROOT / 'manifest.json').read_text())
         runs = {run['label']: run for run in manifest['runs']}
@@ -39,7 +72,8 @@ class ResultsTests(unittest.TestCase):
         manifest = json.loads((ROOT / 'manifest.json').read_text())
         report = json.loads((ROOT / 'summary.json').read_text())
         selected = {run['id'] for run in manifest['runs']}
-        self.assertEqual(selected, {path.name for path in ROOT.iterdir() if path.is_dir()})
+        self.assertEqual(selected | {'hardware_results'},
+                         {path.name for path in ROOT.iterdir() if path.is_dir()})
         self.assertEqual(selected, {run['id'] for run in report['runs']})
         excluded = {'new_dest_1', 'new_dest_2', '20261106-223439-500806-5bb5ad1b',
                     '20261106-225013-504042-a1b158f3',
@@ -57,6 +91,26 @@ class ResultsTests(unittest.TestCase):
             if run['group'] == 'high_noise_no_ekf':
                 self.assertNotIn('uncertainty', run['cube'])
                 self.assertNotIn('uncertainty', run['tool'])
+
+    def test_hardware_evidence_assets_are_linked_and_separate(self):
+        page = (ROOT.parent / 'index.html').read_text()
+        self.assertLess(page.index('<h2>Simulation results</h2>'),
+                        page.index('id="result-20261106-232021-602378-0843680e"'))
+        self.assertLess(page.index('id="result-20261106-232021-602378-0843680e"'),
+                        page.index('<h2 id="hardware-results">Hardware pick-and-place results</h2>'))
+        calibration = ROOT / 'hardware_results' / 'calibration_run'
+        images = sorted(calibration.glob('calibration_[0-9][0-9]_*.png'))
+        self.assertEqual(len(images), 19)
+        self.assertFalse(list((ROOT / 'hardware_results').glob('Screenshot*.png')))
+        for index, path in enumerate(images, 1):
+            self.assertTrue(path.name.startswith(f'calibration_{index:02d}_'))
+        assets = ['calibration_run/calibration_positions.png',
+                  'calibration_run/calibration_positions.html']
+        assets += [f'hardware_runs/{phase}{i}.png'
+                   for i in range(1, 4) for phase in ('pick', 'place')]
+        for asset in assets:
+            self.assertTrue((ROOT / 'hardware_results' / asset).is_file())
+            self.assertIn(f'results/hardware_results/{asset}', page)
 
     def test_published_table_and_summary_match_archived_csvs(self):
         report = json.loads((ROOT / 'summary.json').read_text())
